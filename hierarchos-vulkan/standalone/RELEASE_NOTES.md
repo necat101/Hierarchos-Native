@@ -1,5 +1,9 @@
 # Hierarchos Native — Windows x64 Portable v0.2.5
 
+**Package status: prepared and locally validated, not yet published.** The
+GitHub release and tag wait for PR #9 to merge. `BUILD_MANIFEST.json` records the
+exact packaging commit and hashes.
+
 v0.2.5 is a runtime-only, extract-and-run Windows x64 package. It supersedes the
 RC2 documentation, which described an older source commit and did not ship the
 production P3 Full FP16 epilogue. The executables are linked with the static MSVC
@@ -79,7 +83,8 @@ generalize to other RDNA3 adapters, RDNA3.5, RDNA4 or non-AMD devices.
 
 ## Requirements
 
-- Windows 11 x64 (Windows 10 x64 should work but is not the acceptance target).
+- Windows x64. Windows 11 x64 is the measured acceptance target; Windows 10 x64
+  should work but was not measured.
 - **No Microsoft Visual C++ Redistributable installation is required.** The
   release executables are statically linked against the MSVC C runtime and their
   PE import tables are checked during packaging.
@@ -99,12 +104,22 @@ step, or a shader compiler.
 ## Verification status
 
 The v0.2.5 archive was extracted on the available Windows 11 / AMD RDNA3 host and
-tested from the extracted layout, including from a path containing spaces. The
-local acceptance run covered all seven executables, the PE import closure, CLI
-startup, `doctor`, device enumeration, the architecture registry, precision
-reporting, a real inference smoke test, a native Vulkan training and
-checkpoint-reload smoke test, a production P3 dispatch check on the qualified
-device, and relocation.
+tested from the extracted layout, including from a path containing spaces, then
+relocated to a deeper path containing spaces. The local acceptance run covered
+all seven executables, the PE import closure, CLI startup, `doctor`, device
+enumeration, the architecture registry, precision reporting, a real inference
+smoke test, a native Vulkan training and checkpoint-reload smoke test, archive
+checksum verification, and relocation.
+
+The packaged P3 dispatch check passed on the measured adapter. A disposable Llama
+geometry with hidden/K = 64 and 4096-wide projections gives 16,777,216 MACs per
+admitted projection, above the unchanged 16M floor and within the Full FP16
+reduction cap. The extracted trainer reported `cooperative_dispatches=8`, the
+profile named `wmma_gemm_f16_f16acc_twowave_p3`, and the packaged logits
+executable matched FP32 within `max_abs 0.000738` / `rms 0.000122`. No variant
+override or threshold change was used. The geometry is outside the CLI's
+frontend-qualified 64-wide training profile; the test uses the packaged
+standalone trainer's production path. See `CLEAN_MACHINE_TEST.md`.
 
 Results, including items that could not be exercised and are reported as
 **BLOCKED** rather than passed, are in `CLEAN_MACHINE_TEST.md`.

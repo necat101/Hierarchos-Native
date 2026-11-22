@@ -46,8 +46,8 @@ executables into a different directory.
 
 ## Requirements
 
-- Windows 11 x64. Windows 10 x64 is expected to work but is not the measured
-  acceptance target.
+- Windows x64. Windows 11 x64 is the measured acceptance target; Windows 10 x64
+  is expected to work but was not measured.
 - A Vulkan 1.x loader and a compute-capable Vulkan GPU driver. The Vulkan loader
   (`vulkan-1.dll`) is supplied by the graphics software environment; **it is not
   bundled**, and it is not a substitute for the GPU driver. Windows and the GPU
@@ -85,6 +85,13 @@ This is the precision policy of the v0.2.5 binaries, stated precisely:
   `shaderFloat16`, subgroup-size control forcing 32, and a SUBGROUP-scope
   16x16x16 f16/f16->f16 tile). Unsupported hardware falls back rather than
   claiming the cooperative path.
+- The **CLI frontend** additionally restricts Full FP16 text training to the
+  64-wide, one-layer Llama profile. The packaged standalone trainer and logits
+  executables use the same production selector without that frontend profile
+  gate; they still enforce the capability contract, the 16M MAC floor and the
+  reduction cap. A Full FP16 request does not imply that every operation will
+  dispatch cooperatively: ineligible shapes and reductions above 64 keep their
+  FP32 kernels and increment fallback counters.
 - **The profitability floor is unchanged:** WMMA is admitted only at or above
   `WMMA_MIN_PROFITABLE_MACS = 16_000_000` multiply-accumulates, checked at every
   production admission point. Below that, the plain FP16-storage and FP32
@@ -180,15 +187,32 @@ system components is `vulkan-1.dll`. The GPU software stack supplies it.
 
 ## Verification status
 
-The v0.2.5 binaries were built from the exact qualified release source commit and
-exercised from an extracted archive whose path contains spaces. The
-per-executable results, including honest **BLOCKED** items, are in
-`CLEAN_MACHINE_TEST.md`.
+The v0.2.5 package is built from the final PR #9 source commit. The qualified
+kernel source is `b165c2994e9ef5929c9e36fca76192db8dd3df35`; the exact packaging
+commit is the checked-out HEAD recorded in `BUILD_INFO.txt` and
+`BUILD_MANIFEST.json`, together with the archive and executable hashes.
+
+The archive was extracted into a path containing spaces, relocated to a deeper
+path containing spaces, and exercised from the relocated layout. PE closure,
+static-runtime linkage, CLI help, diagnostics, inference, one-step Vulkan
+training, checkpoint reload, checksum verification and relocation passed.
+
+The packaged P3 dispatch check also passed. A disposable Llama geometry with
+hidden/K = 64 and 4096-wide projections reaches 16,777,216 MACs per admitted
+projection, above the unchanged 16M floor while keeping the Full FP16 reduction
+within its 64-element cap. The extracted trainer reported
+`requested=full-fp16 cooperative_dispatches=8`, the profile named
+`wmma_gemm_f16_f16acc_twowave_p3`, and the packaged logits executable matched the
+FP32 logits within `max_abs 0.000738` / `rms 0.000122`. No variant override or
+threshold change was used. That synthetic geometry is outside the CLI's
+frontend-qualified 64-wide training profile; the test uses the packaged
+standalone trainer's production path.
 
 Numerical and performance qualification was re-run for this release on the
 measured RDNA3 adapter. The full record — seeds, configurations, 37 gates per
 receipt, raw paired timings, corrected 95 % confidence intervals, source and
 SPIR-V hashes — is the `phase_lxxxiv_evidence/` directory in the repository.
+Exact commands, log excerpts and blocked items are in `CLEAN_MACHINE_TEST.md`.
 
 No independent clean Windows installation, second physical CPU/GPU, physical
 network-isolation test, or different-drive relocation was available. CPU
@@ -198,9 +222,11 @@ existing runtime feature dispatch.
 
 ## Build from source
 
-The binaries were built from source commit
-`b165c2994e9ef5929c9e36fca76192db8dd3df35` with the checked-in standalone
-`Cargo.lock` and `--locked`. The static portable build is produced by:
+The qualified kernel source commit is
+`b165c2994e9ef5929c9e36fca76192db8dd3df35`. The package is built from the final
+PR #9 commit (recorded in `BUILD_INFO.txt` and `BUILD_MANIFEST.json`) with the
+checked-in standalone `Cargo.lock` and `--locked`. The static portable build is
+produced by:
 
 ```powershell
 .\hierarchos-vulkan\package-standalone.ps1 `

@@ -67,12 +67,15 @@ those textual session deltas are not promoted. [Sealed receipt](hierarchos-vulka
 
 ## Quick start
 
-**Download a prebuilt package:** the [`v0.2.0` RDNA3 WMMA release](https://github.com/necat101/Hierarchos-Native/releases/tag/v0.2.0)
-ships a static-CRT Windows x64 archive containing the CLI, the GUI and the Vulkan
-companion executables. Extract it and run `bin\hierarchos-native-cli.exe doctor`.
-No Rust, Python or Visual C++ Redistributable is required at runtime — only
-Windows 11 x64 and a Vulkan 1.x compute driver. Checksums and build metadata are
-attached to the release. [Jump to the download instructions](#download-a-release-build).
+**Download a prebuilt package:** the **v0.2.5** Windows x64 package is prepared
+from the P3 release branch and is **not published yet** — publication waits for
+PR #9 to merge. The validated local artifact is
+`Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip`, shipped with
+`BUILD_MANIFEST.json` and `SHA256SUMS`. It contains the CLI, the GUI and the
+Vulkan companion executables. Extract it and run
+`bin\hierarchos-native-cli.exe doctor`. No Rust, Python or Visual C++
+Redistributable is required at runtime — only Windows x64 and a Vulkan 1.x
+compute driver. [Jump to the package details](#windows-x64-portable-v025).
 
 Or install Rust/Cargo and a Vulkan compute driver and build from source:
 
@@ -393,8 +396,9 @@ and **72-request generation** matrices.
 
 ## RDNA3 WMMA (opt-in)
 
-`v0.2.0` adds an **opt-in cooperative-matrix (WMMA) path for RDNA3**. It is off
-by default, and the default FP32 path keeps its bit-identical logits and its
+`v0.2.5` ships the **opt-in cooperative-matrix (WMMA) path for RDNA3**, with the
+P3 Full FP16 epilogue as the production default inside that mode. WMMA remains
+off by default, and the default FP32 path keeps its bit-identical logits and its
 previous-`main` performance (worst paired ratio `1.0007` across seven workloads,
 all FP32 logits byte-identical).
 
@@ -413,22 +417,31 @@ all FP32 logits byte-identical).
 | --- | --- | --- | --- | --- |
 | FP32 | `off` (default) | FP32 → FP32 | FP32 | Qualified, unchanged |
 | Mixed WMMA | `mixed` | FP16 → **FP32** | FP32 | Opt-in, numerically gated |
-| Full FP16 | `full-fp16` | FP16 → **FP16** (reductions ≤ 64) | FP32 | Experimental, qualified Llama-64 profile only |
+| Full FP16 | `full-fp16` | FP16 → **FP16** (reductions ≤ 64) | FP32 | Opt-in; P3 production default, CLI-qualified Llama-64 profile |
 
 - **Hardware boundary.** Qualified on AMD RDNA3 PCI **`1002:15bf`** only, on
   Windows x64, with a cooperative `16x16x16` f16/f16→f32 tile. Other RDNA3
   parts, RDNA1/2, Intel Gen9 and multi-GPU device groups are **not** qualified;
   an unsupported explicit request fails with the probed reason instead of
   silently running FP32.
-- **It is opt-in because it is not faster end to end.** Single-GEMM latency
-  improves `1.83×`–`2.31×` above the crossover, but the measured 512-row
-  training step was **slower** with Mixed (`14.0444 ms` vs `12.2911 ms` FP32,
-  ratio `0.8708`). Mixed therefore stays off by default and no training-step
+- **Per-dispatch P3 performance.** P3 beat the preserved Main baseline on all
+  four protected production shapes: `1.0243×` (2048×768×2048), `1.1246×`
+  (512×2048×768), `1.1163×` (512×768×768) and `1.2722×` (128×8192×768), with
+  every corrected 95% CI lower bound above 1.0. These are **per-dispatch GPU GEMM
+  timings**, not end-to-end training-step or application speedups. The historical
+  25% tile16 headroom target remains informational and was not achieved.
+- **Opt-in remains the default policy.** Mixed is a separate, unchanged arm;
+  neither Mixed nor Full FP16 is enabled by default. A measured 512-row Mixed
+  training step was slower than FP32 (ratio `0.8708`), so no training-step
   speedup is claimed.
+- **Baked P3 identity.** The qualified 23,280-byte module with runtime FNV-1a64
+  `0x076216ad97d7605f` is compiled into the CLI, transformer trainer and logits
+  executables. The production selector resolves P3 with no variant override.
 - **Fallbacks are not dispatches.** Projections below
-  `WMMA_MIN_PROFITABLE_MACS = 16,000,000` keep the FP32 kernel and increment a
-  fallback counter; the released wide-multimodal and native V4.1 fixtures are
-  below that floor and record zero cooperative dispatches.
+  `WMMA_MIN_PROFITABLE_MACS = 16,000,000`, and Full FP16 reductions above 64,
+  keep their FP32 kernels and increment fallback counters. The released
+  wide-multimodal and native V4.1 fixtures are below the floor and record zero
+  cooperative dispatches.
 
 **[Full WMMA guide](WMMA_GUIDE.md)** — modes, hardware admission, copyable
 commands, dispatch/fallback semantics, safety, measurements and limitations.
@@ -654,44 +667,71 @@ The documented device qualification is Windows-based. The backend uses Rust and
 Vulkan; non-Windows builds use their platform's driver and executable conventions.
 Availability on a Vulkan device is separate from recorded numerical qualification.
 
-### Download a release build
+### Windows x64 portable v0.2.5
 
-**[Hierarchos-Native v0.2.0 — RDNA3 WMMA](https://github.com/necat101/Hierarchos-Native/releases/tag/v0.2.0)**
+**Status: package prepared and locally validated; not published yet.** It is
+built from the final source commit of PR #9
+(`codex/rdna3-p3-release-20261121`); the GitHub release is published only after
+that PR merges. `BUILD_MANIFEST.json` records the exact packaging commit,
+toolchain, flags, per-executable hashes and the P3 artifact hashes.
 
 | Asset | Platform | Contents |
 | --- | --- | --- |
-| `Hierarchos-Native-Windows-x64-Portable-v0.2.0.zip` | Windows 11 x64 (`x86_64-pc-windows-msvc`) | `bin\` with `hierarchos-native-cli.exe`, `hierarchos-native.exe` (GUI), `hierarchos-vulkan-train.exe`, `hierarchos-vulkan-devices.exe`, `hierarchos-vulkan-transformer-train.exe`, `hierarchos-vulkan-transformer-logits.exe`, `hierarchos-infer.exe`; shaders, licenses, notices, `BUILD_INFO.txt`, `DEPENDENCIES.txt`, `QUICKSTART.txt` |
-| `SHA256SUMS` | any | SHA-256 of every attached asset |
-| `BUILD_MANIFEST.json` | any | Source commit, target triple, toolchain, build flags |
+| `Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip` | Windows x64 (`x86_64-pc-windows-msvc`) | `bin\` with `hierarchos-native.exe` (GUI), `hierarchos-native-cli.exe`, `hierarchos-infer.exe`, `hierarchos-vulkan-train.exe`, `hierarchos-vulkan-devices.exe`, `hierarchos-vulkan-transformer-train.exe`, `hierarchos-vulkan-transformer-logits.exe`; `licenses\`, `README.md`, `README_ARCHITECTURES.md`, `RELEASE_NOTES.md`, `CLEAN_MACHINE_TEST.md`, `THIRD_PARTY_NOTICES.md`, `BUILD_INFO.txt`, `DEPENDENCIES.txt` |
+| `BUILD_MANIFEST.json` | any | Exact source commit, target triple, toolchain, flags, executable and P3 hashes |
+| `SHA256SUMS` | any | SHA-256 of the archive and the manifest |
 
-Requirements: Windows 11 x64 and a Vulkan 1.x compute driver for GPU work.
-All executables are statically linked against the MSVC C runtime, so **no Visual
-C++ Redistributable is needed**. Rust, Cargo, Python and PyTorch are not runtime
-requirements. Model weights are **not** bundled — point the CLI at a supported
-local package (`--model-path`) or let it download a public one (`--hf-model`).
+The archive is runtime-only: it contains no Rust source tree, Cargo files, build
+toolchain, shader sources, PDBs, fixtures, test harnesses or model weights.
+
+Requirements: Windows x64 and a Vulkan 1.x compute-capable GPU driver. The
+Vulkan loader (`vulkan-1.dll`) is supplied by the graphics environment and is
+**not bundled**. All seven executables are statically linked against the MSVC C
+runtime, so **no Visual C++ Redistributable is needed**. Rust, Cargo, Python,
+PyTorch and MSVC build tools are not runtime requirements. Model weights are
+**not** bundled — point the CLI at a supported local package (`--model-path`) or
+let it download a public one (`--hf-model`).
 
 ```powershell
-# Extract (check the hash first — it is listed in SHA256SUMS on the release page)
-Get-FileHash .\Hierarchos-Native-Windows-x64-Portable-v0.2.0.zip -Algorithm SHA256
-Expand-Archive .\Hierarchos-Native-Windows-x64-Portable-v0.2.0.zip -DestinationPath .\hierarchos
-cd .\hierarchos
+# Verify the archive against the sidecar before extracting.
+$zip = ".\Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip"
+$expected = (Select-String -Path .\SHA256SUMS -Pattern ([regex]::Escape((Split-Path $zip -Leaf))) |
+  Select-Object -First 1).Line.Split()[0]
+$actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+if ($actual -ne $expected) { throw "SHA-256 mismatch: $actual" }
+Expand-Archive $zip -DestinationPath .\hierarchos-v025
+cd .\hierarchos-v025
 
+.\bin\hierarchos-native-cli.exe --help
 .\bin\hierarchos-native-cli.exe doctor
 .\bin\hierarchos-native-cli.exe devices
-.\bin\hierarchos-native-cli.exe --help
-
-# First run against a small public fixture
-.\bin\hierarchos-native-cli.exe infer --hf-model hf-internal-testing/tiny-random-gpt2 `
-  --prompt "Hello" --max-new-tokens 32 --no-do-sample
-
-# RDNA3 WMMA capability report for this machine
+.\bin\hierarchos-native-cli.exe architectures
 .\bin\hierarchos-native-cli.exe precision-info --device-index 0
+
+# Inference against a small public fixture
+.\bin\hierarchos-native-cli.exe infer --hf-model hf-internal-testing/tiny-random-gpt2 `
+  --prompt "Hello" --max-new-tokens 8 --no-do-sample
+
+# One-step native Vulkan training, then checkpoint reload
+.\bin\hierarchos-native-cli.exe transformer-train `
+  --model-path C:\models\tiny-random-gpt2 `
+  --train C:\data\one-row.jsonl `
+  --out-dir C:\outputs\trained `
+  --epochs 1 --batch-size 1 --seq-len 16 --lr 5e-5 --device-index 0
+
+.\bin\hierarchos-native-cli.exe infer `
+  --model-path C:\outputs\trained `
+  --prompt "Reload checkpoint" --max-new-tokens 8 --no-do-sample
 ```
+
+`doctor` reports Vulkan visibility and companion resolution. `precision-info`
+reports capability/admission state and the measured adapter; a capability report
+alone is not proof of a cooperative dispatch. The acceptance report records the
+packaged dispatch test separately.
 
 Troubleshooting: a missing Vulkan driver shows up in `doctor` and `devices`;
 keep `bin\` intact because the CLI launches its Vulkan companions from there
-(`HIERARCHOS_VULKAN_BIN_DIR` overrides discovery); `precision-info` explains why
-WMMA was refused on a given adapter. [CLI reference](hierarchos-native-cli/README.md) ·
+(`HIERARCHOS_VULKAN_BIN_DIR` overrides discovery). [CLI reference](hierarchos-native-cli/README.md) ·
 [WMMA guide](WMMA_GUIDE.md) · [issues](https://github.com/necat101/Hierarchos-Native/issues).
 
 ### Portable standalone bundle
@@ -700,7 +740,7 @@ Build the runtime-only Windows x64 package with the static MSVC C runtime:
 
 ```powershell
 .\hierarchos-vulkan\package-standalone.ps1 `
-  -OutDir C:\path\to\hierarchos-rc2-stage `
+  -OutDir C:\path\to\hierarchos-v025-stage `
   -StaticCrt
 ```
 
@@ -710,51 +750,41 @@ executables, verifies their PE import closure, and writes `BUILD_INFO.txt` and
 and Vulkan companions together; `HIERARCHOS_VULKAN_BIN_DIR` can override companion
 discovery. [Distribution layout](hierarchos-vulkan/standalone/README.md).
 
-### Windows x64 Portable Release Candidate 2
+### Acceptance status
 
-RC2 is the runtime-only, static-CRT Windows x64 package. It is built from
-`164711020d9fe9f229756f0ff58d8160ba9c580a` and contains the seven release
-executables, notices, licenses, `BUILD_INFO.txt`, and `DEPENDENCIES.txt`; source
-remains in this repository.
+This is a **same-host extracted-artifact acceptance pass**, not independent
+clean-machine certification. The v0.2.5 archive was extracted into a path with
+spaces, relocated to a deeper path with spaces, and exercised from the relocated
+layout. Results:
 
-- Archive: `Hierarchos-Native-Windows-x64-Portable-RC2.zip`
-- SHA-256: `1d436df2da0472145389d9784a91704b1efc0f34496d1a83c1de15349b4d2b30`
-- Runtime requirements: Windows 11 x64 and a Vulkan 1.x compute driver for GPU
-  operations. **No Microsoft Visual C++ Redistributable installation is
-  required**; all seven executables are statically linked against the MSVC C
-  runtime. Rust, Cargo, Python, PyTorch, Visual Studio, and administrator rights
-  are not runtime requirements.
-- Verified locally from the extracted archive: seven-executable PE import
-  closure, CLI help, `doctor`, Vulkan device inventory, the architecture
-  registry, local and fresh-cache Hub inference, one-step Vulkan training,
-  checkpoint reload, relocation, missing-resource diagnostics, a write-denied
-  installation copy, and GUI launch/close.
-- BLOCKED: independent clean-machine execution, a second physical CPU/GPU,
-  physical network isolation, different-drive relocation, code signing, and
-  automated GUI “Check backend” activation. The GUI window launches and closes;
-  the same backend check passes through the CLI.
+- **PE closure PASS.** All seven executables are x64 PE32+, statically linked,
+  with no `VCRUNTIME*`, `MSVCP*`, `MSVCR*`, `concrt*` or `ucrtbase` import.
+- **Functional smoke PASS.** CLI help, `doctor`, `devices`, `architectures`,
+  `precision-info`, local inference, one-step Vulkan training, checkpoint reload,
+  relocation and checksum verification passed. Global WMMA stayed off in the
+  default run.
+- **Packaged P3 dispatch PASS.** A disposable Llama geometry with hidden/K = 64
+  and 4096-wide projections gives `64 × 4096 × 64 = 16,777,216` MACs, above the
+  unchanged 16M floor while respecting the Full FP16 reduction cap. The extracted
+  trainer reported `requested=full-fp16 cooperative_dispatches=8` and the profile
+  named `wmma_gemm_f16_f16acc_twowave_p3`; the packaged logits executable
+  dispatched it three times and matched the FP32 logits within `max_abs
+  0.000738` / `rms 0.000122`. No variant override or floor change was used. The
+  geometry is outside the CLI's frontend-qualified 64-wide training profile; the
+  test uses the packaged standalone trainer.
+- **BLOCKED.** Independent clean Windows installation, a second physical CPU/GPU,
+  physical network isolation, different-drive relocation, GUI interaction, code
+  signing and automated GUI “Check backend” activation were not performed.
+- **Unified-release checker.** The checker reproduces the known local-only
+  `wmma_qualify` digest mismatch: three builds differ in 20 bytes of PE
+  debug-directory/CodeView metadata, while the 40 accuracy receipts and eight
+  dumps are byte-identical. The checker passes in its CI-equivalent condition
+  (no local release executable present). This is binary link metadata
+  nondeterminism, not a source or functional-output difference.
 
-See the [RC2 acceptance report](hierarchos-vulkan/standalone/CLEAN_MACHINE_TEST.md).
-
-### Windows x64 Release Candidate 1
-
-The Windows x64 RC1 package was built from
-`e8fc472b5a64cce89a028a5e17652d148be71f1b` and contains seven executables,
-source, shaders, notices, licenses, and the checked-in standalone lockfile.
-The measured results and BLOCKED checks are in
-[the acceptance report](hierarchos-vulkan/standalone/CLEAN_MACHINE_TEST.md).
-
-- Archive: `Hierarchos-Native-Windows-x64-RC1.zip`
-- SHA-256: `1d0bff4e48205f866474ed510ee03832a61e95703e39d3d2d004997ca59e64be`
-- Runtime requirements: Windows 11 x64, a Vulkan 1.x compute driver, and the
-  Microsoft Visual C++ 2015–2022 Redistributable (x64) for `VCRUNTIME140.dll`;
-  Rust and Python are not runtime requirements.
-- Verified: CLI startup, Vulkan discovery, 146/83/229 architecture registry,
-  local and Hub inference, one-step Vulkan training with checkpoint reload,
-  and relocation to a path with spaces.
-- BLOCKED: independent clean-machine execution, a second physical GPU, physical
-  network isolation, and automated GUI button activation. The GUI window itself
-  launched and closed cleanly.
+The full per-executable receipts, commands and limitations are in
+[the v0.2.5 acceptance report](hierarchos-vulkan/standalone/CLEAN_MACHINE_TEST.md).
+No end-to-end application or training-step speedup is claimed.
 
 <div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
