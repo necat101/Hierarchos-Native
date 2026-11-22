@@ -120,7 +120,7 @@ gibberish output is the expected result; the test is that the path runs.
 | Test | Result |
 | --- | --- |
 | Real inference, local model | **PASS** — `infer --prompt "Hello" --max-new-tokens 8 --no-do-sample` exit 0, emitted `" 200 200 200 reg reg regodod"` |
-| Native Vulkan training | **PASS** — `transformer-train … --epochs 1 --batch-size 1 --seq-len 16 --lr 5e-5`: `steps=1 mean_loss=6.914904`, `backend=Vulkan device=AMD Radeon Graphics`, exit 0 |
+| Native Vulkan training | **PASS** — `transformer-train … --epochs 1 --batch-size 1 --seq-len 16 --lr 5e-5` on the one-row `{"text":"Hello world"}` dataset: `steps=1 mean_loss=6.808818`, `backend=Vulkan device=AMD Radeon Graphics`, exit 0 |
 | Checkpoint reload | **PASS** — `infer` against the produced directory exit 0; the output contains `config.json`, `model.safetensors`, tokenizer assets and `training_report.json` |
 | Relocation | **PASS** — directory moved to a deeper path containing spaces; `--help`, `doctor` and `precision-info` all still exit 0 and still report the adapter |
 | Archive checksum | **PASS** — `SHA256SUMS` verification matched the ZIP and `BUILD_MANIFEST.json` |
@@ -269,12 +269,13 @@ same checker prints:
 
 ```text
 UNIFIED RELEASE: PASS_SCOPED_RELEASE (2ef9b8d9642c, 2004 sources verified at
-their declared revision, 26 file(s) differ in this checkout)
+their declared revision, with this checkout's drift reported separately)
 ```
 
-The checker was not edited and no assertion was weakened. The local failure is
-binary link-metadata nondeterminism, not a source or functional-output
-difference.
+The checker was not edited and no assertion was weakened. The local release
+executable was then removed as a disposable build artifact, so the final tree
+runs in the CI-equivalent condition. The local failure is binary link-metadata
+nondeterminism, not a source or functional-output difference.
 
 ## Blocked or unverified
 
