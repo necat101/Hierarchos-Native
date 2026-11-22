@@ -140,9 +140,10 @@ gibberish output is the expected result; the test is that the path runs.
   complete 23,280-byte SPIR-V blob (SHA-256 `2aff4123…`, runtime FNV-1a64
   `0x076216ad97d7605f`) appears **verbatim, exactly once**, in
   `hierarchos-native-cli.exe`, `hierarchos-vulkan-transformer-train.exe` and
-  `hierarchos-vulkan-transformer-logits.exe`. The three binaries that never build
-  a WMMA pipeline (`hierarchos-infer.exe`, `hierarchos-native.exe`,
-  `hierarchos-vulkan-devices.exe`) contain zero copies.
+  `hierarchos-vulkan-transformer-logits.exe`. The remaining four binaries
+  (`hierarchos-infer.exe`, `hierarchos-native.exe`,
+  `hierarchos-vulkan-devices.exe` and `hierarchos-vulkan-train.exe`) contain zero
+  copies.
 
 ## Packaged P3 production dispatch: PASS
 
@@ -241,13 +242,14 @@ it is not a new numerical qualification of arbitrary Full FP16 geometries.
 
 ## Unified-release checker: known CodeView-only mismatch
 
-`check_unified_release.py` was run unchanged in this checkout:
+During closeout, with a local release build present, the unchanged
+`check_unified_release.py` was run in this checkout:
 
 ```powershell
 python hierarchos-vulkan/validation/check_unified_release.py
 ```
 
-It exits 1 with:
+It exited 1 with:
 
 ```text
 ValueError: current executable changed: wmma_qualify
@@ -264,12 +266,12 @@ lie in the PE debug directory and CodeView `RSDS` record. The accuracy matrix wa
 previously executed with two of these builds: all 40 receipts and all eight
 operand dumps were byte-identical.
 
-With the local release executable absent — the condition hosted CI runs in — the
-same checker prints:
+After that disposable local build was removed, the final tree — the condition
+hosted CI runs in — prints:
 
 ```text
 UNIFIED RELEASE: PASS_SCOPED_RELEASE (2ef9b8d9642c, 2004 sources verified at
-their declared revision, with this checkout's drift reported separately)
+their declared revision, 26 file(s) differ in this checkout)
 ```
 
 The checker was not edited and no assertion was weakened. The local release
