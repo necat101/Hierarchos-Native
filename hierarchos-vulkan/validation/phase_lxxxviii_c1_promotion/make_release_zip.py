@@ -226,13 +226,18 @@ def main() -> None:
             "package_acceptance": "CLEAN_MACHINE_TEST.md",
         },
     }
+    # Byte-exact, LF-only sidecars: a CRLF checksum list is unreadable to
+    # `sha256sum -c` on every platform that is not Windows.
     manifest_path = out / "BUILD_MANIFEST.json"
-    manifest_path.write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n"
+    )
 
     sums_path = out / "SHA256SUMS"
     sums_path.write_text(
         f"{manifest['package']['sha256']}  {zip_name}\n{sha256(manifest_path)}  BUILD_MANIFEST.json\n",
         encoding="utf-8",
+        newline="\n",
     )
 
     print(f"ZIP      {zip_name}  {manifest['package']['bytes']} B  {manifest['package']['sha256']}")
