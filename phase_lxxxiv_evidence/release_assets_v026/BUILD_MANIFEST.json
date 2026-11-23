@@ -1,0 +1,129 @@
+{
+ "release_version": "0.2.6",
+ "source_commit": "ef3060c830708802b8c94f23e7ae90063841c219",
+ "source_state_at_packaging": "clean",
+ "build_timestamp_utc": "2026-11-23T04:59:36Z",
+ "target_triple": "x86_64-pc-windows-msvc",
+ "rust_version": "",
+ "cargo_version": "",
+ "release_flags": {
+  "profile": "release (opt-level=3, thin LTO, codegen-units=1)",
+  "rustflags": "-C target-feature=+crt-static --remap-path-prefix=C:\\scratch\\v026-build\\final-stage=hierarchos-native --remap-path-prefix=C:\\Users\\User\\.cargo=cargo --remap-path-prefix=C:\\Users\\User\\.rustup=rustup",
+  "target_cpu_native": false,
+  "dependency_scan": "enabled (no -SkipDependencyScan)"
+ },
+ "static_crt": true,
+ "standalone_cargo_lock_sha256": "f4360adfc4a2127c0be817c71c08659c181f7ff04813b5f8bc882a23ca7132d7",
+ "modules": {
+  "p3_contract_fallback": {
+   "variant": "P3",
+   "source": "shaders/wmma_gemm_f16_f16acc_twowave_p3.comp",
+   "source_sha256": "4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12",
+   "spirv": "shaders/wmma_gemm_f16_f16acc_twowave_p3.spv",
+   "spirv_sha256": "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2",
+   "spirv_bytes": 23280,
+   "spirv_fnv1a64": "0x076216ad97d7605f"
+  },
+  "c1_batched_staging": {
+   "variant": "P3 (staged_spirv)",
+   "source": "shaders/wmma_gemm_f16_f16acc_twowave_p3_c1.comp",
+   "source_sha256": "9857a8ad457f3b119e0465dde7c4bb36635053e9ee25522bce0a208452953da4",
+   "spirv": "shaders/wmma_gemm_f16_f16acc_twowave_p3_c1.spv",
+   "spirv_sha256": "b072242034ba7bd0f53690c38c03b11ed587b538480c04ed13ecf19fe2a8b27d",
+   "spirv_bytes": 36912,
+   "spirv_fnv1a64": "0xfecb2a74c4bbbce4"
+  }
+ },
+ "production_route": {
+  "mode": "full-fp16 (opt-in; global WMMA off by default)",
+  "selector": "hierarchos-vulkan/src/wmma.rs::batched_staging_eligible",
+  "c1_requires": [
+   "rows % 32 == 0 and columns % 32 == 0 and reduction % 16 == 0",
+   "lda % 2 == 0 and ldb % 2 == 0",
+   "packed element indices inside the 32-bit ceiling with one element of headroom",
+   "both bound operands cover every element the fast path reads"
+  ],
+  "fallback": "P3 module, selected automatically when any condition is unproven",
+  "override": "none; no flag, environment variable or variant name selects a staging module"
+ },
+ "qualification": {
+  "numerical": "40 receipts, 8 seeds, 37/37 tile16 gates per seed, 120/120 bit-identical to v0.2.5",
+  "performance_vs_v025": {
+   "2048x768x2048": {
+    "speedup": 1.7074,
+    "ci95": [
+     1.6976,
+     1.7171
+    ]
+   },
+   "512x2048x768": {
+    "speedup": 1.3286,
+    "ci95": [
+     1.3182,
+     1.3391
+    ]
+   },
+   "512x768x768": {
+    "speedup": 2.092,
+    "ci95": [
+     2.0415,
+     2.1425
+    ]
+   },
+   "128x8192x768": {
+    "speedup": 1.3782,
+    "ci95": [
+     1.358,
+     1.3983
+    ]
+   }
+  },
+  "evidence": "hierarchos-vulkan/validation/phase_lxxxviii_c1_promotion/"
+ },
+ "executables": {
+  "hierarchos-native.exe": {
+   "bytes": 5594624,
+   "sha256": "d6cab14505393f316d4b44e562fda5b9bb293ebe7b4c2c950a18017f0c05ffaf"
+  },
+  "hierarchos-native-cli.exe": {
+   "bytes": 39971840,
+   "sha256": "8daf7362a390d70c97a05018221a248988d6439a5acb394ca269cf4fde5ff4ea"
+  },
+  "hierarchos-infer.exe": {
+   "bytes": 1108992,
+   "sha256": "e5083f0209b07ca83ec84408bb8c75a07449cee4113180e459c568bf0928146c"
+  },
+  "hierarchos-vulkan-train.exe": {
+   "bytes": 16420352,
+   "sha256": "4610a896ffffd794c3254ec8027fdc957ee83a363351080931f2f2c403154eac"
+  },
+  "hierarchos-vulkan-devices.exe": {
+   "bytes": 942080,
+   "sha256": "b473b6a4ea6453f8f3c3edb27cd97720a5c6880a651071bf4324d581332addd5"
+  },
+  "hierarchos-vulkan-transformer-train.exe": {
+   "bytes": 28331520,
+   "sha256": "8777554651484f548b179fc14c96c8ce58a45081b2b4abea14bad79f3e03a471"
+  },
+  "hierarchos-vulkan-transformer-logits.exe": {
+   "bytes": 19295744,
+   "sha256": "d04307829fab961465b1dc94ba7584dfcf28dea94586faf0dd7399a6157382f3"
+  }
+ },
+ "pe_dependency_verification": {
+  "result": "PASS",
+  "report": "DEPENDENCIES.txt",
+  "expected_external_gpu_runtime": "vulkan-1.dll (not bundled)"
+ },
+ "package": {
+  "file": "Hierarchos-Native-Windows-x64-Portable-v0.2.6.zip",
+  "bytes": 34078829,
+  "sha256": "1d3652555228843892c2850b63dff42e4b2e6f5a87c3aa268b1518b94aa479e3",
+  "entries": 16
+ },
+ "reports": {
+  "release_note": "RDNA3_C1_STAGING_RELEASE.md",
+  "qualification": "hierarchos-vulkan/validation/phase_lxxxviii_c1_promotion/README.md",
+  "package_acceptance": "CLEAN_MACHINE_TEST.md"
+ }
+}
