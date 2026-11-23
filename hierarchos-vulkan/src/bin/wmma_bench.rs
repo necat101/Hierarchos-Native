@@ -79,6 +79,13 @@ fn run() -> Result<()> {
     let mut iterations = 40usize;
     let mut json = false;
     let mut dump_samples: Option<std::path::PathBuf> = None;
+    // Phase LXXXVII measurement tooling: an explicit geometry list and an
+    // option to skip the CPU FP64/FP32 reference. Neither changes the measured
+    // code path; `--skip-reference` exists so a wide geometry sweep does not
+    // spend most of its wall clock in the host reference GEMM. A run without
+    // either flag is byte-for-byte the pre-existing behaviour.
+    let mut shapes_override: Option<Vec<(usize, usize, usize, String)>> = None;
+    let mut skip_reference = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--wmma-mode" => {
@@ -100,6 +107,41 @@ fn run() -> Result<()> {
                     .context("--iterations must be an integer")?;
             }
             "--json" => json = true,
+            "--shapes" => {
+                let value = args.next().context("--shapes requires a value")?;
+                let mut parsed: Vec<(usize, usize, usize, String)> = Vec::new();
+                for item in value.split(',') {
+                    let item = item.trim();
+                    if item.is_empty() {
+                        continue;
+                    }
+                    let mut parts = item.split('x');
+                    let rows = parts
+                        .next()
+                        .context("--shapes entry needs rows")?
+                        .parse::<usize>()
+                        .with_context(|| format!("--shapes rows in {item:?}"))?;
+                    let columns = parts
+                        .next()
+                        .context("--shapes entry needs columns")?
+                        .parse::<usize>()
+                        .with_context(|| format!("--shapes columns in {item:?}"))?;
+                    let reduction = parts
+                        .next()
+                        .context("--shapes entry needs reduction")?
+                        .parse::<usize>()
+                        .with_context(|| format!("--shapes reduction in {item:?}"))?;
+                    if parts.next().is_some() {
+                        bail!("--shapes entry {item:?} has more than three dimensions");
+                    }
+                    parsed.push((rows, columns, reduction, item.to_owned()));
+                }
+                if parsed.is_empty() {
+                    bail!("--shapes produced no shapes");
+                }
+                shapes_override = Some(parsed);
+            }
+            "--skip-reference" => skip_reference = true,
             "--dump-samples" => {
                 dump_samples = Some(std::path::PathBuf::from(
                     args.next().context("--dump-samples requires a path")?,
@@ -108,7 +150,8 @@ fn run() -> Result<()> {
             "--help" | "-h" => {
                 println!(
                     "hierarchos-vulkan-wmma-bench [--wmma-mode off|mixed|full-fp16] \
-                     [--rounds N] [--iterations N] [--json] [--dump-samples PATH]"
+                     [--rounds N] [--iterations N] [--json] [--dump-samples PATH] \
+                     [--shapes MxNxK,...] [--skip-reference]"
                 );
                 return Ok(());
             }
@@ -118,6 +161,16 @@ fn run() -> Result<()> {
     if rounds == 0 || iterations == 0 {
         bail!("--rounds and --iterations must be positive");
     }
+
+    let shapes: Vec<(usize, usize, usize, String)> = match shapes_override {
+        Some(list) => list,
+        None => SHAPES
+            .iter()
+            .map(|(rows, columns, reduction, label)| {
+                (*rows, *columns, *reduction, (*label).to_owned())
+            })
+            .collect(),
+    };
 
     let device = VulkanDevice::new_for_wmma(mode)?;
     let capabilities = device.wmma_capabilities();
@@ -160,10 +213,16 @@ fn run() -> Result<()> {
     // Raw per-iteration samples, one entry per (shape, arm, round).
     let mut raw_lines: Vec<(String, &'static str, usize, Vec<f64>)> = Vec::new();
 
-    for (rows, columns, reduction, label) in SHAPES {
+    for (rows, columns, reduction, label) in shapes {
         let a = deterministic(rows * reduction, 0x1234_5678 ^ rows as u32);
         let b = deterministic(columns * reduction, 0x9E37_79B9 ^ columns as u32);
-        let reference = reference_fp32_gemm(&a, &b, rows, columns, reduction, layout)?;
+        let reference = if skip_reference {
+            None
+        } else {
+            Some(reference_fp32_gemm(
+                &a, &b, rows, columns, reduction, layout,
+            )?)
+        };
         let shape_name = format!("{rows}x{columns}x{reduction}");
 
         let mut measurements: Vec<Measurement> = Vec::new();
@@ -209,7 +268,10 @@ fn run() -> Result<()> {
                 .find(|arm| arm.label() == entry.label)
                 .expect("measurement arm must be known");
             let observed = gemm.matmul(arm, &a, &b, rows, columns, reduction, layout)?;
-            entry.drift_vs_fp32 = Some(drift(&reference, &observed)?.max_abs);
+            entry.drift_vs_fp32 = match &reference {
+                Some(reference) => Some(drift(reference, &observed)?.max_abs),
+                None => None,
+            };
         }
 
         let baseline = measurements

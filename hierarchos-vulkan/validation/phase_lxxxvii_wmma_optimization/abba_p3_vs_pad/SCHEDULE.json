@@ -1,0 +1,132 @@
+{
+ "patterns": [
+  "ABBA",
+  "BAAB",
+  "ABBA",
+  "BAAB"
+ ],
+ "order": [
+  {
+   "pair": 1,
+   "arm": "base",
+   "position": 1,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 1,
+   "arm": "cand",
+   "position": 2,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 2,
+   "arm": "cand",
+   "position": 3,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 2,
+   "arm": "base",
+   "position": 4,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 3,
+   "arm": "cand",
+   "position": 1,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 3,
+   "arm": "base",
+   "position": 2,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 4,
+   "arm": "base",
+   "position": 3,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 4,
+   "arm": "cand",
+   "position": 4,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 5,
+   "arm": "base",
+   "position": 1,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 5,
+   "arm": "cand",
+   "position": 2,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 6,
+   "arm": "cand",
+   "position": 3,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 6,
+   "arm": "base",
+   "position": 4,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 7,
+   "arm": "cand",
+   "position": 1,
+   "quad": 4,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 7,
+   "arm": "base",
+   "position": 2,
+   "quad": 4,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 8,
+   "arm": "base",
+   "position": 3,
+   "quad": 4,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 8,
+   "arm": "cand",
+   "position": 4,
+   "quad": 4,
+   "pattern": "BAAB"
+  }
+ ],
+ "pairs": 8,
+ "iterations": 16,
+ "rounds": 1,
+ "warmup_dropped": 3,
+ "shapes": "<built-in six>",
+ "skip_reference": false,
+ "base_variant": "p3",
+ "cand_variant": "p3-pad",
+ "exe": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target-lxxxvii\\release\\wmma_bench.exe",
+ "exe_sha256": "08d932194dee572e0876a03d024eec14bd3bf1768e221e94c8301f8aab8f8fce"
+}

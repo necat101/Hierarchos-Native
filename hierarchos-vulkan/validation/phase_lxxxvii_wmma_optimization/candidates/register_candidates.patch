@@ -1,0 +1,128 @@
+diff --git a/hierarchos-vulkan/src/wmma.rs b/hierarchos-vulkan/src/wmma.rs
+index 937740d..f2c0612 100644
+--- a/hierarchos-vulkan/src/wmma.rs
++++ b/hierarchos-vulkan/src/wmma.rs
+@@ -60,6 +60,37 @@ const WMMA_GEMM_F16ACC_TWOWAVE_SPV: &[u8] =
+ /// module; see `RDNA3_P3_RELEASE.md`.
+ const WMMA_GEMM_F16ACC_TWOWAVE_P3_SPV: &[u8] =
+     include_bytes!("../shaders/wmma_gemm_f16_f16acc_twowave_p3.spv");
++/// Phase LXXXVII investigation modules. Every one is derived from the qualified
++/// P3 source or the recovered Phase LXXXVI lean source by an exact textual edit
++/// (`validation/phase_lxxxvii_wmma_optimization/make_candidates.py`) and is
++/// **not** reachable from any default, any production route or any policy.
++///
++/// `P3Lean` is the byte-verified Phase LXXXVI lean module (`fdafb2d6…`).
++/// `P3LeanPad` is lean with `bank_sum` widened so its LDS footprint equals P3's
++/// 9,216 B at zero extra instruction cost: it is the LDS-matched control that
++/// separates "fewer LDS bytes" from "epilogue code" as the cause of lean's
++/// shape-dependent behaviour. `P3Pad` moves the production module to 14,336 B
++/// with the same technique, giving a second point on the footprint curve.
++/// `P3Batch` is a staging-latency candidate: an unrolled, bounds-check-free
++/// operand-staging fast path with identical values, slots and barriers.
++/// `P3AblNoEpilogue` is the Phase LXXXVI profiling instrument that was never
++/// measured; its arithmetic is deliberately wrong and it must never be
++/// dispatched as a result.
++const WMMA_GEMM_F16ACC_TWOWAVE_P3_LEAN_SPV: &[u8] = include_bytes!(
++    "../validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_lean.spv"
++);
++const WMMA_GEMM_F16ACC_TWOWAVE_P3_LEANPAD_SPV: &[u8] = include_bytes!(
++    "../validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_leanpad.spv"
++);
++const WMMA_GEMM_F16ACC_TWOWAVE_P3_PAD_SPV: &[u8] = include_bytes!(
++    "../validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_pad.spv"
++);
++const WMMA_GEMM_F16ACC_TWOWAVE_P3_BATCH_SPV: &[u8] = include_bytes!(
++    "../validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_batch.spv"
++);
++const WMMA_GEMM_F16ACC_TWOWAVE_P3_ABLNOEPI_SPV: &[u8] = include_bytes!(
++    "../validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_ablnoepi.spv"
++);
+ const GEMM_F16_F32_PLAIN_SPV: &[u8] = include_bytes!("../shaders/gemm_f16_f32_plain.spv");
+ const FP32_TO_FP16_NATIVE_SPV: &[u8] = include_bytes!("../shaders/fp32_to_fp16_native.spv");
+ /// The product's existing FP32 linear kernel, used as the paired baseline arm.
+@@ -203,10 +234,36 @@ pub enum FullFp16Variant {
+     /// to the independently computed FP16 reference than the tree, none worse.
+     #[default]
+     P3,
++    /// Phase LXXXVI `lean`: P3 with the 3,072 B of dedicated epilogue scratch
++    /// removed and the pair epilogue staged through the dead A/B tiles. LDS
++    /// 9,216 B -> 6,144 B. Bit-identical output. Investigation only.
++    P3Lean,
++    /// `lean` with `bank_sum` widened to restore the 9,216 B footprint at zero
++    /// instruction cost. LDS-matched control. Investigation only.
++    P3LeanPad,
++    /// P3 with `bank_sum` widened to 14,336 B. Footprint probe. Investigation
++    /// only.
++    P3Pad,
++    /// P3 with the unrolled, bounds-check-free operand-staging fast path.
++    /// Bit-identical arithmetic. Investigation only.
++    P3Batch,
++    /// Phase LXXXVI `abl_no_epilogue` profiling instrument. NUMERICALLY WRONG;
++    /// it exists to attribute time, never to produce a result.
++    P3AblNoEpilogue,
+ }
+ 
+ impl FullFp16Variant {
+-    pub const ALL: [Self; 4] = [Self::Split8, Self::TwoBank, Self::TwoWave, Self::P3];
++    pub const ALL: [Self; 9] = [
++        Self::Split8,
++        Self::TwoBank,
++        Self::TwoWave,
++        Self::P3,
++        Self::P3Lean,
++        Self::P3LeanPad,
++        Self::P3Pad,
++        Self::P3Batch,
++        Self::P3AblNoEpilogue,
++    ];
+ 
+     pub fn parse(value: &str) -> Result<Self> {
+         match value.trim().to_ascii_lowercase().as_str() {
+@@ -214,6 +271,11 @@ impl FullFp16Variant {
+             "two-bank" | "twobank" | "two_bank" | "2" => Ok(Self::TwoBank),
+             "two-wave" | "twowave" | "two_wave" | "64" => Ok(Self::TwoWave),
+             "p3" | "twowave-p3" | "two-wave-p3" => Ok(Self::P3),
++            "p3-lean" | "lean" => Ok(Self::P3Lean),
++            "p3-leanpad" | "leanpad" => Ok(Self::P3LeanPad),
++            "p3-pad" | "pad" => Ok(Self::P3Pad),
++            "p3-batch" | "batch" => Ok(Self::P3Batch),
++            "p3-ablnoepi" | "ablnoepi" => Ok(Self::P3AblNoEpilogue),
+             other => bail!(
+                 "unsupported full-fp16 variant {other:?}; expected p3, split8, two-bank or two-wave"
+             ),
+@@ -243,6 +305,11 @@ impl FullFp16Variant {
+             Self::TwoBank => "two-bank",
+             Self::TwoWave => "two-wave",
+             Self::P3 => "p3",
++            Self::P3Lean => "p3-lean",
++            Self::P3LeanPad => "p3-leanpad",
++            Self::P3Pad => "p3-pad",
++            Self::P3Batch => "p3-batch",
++            Self::P3AblNoEpilogue => "p3-ablnoepi",
+         }
+     }
+ 
+@@ -254,6 +321,11 @@ impl FullFp16Variant {
+             Self::TwoBank => "wmma_gemm_f16_f16acc_twobank",
+             Self::TwoWave => "wmma_gemm_f16_f16acc_twowave",
+             Self::P3 => "wmma_gemm_f16_f16acc_twowave_p3",
++            Self::P3Lean => "wmma_gemm_f16_f16acc_twowave_p3_lean",
++            Self::P3LeanPad => "wmma_gemm_f16_f16acc_twowave_p3_leanpad",
++            Self::P3Pad => "wmma_gemm_f16_f16acc_twowave_p3_pad",
++            Self::P3Batch => "wmma_gemm_f16_f16acc_twowave_p3_batch",
++            Self::P3AblNoEpilogue => "wmma_gemm_f16_f16acc_twowave_p3_ablnoepi",
+         }
+     }
+ 
+@@ -264,6 +336,11 @@ impl FullFp16Variant {
+             Self::TwoBank => WMMA_GEMM_F16ACC_TWOBANK_SPV,
+             Self::TwoWave => WMMA_GEMM_F16ACC_TWOWAVE_SPV,
+             Self::P3 => WMMA_GEMM_F16ACC_TWOWAVE_P3_SPV,
++            Self::P3Lean => WMMA_GEMM_F16ACC_TWOWAVE_P3_LEAN_SPV,
++            Self::P3LeanPad => WMMA_GEMM_F16ACC_TWOWAVE_P3_LEANPAD_SPV,
++            Self::P3Pad => WMMA_GEMM_F16ACC_TWOWAVE_P3_PAD_SPV,
++            Self::P3Batch => WMMA_GEMM_F16ACC_TWOWAVE_P3_BATCH_SPV,
++            Self::P3AblNoEpilogue => WMMA_GEMM_F16ACC_TWOWAVE_P3_ABLNOEPI_SPV,
+         }
+     }
+ }

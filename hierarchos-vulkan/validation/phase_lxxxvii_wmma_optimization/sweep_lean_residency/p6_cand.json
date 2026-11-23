@@ -1,0 +1,48 @@
+{
+  "device": "AMD Radeon Graphics",
+  "mode": "full-fp16",
+  "full_fp16_variant": "p3-lean",
+  "full_fp16_pipeline": "wmma_gemm_f16_f16acc_twowave_p3_lean/spirv-fnv1a64:0xcf2949a95f7eee92/len:23172",
+  "rounds": 1,
+  "iterations_per_round": 16,
+  "cooperative_dispatches": 140,
+  "plain_dispatches": 140,
+  "shape_fallbacks": 0,
+  "shapes": [
+    {"shape":"64x8192x768","label":"64x8192x768","arms":[
+      {"arm":"fp32-baseline","median_ms":4.733200,"min_ms":4.733200,"max_ms":4.733200,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"plain-f16-storage-f32acc","median_ms":8.711500,"min_ms":8.711500,"max_ms":8.711500,"speedup_vs_fp32":0.5433,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"wmma-full-f16acc","median_ms":1.354350,"min_ms":1.354350,"max_ms":1.354350,"speedup_vs_fp32":3.4948,"drift_vs_fp32_max_abs":NaN}
+    ]},
+    {"shape":"128x2048x768","label":"128x2048x768","arms":[
+      {"arm":"fp32-baseline","median_ms":2.676250,"min_ms":2.676250,"max_ms":2.676250,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"plain-f16-storage-f32acc","median_ms":6.875950,"min_ms":6.875950,"max_ms":6.875950,"speedup_vs_fp32":0.3892,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"wmma-full-f16acc","median_ms":1.701850,"min_ms":1.701850,"max_ms":1.701850,"speedup_vs_fp32":1.5726,"drift_vs_fp32_max_abs":NaN}
+    ]},
+    {"shape":"128x4096x768","label":"128x4096x768","arms":[
+      {"arm":"fp32-baseline","median_ms":4.699650,"min_ms":4.699650,"max_ms":4.699650,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"plain-f16-storage-f32acc","median_ms":8.114800,"min_ms":8.114800,"max_ms":8.114800,"speedup_vs_fp32":0.5791,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"wmma-full-f16acc","median_ms":1.991050,"min_ms":1.991050,"max_ms":1.991050,"speedup_vs_fp32":2.3604,"drift_vs_fp32_max_abs":NaN}
+    ]},
+    {"shape":"128x8192x768","label":"128x8192x768","arms":[
+      {"arm":"fp32-baseline","median_ms":5.765150,"min_ms":5.765150,"max_ms":5.765150,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"plain-f16-storage-f32acc","median_ms":10.436400,"min_ms":10.436400,"max_ms":10.436400,"speedup_vs_fp32":0.5524,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"wmma-full-f16acc","median_ms":2.147500,"min_ms":2.147500,"max_ms":2.147500,"speedup_vs_fp32":2.6846,"drift_vs_fp32_max_abs":NaN}
+    ]},
+    {"shape":"128x16384x768","label":"128x16384x768","arms":[
+      {"arm":"fp32-baseline","median_ms":8.664950,"min_ms":8.664950,"max_ms":8.664950,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"plain-f16-storage-f32acc","median_ms":17.449350,"min_ms":17.449350,"max_ms":17.449350,"speedup_vs_fp32":0.4966,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"wmma-full-f16acc","median_ms":3.548200,"min_ms":3.548200,"max_ms":3.548200,"speedup_vs_fp32":2.4421,"drift_vs_fp32_max_abs":NaN}
+    ]},
+    {"shape":"256x8192x768","label":"256x8192x768","arms":[
+      {"arm":"fp32-baseline","median_ms":8.003600,"min_ms":8.003600,"max_ms":8.003600,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"plain-f16-storage-f32acc","median_ms":17.453050,"min_ms":17.453050,"max_ms":17.453050,"speedup_vs_fp32":0.4586,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"wmma-full-f16acc","median_ms":3.757650,"min_ms":3.757650,"max_ms":3.757650,"speedup_vs_fp32":2.1299,"drift_vs_fp32_max_abs":NaN}
+    ]},
+    {"shape":"512x8192x768","label":"512x8192x768","arms":[
+      {"arm":"fp32-baseline","median_ms":12.993050,"min_ms":12.993050,"max_ms":12.993050,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"plain-f16-storage-f32acc","median_ms":34.171000,"min_ms":34.171000,"max_ms":34.171000,"speedup_vs_fp32":0.3802,"drift_vs_fp32_max_abs":NaN},
+      {"arm":"wmma-full-f16acc","median_ms":6.832050,"min_ms":6.832050,"max_ms":6.832050,"speedup_vs_fp32":1.9018,"drift_vs_fp32_max_abs":NaN}
+    ]}
+  ]
+}

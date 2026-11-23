@@ -1,0 +1,4 @@
+# The production dumps are ~16 MB per seed per arm (259.5 MB for the two arms).
+# They stay on disk, pinned by sha256 and byte count in dumps_manifest.json,
+# and out of Git.
+*/dumps/*.json

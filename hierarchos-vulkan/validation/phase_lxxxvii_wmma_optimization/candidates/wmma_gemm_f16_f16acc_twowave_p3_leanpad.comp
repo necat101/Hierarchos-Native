@@ -1,0 +1,334 @@
+#version 450
+
+// RDNA3 hardware-WMMA GEMM, full-FP16 arm — Phase LXXXVI "lean" P3 variant.
+//
+// This module is the Phase LXXIX production P3 module with one change and only
+// one: the 3,072 B of dedicated epilogue scratch (`c_tile`, `bank_tile`) is
+// removed and the epilogue stages through the A/B staging tiles, which are dead
+// in exactly that window. So the output is required to be bit-identical to P3's.
+//
+// Reason: Phase LXXXVI measured the four-wave 64x32 tile (17,408 B of LDS) at
+// 0.58x-0.73x of P3, i.e. workgroup residency — not per-workgroup width — is
+// what this kernel is short of. This variant keeps the workgroup shape and the
+// workgroup count and lowers LDS from 9,216 B to 6,144 B instead.
+//
+// Derived from the Phase LXXIX P3 module; see that file for the full contract.
+//
+//   C[m, n] = op(A)[m, k] * op(B)[k, n]      (FP16 operands, FP16 accumulation)
+//
+// THIS MODULE IS NOT A PRODUCTION VARIANT. It is not reachable from
+// `FullFp16Variant`, `HIERARCHOS_WMMA_FULL_FP16_VARIANT`, or any default; the
+// only loader is the qualification-only
+// `wmma_qualify --experimental-full-fp16-spirv <this .spv>` route. It exists to
+// execute the Phase LXXVIII P3 proposal on the GPU, once.
+//
+// What is unchanged from `wmma_gemm_f16_f16acc_twowave.comp`
+// ---------------------------------------------------------
+// Two wave32 execution groups per 64-thread workgroup, the same 32x32
+// workgroup output tile, the same cooperative staging of A/B tiles, the same
+// `barrier()` placement per K slice, the same K-slice stream
+// (`slice = bank_a, bank_a + 8, ...`), the same bank assignment
+// (`bank = slice & 7`), the same per-bank binary16 accumulators and the same
+// cooperative-matrix multiply. None of the accumulation is touched: every
+// `fp16(bank + slice_dot)` rounding point and every per-bank operand order is
+// byte-for-byte the split8/two-wave contract.
+//
+// What changes â€” the epilogue only
+// --------------------------------
+//
+//   split8/two-wave:  b = fp16(pair partials)                  (4 fold roundings)
+//                     l = fp16(bank0 + bank1), ...             (4 level-1 roundings)
+//                     out = fp16(fp16(l0 + l1) + fp16(l2 + l3)) (3 level-2 roundings)
+//
+//   P3 (this file):   out = fp16(bank0 + bank1 + ... + bank7)   (1 rounding)
+//
+// The eight binary16 bank partials are summed in ascending bank order with
+// float32 additions and rounded to binary16 exactly once, immediately before
+// the FP32 store. The accumulation order is `(((b0 + b1) + b2) + ... + b7)`,
+// i.e. strict left-to-right, matching the Phase LXXVIII offline model. Every
+// intermediate sum is a float32 add of binary16-exact values; the final
+// conversion is the single rounding point.
+//
+// The LDS budget — this is the one change from the P3 module
+// -----------------------------------------------------------
+// An epilogue that rounds once cannot fold pairs as they complete, so the eight
+// bank partials are accumulated in a float32 running sum (`bank_sum`,
+// 4 x 256 floats = 4,096 B) that survives across the pair loop. The P3 module
+// also keeps two dedicated binary16 staging arrays (`c_tile`, `bank_tile`,
+// 3,072 B) for the even and odd bank of a pair. Both are only written and read
+// between the end of a pair's K loop and the start of the next one's staging,
+// which is exactly when `a_tile` and `b_tile` are dead, so this module stages
+// the epilogue through `a_tile[wave]` / `b_tile[wave]` and removes them.
+// Total LDS: 1,024 halves of A/B staging + 1,024 floats = 6,144 B, down from
+// 9,216 B. The staging loops, the barriers, the bank assignment, the slice
+// stream, the multiply-add operands and the accumulation order are untouched.
+
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_memory_scope_semantics : require
+#extension GL_KHR_cooperative_matrix : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ABuffer { f16vec2 a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BBuffer { f16vec2 b[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer CBuffer { float c[]; };
+
+layout(push_constant) uniform Push {
+    uint m;
+    uint n;
+    uint k;
+    uint lda;
+    uint ldb;
+    uint ldc;
+    uint flags;
+    uint reserved;
+} pc;
+
+// A tiles: [0] = rows [m0, m0+16), [1] = rows [m0+16, m0+32). Staged by all 64
+// threads; consumed by wave `w` for its own row block.
+shared float16_t a_tile[2][256];
+// B tiles: [0] = cols [n0, n0+16), [1] = cols [n0+16, n0+32). Consumed by both
+// waves, so both the post-staging and the pre-overwrite barrier are required.
+shared float16_t b_tile[2][256];
+// The P3 epilogue needs one binary16 staging slot for the even bank of a pair
+// and one for the odd bank, per wave. `a_tile` and `b_tile` are dead from the
+// end of a pair's K loop until the next pair's staging begins, and the pair
+// epilogue runs entirely inside that window, so the epilogue stages through
+// `a_tile[wave]` / `b_tile[wave]` instead of keeping 3,072 B of dedicated
+// scratch alive for the whole kernel. Same values, same order, same barriers;
+// 6,144 B of LDS instead of 9,216 B.
+// P3 epilogue accumulator: the float32 running sum of the bank partials, one
+// per output tile, tiles wave-private. Written only by the owning wave.
+// LDS-footprint control (Phase LXXXVII): 448 columns x 4 tiles x 4 B.
+shared float bank_sum[4][448];
+
+// Add one completed bank pair to the tile's float32 running sum, in ascending
+// bank order:
+//
+//   pair 0:  s = float(b0) + float(b1)
+//   pair p:  s = (s + float(b(2p))) + float(b(2p+1))
+//
+// The two additions are separate statements so the order is the offline
+// model's `(((b0 + b1) + b2) + b3) ...` and cannot be rewritten as one
+// `(s + (even + odd))` expression by an evaluator that does not have to keep
+// the left-to-right association.
+#define ACCUM_PAIR(tile, even_slot, odd_slot, even_frag, odd_frag, pair_index)      do {                                                                                coopMatStore(even_frag, (even_slot), 0, 16,                                                  gl_CooperativeMatrixLayoutRowMajor);                               coopMatStore(odd_frag, (odd_slot), 0, 16,                                                    gl_CooperativeMatrixLayoutRowMajor);                               barrier();                                                                      for (uint e = lane; e < 256u; e += lanes) {                                         float even_v = float((even_slot)[e]);                                           float odd_v = float((odd_slot)[e]);                                             if ((pair_index) == 0u) {                                                           bank_sum[(tile)][e] = even_v + odd_v;                                       } else {                                                                            float s = bank_sum[(tile)][e] + even_v;                                         bank_sum[(tile)][e] = s + odd_v;                                            }                                                                           }                                                                               barrier();                                                                  } while (false)
+
+// The one rounding point: convert the float32 exact-order sum to binary16 and
+// widen to the FP32 output buffer with the same masking as every variant.
+#define STORE_SUM(tile, row_base, col_base)                                     \
+    do {                                                                        \
+        for (uint e = lane; e < 256u; e += lanes) {                             \
+            uint gm = (row_base) + (e >> 4u);                                    \
+            uint gn = (col_base) + (e & 15u);                                    \
+            if (gm < pc.m && gn < pc.n) {                                       \
+                c[gm * pc.ldc + gn] = float(float16_t(bank_sum[(tile)][e]));    \
+            }                                                                   \
+        }                                                                       \
+    } while (false)
+
+void main() {
+    uint lane = gl_SubgroupInvocationID;
+    uint lanes = gl_SubgroupSize;
+    // 0 or 1: which wave32 execution group of this 64-thread workgroup we are.
+    uint wave = gl_SubgroupID;
+    uint tid = gl_LocalInvocationID.x;
+    uint threads = gl_WorkGroupSize.x;
+    uint m0 = gl_WorkGroupID.y * 32u;
+    uint n0 = gl_WorkGroupID.x * 32u;
+    bool trans_a = (pc.flags & 1u) != 0u;
+    bool trans_b = (pc.flags & 2u) != 0u;
+    bool wide_a = (pc.lda & 1u) == 0u;
+    bool wide_b = (pc.ldb & 1u) == 0u;
+
+    // This wave's two global output tiles and the row block it owns.
+    uint tile0 = wave * 2u;
+    uint tile1 = tile0 + 1u;
+    uint row_base = m0 + wave * 16u;
+
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> a_frag;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag0;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag1;
+
+    // Four bank pairs. `pair`, `slice` and both loop bounds are workgroup
+    // uniform, so every barrier below sits in uniform control flow.
+    for (uint pair = 0u; pair < 4u; ++pair) {
+        uint bank_a = pair * 2u;
+        uint bank_b = bank_a + 1u;
+
+        // Two live accumulator sets for this wave's two tiles: the even bank of
+        // the pair and the odd bank. Both start at exact zero.
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> e0 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> e1 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> o0 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> o1 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+
+        // Bank `bank_a` owns slices bank_a, bank_a+8, ...; bank `bank_b` owns the
+        // same indices shifted by one. Stepping both streams per iteration makes
+        // the two staged slices adjacent in K while each bank still accumulates
+        // its own slices in ascending order.
+        for (uint slice = bank_a; slice * 16u < pc.k; slice += 8u) {
+            for (uint sub = 0u; sub < 2u; ++sub) {
+                uint s = slice + sub;
+                // Uniform guard: the odd bank of the last pair can be empty
+                // (K=96 leaves banks 6 and 7 with no slice at all).
+                if (s * 16u < pc.k) {
+                    uint k0 = s * 16u;
+                    if (!trans_a) {
+                        // A row-major [m][k]: reduction axis contiguous -> pair along col.
+                        for (uint p = tid; p < 256u; p += threads) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = e >> 3u;
+                            uint col = (e & 7u) << 1u;
+                            uint gm = m0 + tile * 16u + row;
+                            uint gk = k0 + col;
+                            uint off = gm * pc.lda + gk;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_a && gm < pc.m && gk + 1u < pc.k) {
+                                f16vec2 pair_v = a[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gm < pc.m && gk < pc.k) {
+                                    v0 = a[off >> 1u][off & 1u];
+                                }
+                                if (gm < pc.m && gk + 1u < pc.k) {
+                                    uint next = off + 1u;
+                                    v1 = a[next >> 1u][next & 1u];
+                                }
+                            }
+                            a_tile[tile][row * 16u + col] = v0;
+                            a_tile[tile][row * 16u + col + 1u] = v1;
+                        }
+                    } else {
+                        // A transposed [k][m]: output axis contiguous -> pair along row.
+                        for (uint p = tid; p < 256u; p += threads) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = (e >> 4u) << 1u;
+                            uint col = e & 15u;
+                            uint gm = m0 + tile * 16u + row;
+                            uint gk = k0 + col;
+                            uint off = gk * pc.lda + gm;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_a && gk < pc.k && gm + 1u < pc.m) {
+                                f16vec2 pair_v = a[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gk < pc.k && gm < pc.m) {
+                                    v0 = a[off >> 1u][off & 1u];
+                                }
+                                if (gk < pc.k && gm + 1u < pc.m) {
+                                    uint next = off + 1u;
+                                    v1 = a[next >> 1u][next & 1u];
+                                }
+                            }
+                            a_tile[tile][row * 16u + col] = v0;
+                            a_tile[tile][row * 16u + col + 16u] = v1;
+                        }
+                    }
+
+                    if (!trans_b) {
+                        // B row-major [k][n]: output axis contiguous -> pair along col.
+                        for (uint p = tid; p < 256u; p += threads) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = e >> 3u;
+                            uint col = (e & 7u) << 1u;
+                            uint gk = k0 + row;
+                            uint gn = n0 + tile * 16u + col;
+                            uint off = gk * pc.ldb + gn;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_b && gk < pc.k && gn + 1u < pc.n) {
+                                f16vec2 pair_v = b[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gk < pc.k && gn < pc.n) {
+                                    v0 = b[off >> 1u][off & 1u];
+                                }
+                                if (gk < pc.k && gn + 1u < pc.n) {
+                                    uint next = off + 1u;
+                                    v1 = b[next >> 1u][next & 1u];
+                                }
+                            }
+                            b_tile[tile][row * 16u + col] = v0;
+                            b_tile[tile][row * 16u + col + 1u] = v1;
+                        }
+                    } else {
+                        // B transposed [n][k]: reduction axis contiguous -> pair along row.
+                        for (uint p = tid; p < 256u; p += threads) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = (e >> 4u) << 1u;
+                            uint col = e & 15u;
+                            uint gk = k0 + row;
+                            uint gn = n0 + tile * 16u + col;
+                            uint off = gn * pc.ldb + gk;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_b && gn < pc.n && gk + 1u < pc.k) {
+                                f16vec2 pair_v = b[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gn < pc.n && gk < pc.k) {
+                                    v0 = b[off >> 1u][off & 1u];
+                                }
+                                if (gn < pc.n && gk + 1u < pc.k) {
+                                    uint next = off + 1u;
+                                    v1 = b[next >> 1u][next & 1u];
+                                }
+                            }
+                            b_tile[tile][row * 16u + col] = v0;
+                            b_tile[tile][row * 16u + col + 16u] = v1;
+                        }
+                    }
+
+                    // Both waves write half of each staged tile, so this barrier
+                    // is a real `s_barrier` and is required, unlike the elided
+                    // single-wave barriers of the earlier variants.
+                    barrier();
+
+                    coopMatLoad(a_frag, a_tile[wave], 0, 16,
+                                gl_CooperativeMatrixLayoutRowMajor);
+                    coopMatLoad(b_frag0, b_tile[0], 0, 16,
+                                gl_CooperativeMatrixLayoutRowMajor);
+                    coopMatLoad(b_frag1, b_tile[1], 0, 16,
+                                gl_CooperativeMatrixLayoutRowMajor);
+
+                    if (sub == 0u) {
+                        e0 = coopMatMulAdd(a_frag, b_frag0, e0);
+                        e1 = coopMatMulAdd(a_frag, b_frag1, e1);
+                    } else {
+                        o0 = coopMatMulAdd(a_frag, b_frag0, o0);
+                        o1 = coopMatMulAdd(a_frag, b_frag1, o1);
+                    }
+                    // Every cooperative-matrix load above has consumed the staged
+                    // tiles; only now may either wave overwrite them.
+                    barrier();
+                }
+            }
+        }
+
+        // P3: add this pair's two banks to the float32 running sum, once, in
+        // ascending bank order. No pair fold and no merge-tree level happens.
+        ACCUM_PAIR(tile0, a_tile[wave], b_tile[wave], e0, o0, pair);
+        ACCUM_PAIR(tile1, a_tile[wave], b_tile[wave], e1, o1, pair);
+    }
+
+    // The single rounding point, and the store, unchanged in masking and layout.
+    STORE_SUM(tile0, row_base, n0);
+    STORE_SUM(tile1, row_base, n0 + 16u);
+}
