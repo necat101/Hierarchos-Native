@@ -1,0 +1,4 @@
+# Production dumps are 16 x ~16 MB; they are pinned by size and SHA-256 in
+# dumps_manifest.json instead of being committed.
+baseline_accuracy/dumps/
+candidate_accuracy/dumps/

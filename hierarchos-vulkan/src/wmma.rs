@@ -60,6 +60,16 @@ const WMMA_GEMM_F16ACC_TWOWAVE_SPV: &[u8] =
 /// module; see `RDNA3_P3_RELEASE.md`.
 const WMMA_GEMM_F16ACC_TWOWAVE_P3_SPV: &[u8] =
     include_bytes!("../shaders/wmma_gemm_f16_f16acc_twowave_p3.spv");
+/// Phase LXXXVIII production **staging** module (candidate C1) for the same P3
+/// contract. The arithmetic, the two-wave workgroup, the K-slice stream, the
+/// per-bank accumulation order, the float32 bank sum and the single binary16
+/// rounding are identical to the module above; only the staging schedule
+/// changes, and only inside a workgroup-uniform predicate that proves every
+/// packed 32-bit load aligned and in bounds. It is selected per dispatch by
+/// [`batched_staging_eligible`] and the module above stays the fallback. See
+/// `RDNA3_P3_RELEASE.md`.
+const WMMA_GEMM_F16ACC_TWOWAVE_P3_C1_SPV: &[u8] =
+    include_bytes!("../shaders/wmma_gemm_f16_f16acc_twowave_p3_c1.spv");
 const GEMM_F16_F32_PLAIN_SPV: &[u8] = include_bytes!("../shaders/gemm_f16_f32_plain.spv");
 const FP32_TO_FP16_NATIVE_SPV: &[u8] = include_bytes!("../shaders/fp32_to_fp16_native.spv");
 /// The product's existing FP32 linear kernel, used as the paired baseline arm.
@@ -243,6 +253,29 @@ impl FullFp16Variant {
             Self::TwoBank => "two-bank",
             Self::TwoWave => "two-wave",
             Self::P3 => "p3",
+        }
+    }
+
+    /// The optional batched-staging module this variant can dispatch instead of
+    /// [`Self::spirv`].
+    ///
+    /// Only the production P3 contract has one: C1 is the same P3 arithmetic
+    /// with the four dependent global-load/shared-store pairs of each K slice
+    /// replaced by four independent 32-bit loads issued before any store. Every
+    /// other variant returns `None`, so a non-P3 selection cannot reach it.
+    pub fn staged_spirv(self) -> Option<&'static [u8]> {
+        match self {
+            Self::Split8 | Self::TwoBank | Self::TwoWave => None,
+            Self::P3 => Some(WMMA_GEMM_F16ACC_TWOWAVE_P3_C1_SPV),
+        }
+    }
+
+    /// This variant's batched-staging shader name, or `None` when it has no
+    /// batched-staging module.
+    pub fn staged_shader_name(self) -> Option<&'static str> {
+        match self {
+            Self::Split8 | Self::TwoBank | Self::TwoWave => None,
+            Self::P3 => Some("wmma_gemm_f16_f16acc_twowave_p3_c1"),
         }
     }
 
@@ -638,16 +671,170 @@ pub fn wmma_shape_profitable(rows: usize, columns: usize, reduction: usize) -> b
 }
 
 /// Opt-in GEMM encodings used by callers that already hold FP16 storage.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct GemmLayout {
     pub transposed_a: bool,
     pub transposed_b: bool,
 }
 
+/// Everything the batched-staging (C1) contract is a statement about.
+///
+/// This is a *dispatch* description, not a numerical one: it names the GEMM
+/// geometry, the two operand strides the selector derives from it, and the byte
+/// capacity of the two bound operand buffers. [`batched_staging_eligible`] is a
+/// pure function of these fields, so the production predicate can be tested
+/// without a device and cannot drift from the shader it guards.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StagingGeometry {
+    pub rows: usize,
+    pub columns: usize,
+    pub reduction: usize,
+    pub layout: GemmLayout,
+    /// `GpuBuffer::capacity_bytes()` of the buffer bound as operand A.
+    pub a_capacity_bytes: usize,
+    /// `GpuBuffer::capacity_bytes()` of the buffer bound as operand B.
+    pub b_capacity_bytes: usize,
+}
+
+impl StagingGeometry {
+    /// A's leading dimension, exactly as [`WmmaGemm::record_gemm`] derives it:
+    /// the row stride is `rows` when A is `[k, m]` and `reduction` when A is
+    /// `[m, k]`.
+    pub fn lda(&self) -> usize {
+        if self.layout.transposed_a {
+            self.rows
+        } else {
+            self.reduction
+        }
+    }
+
+    /// B's leading dimension: `reduction` when B is `[n, k]` and `columns` when
+    /// B is `[k, n]`.
+    pub fn ldb(&self) -> usize {
+        if self.layout.transposed_b {
+            self.reduction
+        } else {
+            self.columns
+        }
+    }
+}
+
+/// Whether the C1 batched-staging module is provably safe for this dispatch.
+///
+/// The shader's fast path is taken per K slice and per workgroup, and it issues
+/// four packed 32-bit global loads before any shared store. Selecting it here
+/// therefore requires that, for *every* dispatched workgroup and *every* slice,
+/// those loads are aligned and in bounds. The conditions below are exactly that
+/// derivation, and they are stated conservatively: a geometry that satisfies
+/// only some of them keeps the original P3 module, which is what the measured
+/// odd-stride regression in Phase LXXXVII requires.
+///
+/// 1. **Tile coverage.** `rows % 32 == 0`, `columns % 32 == 0`, `reduction % 16
+///    == 0`. The workgroup grid is `ceil(columns/32) x ceil(rows/32)` and each
+///    group stages rows `m0..m0+32` and columns `n0..n0+32` for K slices of 16,
+///    so these divisibilities are what make `m0 + 32 <= m`, `n0 + 32 <= n` and
+///    `k0 + 16 <= k` *uniformly* true. With them the shader's per-element
+///    bounds tests are provably never taken, which is the only reason the fast
+///    path may drop them.
+/// 2. **Packed-pair stride parity.** `lda % 2 == 0` and `ldb % 2 == 0`. A packed
+///    load is `a[off >> 1]` on an `f16vec2[]`, so it needs an even element
+///    index. For row-major A the index is `gm * lda + gk` with even `gm`
+///    implied by nothing — it is `gm * lda` that must stay even for odd `gm`,
+///    hence even `lda`; symmetrically row-major B needs even `ldb`. The
+///    transposed layouts put the pair along the contiguous axis, so parity
+///    there is structural, and requiring both strides even keeps the predicate
+///    uniform across the four branches (it is also the shader's own
+///    `wide_a`/`wide_b` gate). Condition 1 already implies both parities for
+///    every layout this crate can build; the check is kept explicit so a future
+///    caller-supplied stride cannot slip through it.
+/// 3. **No base offset exists to be misaligned.** The kernel has no offset
+///    operand: its push constant is `m, n, k, lda, ldb, ldc, flags, reserved`
+///    and `reserved` is unused, and `record_dispatch` binds whole buffers at
+///    descriptor offset zero. The only address term is `row * stride + col`, so
+///    the byte address of a packed load is `allocation_start + 2 * element`,
+///    with `allocation_start` four-byte aligned by the `GpuBuffer` ABI this
+///    crate's every `float`/`u32` kernel already depends on.
+/// 4. **Complete 32-bit access bounds.** The index arithmetic in the shader is
+///    `uint`, so the largest element index it can form must fit in 32 bits, and
+///    the buffer bound at that binding must actually cover the elements the
+///    fast path reads. `a_last`/`b_last` below are the highest element index the
+///    kernel can address for the geometry (`rows * lda` style products, which is
+///    the full operand), and both are compared against the bound capacity.
+///
+/// Batch strides and per-batch element offsets are deliberately absent: this
+/// kernel is a single-matrix GEMM with no batch dimension in any address
+/// expression, and per-batch admission happens above the kernel by dispatching
+/// each batch separately. There is nothing here for a batch term to misalign.
+pub fn batched_staging_eligible(geometry: &StagingGeometry) -> bool {
+    let rows = geometry.rows as u64;
+    let columns = geometry.columns as u64;
+    let reduction = geometry.reduction as u64;
+    if rows == 0 || columns == 0 || reduction == 0 {
+        return false;
+    }
+    // (1) Every tile and every K slice is full.
+    if geometry.rows % 32 != 0 || geometry.columns % 32 != 0 || geometry.reduction % 16 != 0 {
+        return false;
+    }
+    let lda = geometry.lda();
+    let ldb = geometry.ldb();
+    // (2) Packed pair parity, stated for the strides the shader actually reads.
+    if lda % 2 != 0 || ldb % 2 != 0 {
+        return false;
+    }
+    let lda = lda as u64;
+    let ldb = ldb as u64;
+    // (4) Highest addressable element, per layout, plus the packed pair's second
+    // element (the kernel reads `i` and `i + 1`, and `i + 1 <= last` is implied
+    // by the full-tile coverage in (1)).
+    let a_last = if geometry.layout.transposed_a {
+        (reduction - 1) * lda + (rows - 1)
+    } else {
+        (rows - 1) * lda + (reduction - 1)
+    };
+    let b_last = if geometry.layout.transposed_b {
+        (columns - 1) * ldb + (reduction - 1)
+    } else {
+        (reduction - 1) * ldb + (columns - 1)
+    };
+    // The shader forms these in 32-bit `uint` arithmetic; `off + 1` is the
+    // highest value it can produce in the masked path, so leave one element of
+    // headroom below the type's maximum.
+    let ceiling = u32::MAX as u64 - 2;
+    if a_last > ceiling || b_last > ceiling {
+        return false;
+    }
+    // The bound regions must cover every element the kernel can read. A buffer
+    // shorter than the geometry claims would make the fast path read past its
+    // binding, so it is a fallback rather than a silent over-read.
+    let a_bytes = match (a_last + 1).checked_mul(2) {
+        Some(bytes) => bytes,
+        None => return false,
+    };
+    let b_bytes = match (b_last + 1).checked_mul(2) {
+        Some(bytes) => bytes,
+        None => return false,
+    };
+    a_bytes <= geometry.a_capacity_bytes as u64 && b_bytes <= geometry.b_capacity_bytes as u64
+}
+
+/// One dispatch's staging choice, for the receipts.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct WmmaStagingCounts {
+    /// Dispatches that used the batched (C1) staging module.
+    pub batched: u64,
+    /// Dispatches that used the original masked-staging P3 module.
+    pub masked: u64,
+}
+
 struct WmmaKernels {
     convert: vulkan::ComputeKernel,
     mixed: Option<vulkan::ComputeKernel>,
+    /// [`FullFp16Variant::spirv`] — the contract module and the staging fallback.
     full: Option<vulkan::ComputeKernel>,
+    /// [`FullFp16Variant::staged_spirv`] — C1, dispatched only when
+    /// [`batched_staging_eligible`] proves it safe for this geometry.
+    full_staging: Option<vulkan::ComputeKernel>,
     plain: vulkan::ComputeKernel,
     fp32: vulkan::ComputeKernel,
 }
@@ -665,6 +852,8 @@ pub struct WmmaGemm {
     cooperative_dispatches: AtomicU64,
     plain_dispatches: AtomicU64,
     shape_fallbacks: AtomicU64,
+    staging_batched: AtomicU64,
+    staging_masked: AtomicU64,
 }
 
 impl WmmaGemm {
@@ -751,6 +940,18 @@ impl WmmaGemm {
         } else {
             None
         };
+        // The batched-staging module is built only for a variant that has one and
+        // only on a device that supports the Full FP16 contract at all, so a
+        // device that cannot run P3 never creates a C1 pipeline either.
+        let full_staging = match (full_fp16_variant.staged_spirv(), full.is_some()) {
+            (Some(spirv), true) => Some(gemm_kernel(
+                spirv,
+                full_fp16_variant
+                    .staged_shader_name()
+                    .unwrap_or("full-fp16-staging"),
+            )?),
+            _ => None,
+        };
         Ok(Self {
             device: device.clone(),
             mode,
@@ -760,12 +961,15 @@ impl WmmaGemm {
                 convert,
                 mixed,
                 full,
+                full_staging,
                 plain,
                 fp32,
             },
             cooperative_dispatches: AtomicU64::new(0),
             plain_dispatches: AtomicU64::new(0),
             shape_fallbacks: AtomicU64::new(0),
+            staging_batched: AtomicU64::new(0),
+            staging_masked: AtomicU64::new(0),
         })
     }
 
@@ -803,6 +1007,36 @@ impl WmmaGemm {
 
     pub fn capabilities(&self) -> VulkanWmmaCapabilities {
         self.capabilities
+    }
+
+    /// Identity of the batched-staging module, when this executor has one.
+    ///
+    /// `None` for every variant that has no batched-staging module and for a
+    /// device that cannot run the Full FP16 contract at all. Reported beside
+    /// [`Self::full_fp16_pipeline_identity`] so a receipt names both the P3
+    /// contract module and the C1 module, and [`Self::staging_counts`] says
+    /// which of them each dispatch actually used.
+    pub fn full_fp16_staging_identity(&self) -> Option<String> {
+        self.kernels.full_staging.as_ref().map(|kernel| {
+            format!(
+                "{}/spirv-fnv1a64:0x{:016x}/len:{}",
+                kernel.shader_name().unwrap_or("unknown"),
+                kernel.shader_signature(),
+                self.full_fp16_variant.staged_spirv().map_or(0, |spirv| spirv.len())
+            )
+        })
+    }
+
+    /// Which staging module this executor dispatched, counted per dispatch.
+    ///
+    /// Both counters are zero until a Full FP16 dispatch happens, and they stay
+    /// zero for every other arm: the Mixed, plain-FP16 and FP32 kernels share
+    /// the P3 arithmetic contract but never select a staging module.
+    pub fn staging_counts(&self) -> WmmaStagingCounts {
+        WmmaStagingCounts {
+            batched: self.staging_batched.load(Ordering::Relaxed),
+            masked: self.staging_masked.load(Ordering::Relaxed),
+        }
     }
 
     /// Number of substitutions this policy applied: cooperative-matrix GEMMs
@@ -903,17 +1137,52 @@ impl WmmaGemm {
         if rows == 0 || columns == 0 || reduction == 0 {
             bail!("GEMM dimensions must be positive");
         }
+        // The leading dimensions are derived here, ahead of the kernel choice, so
+        // the staging predicate and the push constants cannot disagree about the
+        // strides the shader will read.
+        let lda = if layout.transposed_a {
+            rows
+        } else {
+            reduction
+        };
+        let ldb = if layout.transposed_b {
+            reduction
+        } else {
+            columns
+        };
+        // The C1 module replaces the staging schedule only, so it is selected per
+        // dispatch from the proven geometry contract; anything it cannot prove
+        // keeps the original masked-staging P3 module.
+        let mut batched_staging = false;
         let kernel = match arm {
             WmmaGemmArm::MixedFp32Accumulate => self
                 .kernels
                 .mixed
                 .as_ref()
                 .context("mixed WMMA kernel is unavailable on this device")?,
-            WmmaGemmArm::FullFp16Accumulate => self
-                .kernels
-                .full
-                .as_ref()
-                .context("full-FP16 WMMA kernel is unavailable on this device")?,
+            WmmaGemmArm::FullFp16Accumulate => {
+                let masked = self
+                    .kernels
+                    .full
+                    .as_ref()
+                    .context("full-FP16 WMMA kernel is unavailable on this device")?;
+                match self.kernels.full_staging.as_ref() {
+                    Some(batched)
+                        if batched_staging_eligible(&StagingGeometry {
+                            rows,
+                            columns,
+                            reduction,
+                            layout,
+                            a_capacity_bytes: a.capacity_bytes(),
+                            b_capacity_bytes: b.capacity_bytes(),
+                        }) =>
+                    {
+                        batched_staging = true;
+                        batched
+                    }
+                    _ => masked,
+                }
+            }
             WmmaGemmArm::PlainF16Storage => &self.kernels.plain,
             WmmaGemmArm::Fp32Baseline => &self.kernels.fp32,
         };
@@ -945,16 +1214,6 @@ impl WmmaGemm {
             self.plain_dispatches.fetch_add(0, Ordering::Relaxed);
             return Ok(());
         }
-        let lda = if layout.transposed_a {
-            rows
-        } else {
-            reduction
-        };
-        let ldb = if layout.transposed_b {
-            reduction
-        } else {
-            columns
-        };
         let push = GemmPush {
             m: rows as u32,
             n: columns as u32,
@@ -978,6 +1237,13 @@ impl WmmaGemm {
         kernel.record_dispatch(batch, &[a, b, c], bytemuck::bytes_of(&push), groups)?;
         if arm.uses_cooperative_matrix() {
             self.cooperative_dispatches.fetch_add(1, Ordering::Relaxed);
+            if arm == WmmaGemmArm::FullFp16Accumulate {
+                if batched_staging {
+                    self.staging_batched.fetch_add(1, Ordering::Relaxed);
+                } else {
+                    self.staging_masked.fetch_add(1, Ordering::Relaxed);
+                }
+            }
         } else {
             self.plain_dispatches.fetch_add(1, Ordering::Relaxed);
         }
@@ -2383,6 +2649,244 @@ mod tests {
             error.contains("not supported by this Vulkan device"),
             "unexpected diagnostic: {error}"
         );
+        Ok(())
+    }
+
+    /// Bytes a bound operand needs for this geometry, as the selector checks it.
+    fn capacities(geometry: StagingGeometry) -> StagingGeometry {
+        let a_len = if geometry.layout.transposed_a {
+            geometry.lda() * geometry.reduction
+        } else {
+            geometry.lda() * geometry.rows
+        };
+        let b_len = if geometry.layout.transposed_b {
+            geometry.ldb() * geometry.columns
+        } else {
+            geometry.ldb() * geometry.reduction
+        };
+        StagingGeometry {
+            a_capacity_bytes: a_len * 2,
+            b_capacity_bytes: b_len * 2,
+            ..geometry
+        }
+    }
+
+    fn geometry(
+        rows: usize,
+        columns: usize,
+        reduction: usize,
+        layout: GemmLayout,
+    ) -> StagingGeometry {
+        capacities(StagingGeometry {
+            rows,
+            columns,
+            reduction,
+            layout,
+            a_capacity_bytes: 0,
+            b_capacity_bytes: 0,
+        })
+    }
+
+    /// Every protected production geometry, in every layout the graph builds,
+    /// is inside the C1 contract.
+    #[test]
+    fn batched_staging_admits_every_protected_geometry() {
+        let layouts = [
+            GemmLayout {
+                transposed_a: false,
+                transposed_b: false,
+            },
+            GemmLayout {
+                transposed_a: false,
+                transposed_b: true,
+            },
+            GemmLayout {
+                transposed_a: true,
+                transposed_b: false,
+            },
+            GemmLayout {
+                transposed_a: true,
+                transposed_b: true,
+            },
+        ];
+        for (rows, columns, reduction) in [
+            (2048usize, 768usize, 2048usize),
+            (512, 2048, 768),
+            (512, 768, 768),
+            (128, 8192, 768),
+        ] {
+            for layout in layouts {
+                let geometry = geometry(rows, columns, reduction, layout);
+                assert!(
+                    batched_staging_eligible(&geometry),
+                    "{rows}x{columns}x{reduction} {layout:?} must be C1-eligible"
+                );
+                // The two stride parity conditions are structural for these
+                // layouts, so state them explicitly.
+                assert_eq!(geometry.lda() % 2, 0);
+                assert_eq!(geometry.ldb() % 2, 0);
+            }
+        }
+    }
+
+    /// Every geometry the contract cannot prove keeps the original P3 module.
+    ///
+    /// The odd-K and partial-tile cases are the ones Phase LXXXVII measured as
+    /// regressions or inconclusive, so they are fallbacks by contract, not by
+    /// benchmark.
+    #[test]
+    fn batched_staging_rejects_every_unproven_geometry() {
+        let row_major = GemmLayout::default();
+        let cases: [(usize, usize, usize, &str); 8] = [
+            (512, 768, 767, "odd reduction: lda = k = 767 is odd"),
+            (511, 768, 768, "rows not a multiple of 32"),
+            (512, 767, 768, "columns not a multiple of 32"),
+            (16, 128, 32, "rows below one 32-row tile row"),
+            (512, 768, 760, "reduction not a multiple of 16"),
+            (0, 768, 768, "empty geometry"),
+            (512, 0, 768, "empty geometry"),
+            (512, 768, 0, "empty geometry"),
+        ];
+        for (rows, columns, reduction, reason) in cases {
+            let geometry = geometry(rows, columns, reduction, row_major);
+            assert!(
+                !batched_staging_eligible(&geometry),
+                "{rows}x{columns}x{reduction} must fall back: {reason}"
+            );
+        }
+
+        // An odd stride that no tile-divisibility rule can produce: a custom
+        // layout where B is `[k, n]` with an odd column count is rejected on the
+        // column rule, and one where the reduction is odd is rejected on both.
+        assert!(!batched_staging_eligible(&geometry(
+            512,
+            768,
+            767,
+            GemmLayout {
+                transposed_a: true,
+                transposed_b: false,
+            }
+        )));
+
+        // A buffer one element short of the geometry's own operand is not the
+        // operand the kernel would read.
+        let exact = geometry(512, 768, 768, row_major);
+        assert!(!batched_staging_eligible(&StagingGeometry {
+            a_capacity_bytes: exact.a_capacity_bytes - 2,
+            ..exact
+        }));
+        assert!(!batched_staging_eligible(&StagingGeometry {
+            b_capacity_bytes: exact.b_capacity_bytes - 2,
+            ..exact
+        }));
+
+        // 32-bit index arithmetic: a geometry whose element index cannot fit in
+        // the shader's `uint` arithmetic is a fallback even though every tile is
+        // full and every stride is even.
+        let huge = StagingGeometry {
+            rows: 2_000_000_000,
+            columns: 32,
+            reduction: 32,
+            layout: row_major,
+            a_capacity_bytes: usize::MAX / 2,
+            b_capacity_bytes: 32 * 32 * 2,
+        };
+        assert!(!batched_staging_eligible(&huge));
+    }
+
+    /// The two modules the production P3 variant can dispatch are exactly the
+    /// qualified P3 contract and the C1 staging module, by byte identity.
+    #[test]
+    fn production_staging_modules_are_the_qualified_bytes() {
+        assert_eq!(
+            sha256_hex(FullFp16Variant::P3.spirv()),
+            "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2"
+        );
+        assert_eq!(FullFp16Variant::P3.spirv().len(), 23_280);
+        let staged = FullFp16Variant::P3
+            .staged_spirv()
+            .expect("the production variant has a batched-staging module");
+        assert_eq!(
+            sha256_hex(staged),
+            "b072242034ba7bd0f53690c38c03b11ed587b538480c04ed13ecf19fe2a8b27d"
+        );
+        assert_eq!(staged.len(), 36_912);
+        assert_eq!(
+            FullFp16Variant::P3.staged_shader_name(),
+            Some("wmma_gemm_f16_f16acc_twowave_p3_c1")
+        );
+        // The production pipeline identity still names the P3 contract module, so
+        // the v0.2.5 release gate's identity is unchanged; the staging identity is
+        // reported separately.
+        assert_eq!(
+            FullFp16Variant::P3.shader_name(),
+            "wmma_gemm_f16_f16acc_twowave_p3"
+        );
+        // No other committed variant may reach the C1 module.
+        for variant in [
+            FullFp16Variant::Split8,
+            FullFp16Variant::TwoBank,
+            FullFp16Variant::TwoWave,
+        ] {
+            assert!(variant.staged_spirv().is_none(), "{variant:?}");
+            assert!(variant.staged_shader_name().is_none(), "{variant:?}");
+        }
+    }
+
+    /// The two production routes must both be reachable from the real selector.
+    #[test]
+    fn production_selector_reaches_both_staging_modules() -> Result<()> {
+        let Ok(device) = VulkanDevice::new_for_wmma(WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let Ok(gemm) = WmmaGemm::new(&device, WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let identity = gemm
+            .full_fp16_staging_identity()
+            .expect("a capable device builds the C1 kernel");
+        assert!(identity.starts_with("wmma_gemm_f16_f16acc_twowave_p3_c1/"), "{identity}");
+        assert!(identity.ends_with("/len:36912"), "{identity}");
+        // Both routes are recorded separately; nothing has run yet.
+        assert_eq!(gemm.staging_counts(), WmmaStagingCounts::default());
+
+        let rows = 64usize;
+        let columns = 64usize;
+        let reduction = 64usize;
+        let a = deterministic_matrix(rows * reduction, 7);
+        let b = deterministic_matrix(columns * reduction, 9);
+        let aligned = gemm.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            GemmLayout::default(),
+        )?;
+        let batched = gemm.staging_counts();
+        assert_eq!(batched.batched, 1, "aligned geometry must take C1");
+        assert_eq!(batched.masked, 0);
+
+        // The same size with an odd reduction cannot use C1; the output must be
+        // finite and the masked counter must move instead.
+        let odd_reduction = 63usize;
+        let a_odd = deterministic_matrix(rows * odd_reduction, 11);
+        let b_odd = deterministic_matrix(columns * odd_reduction, 13);
+        let fallback = gemm.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a_odd,
+            &b_odd,
+            rows,
+            columns,
+            odd_reduction,
+            GemmLayout::default(),
+        )?;
+        assert!(aligned.iter().all(|value| value.is_finite()));
+        assert!(fallback.iter().all(|value| value.is_finite()));
+        let after = gemm.staging_counts();
+        assert_eq!(after.batched, 1, "odd reduction must not take C1");
+        assert_eq!(after.masked, 1);
         Ok(())
     }
 }

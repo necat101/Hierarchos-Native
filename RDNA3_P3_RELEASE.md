@@ -1,5 +1,12 @@
 # RDNA3 Full FP16 WMMA — P3 epilogue release
 
+> **Historical (v0.2.5).** This is the release note for the v0.2.5 P3 epilogue
+> promotion and it is kept unchanged. v0.2.6 promotes the C1 batched staging
+> schedule on top of the same P3 contract; the P3 module described here is
+> still embedded, still dispatched for geometries the C1 contract cannot prove,
+> and still the fallback. See [RDNA3_C1_STAGING_RELEASE.md](RDNA3_C1_STAGING_RELEASE.md)
+> for the current production behaviour.
+
 Status: **production Full FP16 epilogue, opt-in mode, qualified on the measured
 RDNA3 device.** Read §6 for the disclosed direct-kernel limitation and §4 for the
 informational tile16 headroom before merging.

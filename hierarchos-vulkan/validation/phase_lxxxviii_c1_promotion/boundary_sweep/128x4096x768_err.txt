@@ -1,0 +1,138 @@
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.014880 dispatch_ms=0.000000 unattributed_ms=0.014880 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.527960 dispatch_ms=0.000000 unattributed_ms=0.527960 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=3.654720 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.711920 dispatch_ms=3.654720 unattributed_ms=0.057200 unattributed_pct=1.541 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=3.654720 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=3.654720 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=3.560000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.564560 dispatch_ms=3.560000 unattributed_ms=0.004560 unattributed_pct=0.128 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=3.560000 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=3.560000 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=3.568160 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.572720 dispatch_ms=3.568160 unattributed_ms=0.004560 unattributed_pct=0.128 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=3.568160 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=3.568160 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.013320 dispatch_ms=0.000000 unattributed_ms=0.013320 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.411320 dispatch_ms=0.000000 unattributed_ms=0.411320 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=2 gpu_ms=0.253600 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.344160 dispatch_ms=0.253600 unattributed_ms=0.090560 unattributed_pct=26.313 dispatches=2 sampled=2 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=2 gpu_ms=0.253600 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=fp32_to_fp16_native category=other dispatches=2 gpu_ms=0.253600 pct=100.000 samples=2
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=13.704680 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=13.744480 dispatch_ms=13.704680 unattributed_ms=0.039800 unattributed_pct=0.290 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=13.704680 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=13.704680 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=13.663480 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=13.668080 dispatch_ms=13.663480 unattributed_ms=0.004600 unattributed_pct=0.034 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=13.663480 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=13.663480 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=12.841240 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=12.845840 dispatch_ms=12.841240 unattributed_ms=0.004600 unattributed_pct=0.036 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=12.841240 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=12.841240 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.011840 dispatch_ms=0.000000 unattributed_ms=0.011840 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.560320 dispatch_ms=0.000000 unattributed_ms=0.560320 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=2 gpu_ms=0.274560 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.366240 dispatch_ms=0.274560 unattributed_ms=0.091680 unattributed_pct=25.033 dispatches=2 sampled=2 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=2 gpu_ms=0.274560 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=fp32_to_fp16_native category=other dispatches=2 gpu_ms=0.274560 pct=100.000 samples=2
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=0.726160 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.767240 dispatch_ms=0.726160 unattributed_ms=0.041080 unattributed_pct=5.354 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=0.726160 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=0.726160 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=0.739880 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.743880 dispatch_ms=0.739880 unattributed_ms=0.004000 unattributed_pct=0.538 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=0.739880 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=0.739880 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=0.731800 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.735800 dispatch_ms=0.731800 unattributed_ms=0.004000 unattributed_pct=0.544 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=0.731800 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=0.731800 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.011800 dispatch_ms=0.000000 unattributed_ms=0.011800 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.380400 dispatch_ms=0.000000 unattributed_ms=0.380400 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=3.154000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.193440 dispatch_ms=3.154000 unattributed_ms=0.039440 unattributed_pct=1.235 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=3.154000 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=3.154000 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=3.189360 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.193480 dispatch_ms=3.189360 unattributed_ms=0.004120 unattributed_pct=0.129 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=3.189360 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=3.189360 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=3.192080 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.196240 dispatch_ms=3.192080 unattributed_ms=0.004160 unattributed_pct=0.130 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=3.192080 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=3.192080 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=3.194360 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.198520 dispatch_ms=3.194360 unattributed_ms=0.004160 unattributed_pct=0.130 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=3.194360 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=3.194360 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.012440 dispatch_ms=0.000000 unattributed_ms=0.012440 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.409800 dispatch_ms=0.000000 unattributed_ms=0.409800 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=2 gpu_ms=0.324440 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.422640 dispatch_ms=0.324440 unattributed_ms=0.098200 unattributed_pct=23.235 dispatches=2 sampled=2 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=2 gpu_ms=0.324440 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=fp32_to_fp16_native category=other dispatches=2 gpu_ms=0.324440 pct=100.000 samples=2
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=12.073040 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=12.114440 dispatch_ms=12.073040 unattributed_ms=0.041400 unattributed_pct=0.342 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=12.073040 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=12.073040 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=11.069440 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=11.073440 dispatch_ms=11.069440 unattributed_ms=0.004000 unattributed_pct=0.036 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=11.069440 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=11.069440 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=9.975360 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=9.979040 dispatch_ms=9.975360 unattributed_ms=0.003680 unattributed_pct=0.037 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=9.975360 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=9.975360 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=9.026720 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=9.030120 dispatch_ms=9.026720 unattributed_ms=0.003400 unattributed_pct=0.038 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=9.026720 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=9.026720 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.010240 dispatch_ms=0.000000 unattributed_ms=0.010240 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=0 gpu_ms=0.000000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.351120 dispatch_ms=0.000000 unattributed_ms=0.351120 unattributed_pct=100.000 dispatches=0 sampled=0 sample_stride=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=2 gpu_ms=0.252560 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.331480 dispatch_ms=0.252560 unattributed_ms=0.078920 unattributed_pct=23.808 dispatches=2 sampled=2 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=2 gpu_ms=0.252560 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=fp32_to_fp16_native category=other dispatches=2 gpu_ms=0.252560 pct=100.000 samples=2
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=0.610480 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.645200 dispatch_ms=0.610480 unattributed_ms=0.034720 unattributed_pct=5.381 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=0.610480 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=0.610480 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=0.618480 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.621560 dispatch_ms=0.618480 unattributed_ms=0.003080 unattributed_pct=0.496 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=0.618480 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=0.618480 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=0.629000 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.632120 dispatch_ms=0.629000 unattributed_ms=0.003120 unattributed_pct=0.494 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=0.629000 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=0.629000 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=0.621320 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=0.624400 dispatch_ms=0.621320 unattributed_ms=0.003080 unattributed_pct=0.493 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=1 gpu_ms=0.621320 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=0.621320 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=1 gpu_ms=2.810800 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=3.258800 dispatch_ms=2.810800 unattributed_ms=0.448000 unattributed_pct=13.747 dispatches=1 sampled=1 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=projection.linear dispatches=1 gpu_ms=2.810800 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=linear_forward category=projection.linear dispatches=1 gpu_ms=2.810800 pct=100.000 samples=1
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=3 gpu_ms=12.625800 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=13.380480 dispatch_ms=12.625800 unattributed_ms=0.754680 unattributed_pct=5.640 dispatches=3 sampled=3 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=3 gpu_ms=12.625800 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=gemm_f16_f32_plain category=other dispatches=1 gpu_ms=12.197080 pct=96.604 samples=1
+hierarchos_vulkan_kernel_profile_shader shader=fp32_to_fp16_native category=other dispatches=2 gpu_ms=0.428720 pct=3.396 samples=2
+hierarchos_vulkan_kernel_profile device="AMD Radeon Graphics" dispatches=3 gpu_ms=1.447040 timestamp_period_ns=10.000000
+hierarchos_vulkan_kernel_profile_span span_ms=2.250480 dispatch_ms=1.447040 unattributed_ms=0.803440 unattributed_pct=35.701 dispatches=3 sampled=3 sample_stride=1
+hierarchos_vulkan_kernel_profile_category category=other dispatches=3 gpu_ms=1.447040 pct=100.000
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1 category=other dispatches=1 gpu_ms=1.009160 pct=69.740 samples=1
+hierarchos_vulkan_kernel_profile_shader shader=fp32_to_fp16_native category=other dispatches=2 gpu_ms=0.437880 pct=30.260 samples=2

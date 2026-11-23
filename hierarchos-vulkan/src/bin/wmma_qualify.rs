@@ -417,6 +417,7 @@ fn run() -> Result<()> {
     let all: Vec<&Gate> = gates.iter().chain(&layout_gates).chain([&control_gate]).collect();
     let failed = all.iter().filter(|gate| !gate.passed()).count();
     let counts = gemm.dispatch_counts();
+    let staging = gemm.staging_counts();
     // Fixtures that fail any gate are reported as unqualified rather than
     // summarised away: a mode can be qualified on some geometries and not others.
     let mut unqualified: Vec<&str> = all
@@ -445,7 +446,7 @@ fn run() -> Result<()> {
             })
             .collect();
         println!(
-            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"full_oracle\": {:?},\n  \"capabilities\": {{\"mixed_supported\": {}, \"full_fp16_supported\": {}, \"subgroup_size\": {}, \"driver_default_subgroup_size\": {}}},\n  \"dispatch_counts\": {{\"cooperative\": {}, \"plain_f16\": {}, \"shape_fallbacks\": {}}},\n  \"gates\": {}, \"failed\": {},\n  \"results\": [\n{}\n  ]\n}}",
+            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"full_oracle\": {:?},\n  \"capabilities\": {{\"mixed_supported\": {}, \"full_fp16_supported\": {}, \"subgroup_size\": {}, \"driver_default_subgroup_size\": {}}},\n  \"dispatch_counts\": {{\"cooperative\": {}, \"plain_f16\": {}, \"shape_fallbacks\": {}}},\n  \"staging_counts\": {{\"batched\": {}, \"masked\": {}}},\n  \"gates\": {}, \"failed\": {},\n  \"results\": [\n{}\n  ]\n}}",
             device.name(),
             mode.label(),
             match full_accumulation {
@@ -461,6 +462,8 @@ fn run() -> Result<()> {
             counts.cooperative,
             counts.plain_f16,
             counts.shape_fallbacks,
+            staging.batched,
+            staging.masked,
             all.len(),
             failed,
             rows.join(",\n")
@@ -471,6 +474,10 @@ fn run() -> Result<()> {
         println!("mode: {} ({})", mode.label(), mode.description());
         print!("{}", capabilities.diagnostics());
         println!("dispatch counts: {counts:?}");
+        println!("staging counts: {staging:?}");
+        if let Some(identity) = gemm.full_fp16_staging_identity() {
+            println!("staging module: {identity}");
+        }
         println!("matched-oracle and FP32 drift:");
         for gate in &all {
             println!("{}", gate.render());

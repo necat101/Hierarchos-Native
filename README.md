@@ -402,11 +402,15 @@ and **72-request generation** matrices.
 
 ## RDNA3 WMMA (opt-in)
 
-`v0.2.5` ships the **opt-in cooperative-matrix (WMMA) path for RDNA3**, with the
-P3 Full FP16 epilogue as the production default inside that mode. WMMA remains
-off by default, and the default FP32 path keeps its bit-identical logits and its
-previous-`main` performance (worst paired ratio `1.0007` across seven workloads,
-all FP32 logits byte-identical).
+`v0.2.6` ships the **opt-in cooperative-matrix (WMMA) path for RDNA3**, with the
+P3 Full FP16 contract and the new **C1 batched staging schedule** as the
+production route inside that mode. C1 changes only the staging schedule — four
+32-bit operand loads are issued before the shared-memory stores that consume
+them — and is selected per dispatch only when the host can prove every packed
+load aligned and in bounds; every other geometry keeps the v0.2.5 P3 module as
+its fallback. WMMA remains off by default, and the default FP32 path keeps its
+bit-identical logits and its previous-`main` performance (worst paired ratio
+`1.0007` across seven workloads, all FP32 logits byte-identical).
 
 ```powershell
 # Default: FP32, no cooperative-matrix feature queried.
@@ -423,26 +427,34 @@ all FP32 logits byte-identical).
 | --- | --- | --- | --- | --- |
 | FP32 | `off` (default) | FP32 → FP32 | FP32 | Qualified, unchanged |
 | Mixed WMMA | `mixed` | FP16 → **FP32** | FP32 | Opt-in, numerically gated |
-| Full FP16 | `full-fp16` | FP16 → **FP16** (reductions ≤ 64) | FP32 | Opt-in; P3 production default, CLI-qualified Llama-64 profile |
+| Full FP16 | `full-fp16` | FP16 → **FP16** (reductions ≤ 64) | FP32 | Opt-in; P3 contract with C1 staging, CLI-qualified Llama-64 profile |
 
 - **Hardware boundary.** Qualified on AMD RDNA3 PCI **`1002:15bf`** only, on
   Windows x64, with a cooperative `16x16x16` f16/f16→f32 tile. Other RDNA3
   parts, RDNA1/2, Intel Gen9 and multi-GPU device groups are **not** qualified;
   an unsupported explicit request fails with the probed reason instead of
   silently running FP32.
-- **Per-dispatch P3 performance.** P3 beat the preserved Main baseline on all
-  four protected production shapes: `1.0243×` (2048×768×2048), `1.1246×`
-  (512×2048×768), `1.1163×` (512×768×768) and `1.2722×` (128×8192×768), with
-  every corrected 95% CI lower bound above 1.0. These are **per-dispatch GPU GEMM
-  timings**, not end-to-end training-step or application speedups. The historical
-  25% tile16 headroom target remains informational and was not achieved.
+- **Per-dispatch C1 performance.** Against the v0.2.5 P3 binary, the integrated
+  production selector is faster on all four protected shapes: `1.7074×`
+  (2048×768×2048), `1.3286×` (512×2048×768), `2.0920×` (512×768×768) and
+  `1.3782×` (128×8192×768), with every corrected 95% CI lower bound above 1.31.
+  These are **per-dispatch GPU GEMM timings**, not end-to-end training-step or
+  application speedups. The historical 25% tile16 headroom target remains
+  informational and was not achieved.
 - **Opt-in remains the default policy.** Mixed is a separate, unchanged arm;
   neither Mixed nor Full FP16 is enabled by default. A measured 512-row Mixed
   training step was slower than FP32 (ratio `0.8708`), so no training-step
   speedup is claimed.
-- **Baked P3 identity.** The qualified 23,280-byte module with runtime FNV-1a64
-  `0x076216ad97d7605f` is compiled into the CLI, transformer trainer and logits
-  executables. The production selector resolves P3 with no variant override.
+- **Baked module identities.** Both modules are compiled into the CLI,
+  transformer trainer and logits executables: P3 (23,280 B, FNV-1a64
+  `0x076216ad97d7605f`) and C1 (36,912 B, FNV-1a64 `0xfecb2a74c4bbbce4`). The
+  production selector picks between them from the dispatch geometry alone — no
+  variant override, environment variable or flag can force either one — and
+  reports which ran through per-dispatch staging counters.
+- **Numerical identity with v0.2.5.** Eight seeds, 40 receipts, `37/37` gates on
+  every seed, and **120/120 production outputs bit-identical** to the v0.2.5 P3
+  baseline. No reference, tolerance, seed, oracle or threshold changed; the
+  `split2` and `rdna3-dot2` diagnostic failures stay recorded as diagnostics.
 - **Fallbacks are not dispatches.** Projections below
   `WMMA_MIN_PROFITABLE_MACS = 16,000,000`, and Full FP16 reductions above 64,
   keep their FP32 kernels and increment fallback counters. The released

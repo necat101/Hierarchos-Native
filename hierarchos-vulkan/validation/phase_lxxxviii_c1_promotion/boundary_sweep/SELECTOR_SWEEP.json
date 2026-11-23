@@ -1,0 +1,247 @@
+{
+ "exe": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target-v026\\release\\wmma_bench.exe",
+ "exe_sha256": "564ee931ccbb12c3e00acd5c5c8060bc93b592639922a3fd84a31c54139271e4",
+ "iterations": 4,
+ "skip_reference": false,
+ "rows": [
+  {
+   "shape": "128x4096x768",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 1.1881,
+   "drift_vs_fp32_max_abs": 0.0003356114,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "128x16384x768",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 2.67285,
+   "drift_vs_fp32_max_abs": 0.0003563613,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "256x8192x768",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 2.613,
+   "drift_vs_fp32_max_abs": 0.0003310964,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "512x1024x768",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 0.9642,
+   "drift_vs_fp32_max_abs": 0.000299342,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "1024x768x768",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 1.50945,
+   "drift_vs_fp32_max_abs": 0.0003044233,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "512x768x1536",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 2.12325,
+   "drift_vs_fp32_max_abs": 0.0005869046,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "2048x768x1024",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 1.97745,
+   "drift_vs_fp32_max_abs": 0.0004377663,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "480x768x768",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 1.4536,
+   "drift_vs_fp32_max_abs": 0.0002992339,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "512x736x768",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 1.07735,
+   "drift_vs_fp32_max_abs": 0.000279054,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "512x768x752",
+   "expected": "c1",
+   "selected": "c1",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+   "solo_dispatches": 7,
+   "median_ms": 1.51635,
+   "drift_vs_fp32_max_abs": 0.0003163032,
+   "staging_counters": {
+    "batched": 8,
+    "masked": 0
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "511x768x768",
+   "expected": "p3",
+   "selected": "p3",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+   "solo_dispatches": 7,
+   "median_ms": 2.18165,
+   "drift_vs_fp32_max_abs": 0.0003103837,
+   "staging_counters": {
+    "batched": 0,
+    "masked": 8
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "255x768x768",
+   "expected": "p3",
+   "selected": "p3",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+   "solo_dispatches": 7,
+   "median_ms": 1.65225,
+   "drift_vs_fp32_max_abs": 0.000328064,
+   "staging_counters": {
+    "batched": 0,
+    "masked": 8
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "512x767x768",
+   "expected": "p3",
+   "selected": "p3",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+   "solo_dispatches": 7,
+   "median_ms": 1.53195,
+   "drift_vs_fp32_max_abs": 0.0003059842,
+   "staging_counters": {
+    "batched": 0,
+    "masked": 8
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "512x2047x768",
+   "expected": "p3",
+   "selected": "p3",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+   "solo_dispatches": 7,
+   "median_ms": 2.04665,
+   "drift_vs_fp32_max_abs": 0.0003573373,
+   "staging_counters": {
+    "batched": 0,
+    "masked": 8
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "512x768x767",
+   "expected": "p3",
+   "selected": "p3",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+   "solo_dispatches": 7,
+   "median_ms": 1.9714,
+   "drift_vs_fp32_max_abs": 0.0003258288,
+   "staging_counters": {
+    "batched": 0,
+    "masked": 8
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "2048x768x2047",
+   "expected": "p3",
+   "selected": "p3",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+   "solo_dispatches": 7,
+   "median_ms": 8.5851,
+   "drift_vs_fp32_max_abs": 0.000890106,
+   "staging_counters": {
+    "batched": 0,
+    "masked": 8
+   },
+   "verdict": "OK"
+  },
+  {
+   "shape": "16x128x32",
+   "expected": "p3",
+   "selected": "p3",
+   "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+   "solo_dispatches": 7,
+   "median_ms": 0.52475,
+   "drift_vs_fp32_max_abs": 2.595223e-05,
+   "staging_counters": {
+    "batched": 0,
+    "masked": 8
+   },
+   "verdict": "OK"
+  }
+ ],
+ "mismatches": 0
+}

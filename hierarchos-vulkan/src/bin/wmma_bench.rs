@@ -196,11 +196,20 @@ fn run() -> Result<()> {
         println!("mode: {} ({})", mode.label(), mode.description());
         if mode == WmmaMode::FullFp16 {
             println!(
-                "full-fp16 variant: {} (shader {}, pipeline {})",
+                "full-fp16 variant: {} (contract shader {}, pipeline {})",
                 gemm.full_fp16_variant().label(),
                 gemm.full_fp16_variant().shader_name(),
                 gemm.full_fp16_pipeline_identity()
                     .unwrap_or_else(|| "unavailable".to_owned())
+            );
+            // The production selector dispatches one of two staging modules per
+            // GEMM. Print both identities so a reader can tell which module the
+            // numbers below were measured from, and the counters say how many
+            // dispatches each one got.
+            println!(
+                "full-fp16 staging module: {}",
+                gemm.full_fp16_staging_identity()
+                    .unwrap_or_else(|| "none (contract module only)".to_owned())
             );
         }
         print!("{}", capabilities.diagnostics());
@@ -378,8 +387,9 @@ fn run() -> Result<()> {
 
     if json {
         let counts = gemm.dispatch_counts();
+        let staging = gemm.staging_counts();
         println!(
-            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"full_fp16_variant\": {:?},\n  \"full_fp16_pipeline\": {:?},\n  \"rounds\": {},\n  \"iterations_per_round\": {},\n  \"cooperative_dispatches\": {},\n  \"plain_dispatches\": {},\n  \"shape_fallbacks\": {},\n  \"shapes\": [\n{}\n  ]\n}}",
+            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"full_fp16_variant\": {:?},\n  \"full_fp16_pipeline\": {:?},\n  \"full_fp16_staging_pipeline\": {:?},\n  \"rounds\": {},\n  \"iterations_per_round\": {},\n  \"cooperative_dispatches\": {},\n  \"plain_dispatches\": {},\n  \"shape_fallbacks\": {},\n  \"staging_counters\": {{\"batched\": {}, \"masked\": {}}},\n  \"shapes\": [\n{}\n  ]\n}}",
             device.name(),
             mode.label(),
             if mode == WmmaMode::FullFp16 {
@@ -388,18 +398,26 @@ fn run() -> Result<()> {
                 "n/a"
             },
             gemm.full_fp16_pipeline_identity().unwrap_or_default(),
+            gemm.full_fp16_staging_identity().unwrap_or_default(),
             rounds,
             iterations,
             counts.cooperative,
             counts.plain_f16,
             counts.shape_fallbacks,
+            staging.batched,
+            staging.masked,
             json_blocks.join(",\n")
         );
     } else {
         let counts = gemm.dispatch_counts();
+        let staging = gemm.staging_counts();
         println!(
             "\ndispatch accounting: cooperative={} plain_f16={} shape_fallbacks={}",
             counts.cooperative, counts.plain_f16, counts.shape_fallbacks
+        );
+        println!(
+            "staging accounting: batched={} masked={}",
+            staging.batched, staging.masked
         );
     }
     Ok(())

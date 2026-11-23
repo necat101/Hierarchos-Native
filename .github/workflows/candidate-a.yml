@@ -18,15 +18,20 @@ name: candidate a
 #                        path inventory describes its own change and nothing
 #                        else.
 #
+#   `p3-release-historical`
+#                        The Phase LXXXI **record**, held to the v0.2.5 release
+#                        commit. v0.2.6 legitimately puts the C1 staging module in
+#                        front of P3, so the P3 gate (which asserts P3 is the
+#                        dispatch route) is run, unmodified, where its own
+#                        assumptions hold rather than relaxed for the new tree.
+#
 #   `current-candidate`  The **current release** in the tree under review, read
-#                        by `check_p3_release.py`. That gate is deliberately not
-#                        a path allowlist: it pins the Phase LXXXI P3 source and
-#                        SPIR-V bytes, the embedded-module and selector wiring,
-#                        the opt-in `off` default, the 16,000,000-MAC predicate at
-#                        every production admission point, the safe routing of
-#                        unprofitable shapes, the unchanged Phase LXII Mixed route
-#                        and the still-selectable split8/two-bank/two-wave
-#                        fallbacks.
+#                        by `check_c1_release.py`, which runs the unmodified P3
+#                        gate as a precondition and then pins what v0.2.6 adds:
+#                        the C1 bytes, the variant containment, the geometry
+#                        predicate, the P3 fallback, the per-dispatch staging
+#                        counters, and the absence of any environment variable,
+#                        flag or variant name that could force the staging route.
 #
 # None of the three jobs claims a GPU measurement. The performance record is the
 # recorded RDNA3 evidence for the exact binaries it names, the numerical record
@@ -48,6 +53,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # The v0.2.5 release merge commit. The P3 gate is pinned to it, because that
+  # gate describes v0.2.5's production route and not the current tree's.
+  V025_REVISION: d0f48c9637ac8d0fdfc1418c2b90de81196f9d4d
   # The revision at which the Phase LXII artifacts and evidence were qualified.
   PHASE_LXII_REVISION: 7c49558b8155a351b30893a6d8f318d4e063d1bd
   # The revision at which the Phase LXIV eight-bank implementation and its
@@ -139,13 +147,42 @@ jobs:
           python -m unittest discover -s hierarchos-vulkan/validation
           -p "test_current_candidate.py" -v
 
-  # The release under review, read by its own gate. `check_p3_release.py` pins
-  # bytes and structure rather than a path inventory: the P3 source and SPIR-V,
-  # the embedding and selector wiring, the opt-in `off` default, the
-  # 16,000,000-MAC predicate at every production admission point, the safe
-  # routing of unprofitable shapes, the unchanged Mixed route and the still
-  # selectable fallbacks. A shader or source change cannot slip through it by
-  # being added to a new path.
+  # Phase LXXXI is history too. `check_p3_release.py` pins P3 as the v0.2.5
+  # production route, which v0.2.6 legitimately changes by adding the C1 staging
+  # module in front of it. The gate is therefore **not loosened**: it is run,
+  # unmodified, against the revision it was written for.
+  p3-release-historical:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Materialise the v0.2.5 release revision
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/v025" "$V025_REVISION"
+          git -C "$RUNNER_TEMP/v025" rev-parse HEAD
+
+      - name: Phase LXXXI P3 release validation at its own revision
+        working-directory: ${{ runner.temp }}/v025
+        run: python hierarchos-vulkan/validation/check_p3_release.py
+
+      - name: Phase LXXXI P3 release negative controls
+        working-directory: ${{ runner.temp }}/v025
+        run: >-
+          python -m unittest discover -s hierarchos-vulkan/validation
+          -p "test_p3_release.py" -v
+
+  # The release under review, read by its own gate. `check_c1_release.py` runs
+  # the unmodified v0.2.5 gate in full as a precondition and then pins the C1
+  # staging module, the variant containment, the geometry predicate, the P3
+  # fallback, the per-dispatch counters and the absence of any forced route.
   current-candidate:
     runs-on: ubuntu-latest
     steps:
@@ -159,10 +196,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Phase LXXXI P3 release validation
+      # The v0.2.5 gate is executed inside this one; a run that skips it would
+      # have to edit the gate, which the checks below would fail.
+      - name: Phase LXXXVIII C1 release validation
+        run: python hierarchos-vulkan/validation/check_c1_release.py
+
+      - name: Phase LXXXI P3 release validation (inherited, unmodified)
         run: python hierarchos-vulkan/validation/check_p3_release.py
 
-      # 23 controls: altered P3 source bytes, altered P3 SPIR-V bytes, the P3
+      # 20 controls: altered C1 source bytes, altered C1 SPIR-V bytes, the C1
+      # module not embedded, the production variant losing the staging module, a
+      # non-P3 variant gaining it, a reassigned staging name, each dropped
+      # predicate condition (tile coverage, packed-pair parity, operand
+      # capacities, the 32-bit index ceiling), a selector with no P3 fallback, a
+      # removed staging counter, an unbound operand capacity, a forced-route
+      # environment variable, the staging implementation exposed as a variant
+      # name, a tree the v0.2.5 gate rejects, altered P3 bytes, an extra barrier
+      # and a changed fast-path bound.
+      - name: Phase LXXXVIII C1 release negative controls
+        run: >-
+          python -m unittest discover -s hierarchos-vulkan/validation
+          -p "test_c1_release.py" -v
+
+      # 23 inherited P3 controls: altered P3 source or SPIR-V bytes, the P3
       # module no longer embedded, the P3 variant dispatching another module, a
       # reassigned shader name, a fifth qualification-only variant, a selector
       # that accepts a qualification-only name, P3 no longer the default, a
@@ -173,7 +229,7 @@ jobs:
       # recorded-batch gate, a declined projection that stops recording its
       # fallback, an altered Mixed artifact, a removed two-wave fallback, altered
       # two-bank bytes and a removed fallback selection variable.
-      - name: Phase LXXXI P3 release negative controls
+      - name: Phase LXXXI P3 release negative controls (inherited)
         run: >-
           python -m unittest discover -s hierarchos-vulkan/validation
           -p "test_p3_release.py" -v
