@@ -1,4 +1,4 @@
-# Hierarchos Native — Windows x64 Portable v0.2.5
+# Hierarchos Native — Windows x64 Portable v0.2.6
 
 This is the runtime package for the Hierarchos native Transformer backend. It is
 extract-and-run on a supported Windows x64 computer: no installer, no Rust or
@@ -35,7 +35,7 @@ licenses/
 README.md
 README_ARCHITECTURES.md                 # native architecture inventory
 RELEASE_NOTES.md
-CLEAN_MACHINE_TEST.md                   # v0.2.5 local acceptance report
+CLEAN_MACHINE_TEST.md                   # v0.2.6 local acceptance report
 BUILD_INFO.txt                          # source, lockfile, flags, binary hashes
 DEPENDENCIES.txt                        # PE import closure for all seven EXEs
 ```
@@ -63,20 +63,32 @@ or installer is required for ordinary execution. Python, PyTorch, CUDA, a
 Transformers checkout, the Vulkan SDK, and a shader compiler are not runtime
 dependencies.
 
-## WMMA is opt-in, and P3 is the default Full FP16 variant
+## WMMA is opt-in, and Full FP16 runs the P3 contract on C1 staging
 
-This is the precision policy of the v0.2.5 binaries, stated precisely:
+This is the precision policy of the v0.2.6 binaries, stated precisely:
 
 - **Global WMMA is off by default.** The process default is `WmmaMode::Off`; the
   FP32 Vulkan path is unchanged. No cooperative-matrix dispatch happens unless a
   mode is requested.
 - **`--wmma-mode full-fp16` explicitly enables the Full FP16 path** (equivalently
   `HIERARCHOS_WMMA_MODE=full-fp16`).
-- **P3 is the default Full FP16 variant inside that mode.** The production
-  selector resolves `FullFp16Variant::P3` with no environment variable and no
-  qualification flag; the P3 SPIR-V module is embedded in the binary at compile
-  time. `split8`, `two-bank` and `two-wave` remain selectable through
+- **`full-fp16` resolves `FullFp16Variant::P3` with no environment variable and
+  no qualification flag**, exactly as in v0.2.5. P3 names the numerical contract
+  — bank assignment, the float32 sum of the eight bank partials and the single
+  binary16 rounding — and that contract is what both staging modules implement.
+  `split8`, `two-bank` and `two-wave` remain selectable through
   `HIERARCHOS_WMMA_FULL_FP16_VARIANT` as rollback and comparison paths.
+- **Two staging modules are embedded, and the binary chooses between them per
+  dispatch.** Both are compiled into the executable: the v0.2.5 P3 module
+  (23,280 B) and the C1 batched-staging module (36,912 B). C1 is used only when
+  the host can prove, from the dispatch geometry and the bound operand
+  capacities, that every packed 32-bit load is aligned and in bounds — full
+  32-row/16-K tile coverage, even packed-pair strides, complete buffer coverage
+  and indices well inside the 32-bit ceiling. Every other geometry — partial
+  tiles, K not a multiple of 16, odd strides, short buffers — dispatches the
+  original P3 module. There is **no** flag, environment variable or variant name
+  that selects one staging schedule directly; the fallback is automatic and the
+  counters in a receipt report which route ran.
 - **Mixed mode remains separate and unchanged.** `--wmma-mode mixed` dispatches
   the FP32-accumulating cooperative module and does not consult the Full FP16
   variant.
@@ -102,9 +114,9 @@ This is the precision policy of the v0.2.5 binaries, stated precisely:
 
 ### Measured hardware scope
 
-The P3 qualification applies to **one measured adapter**: AMD RDNA3 with PCI
-vendor `0x1002`, device `0x15bf` (Phoenix-class integrated RDNA3), Vulkan 1.4.344,
-driver 2.0.388. It is **not** a claim for every RDNA3 adapter, for RDNA3.5, for
+The v0.2.6 qualification applies to **one measured adapter**: AMD RDNA3 with PCI
+vendor `0x1002`, device `0x15bf` (Phoenix-class integrated RDNA3), Vulkan SDK
+1.4.321, driver `32.0.32015.14001`. It is **not** a claim for every RDNA3 adapter, for RDNA3.5, for
 RDNA4, or for any non-AMD device. On other hardware the run is gated by the
 capability contract and the results are unmeasured.
 
@@ -187,31 +199,35 @@ system components is `vulkan-1.dll`. The GPU software stack supplies it.
 
 ## Verification status
 
-The v0.2.5 package is built from the final PR #9 source commit. The qualified
-kernel source is `b165c2994e9ef5929c9e36fca76192db8dd3df35`; the exact packaging
-commit is the checked-out HEAD recorded in `BUILD_INFO.txt` and
-`BUILD_MANIFEST.json`, together with the archive and executable hashes.
+The v0.2.6 package is built from the qualified source commit of
+`codex/wmma-v026-optimization`; the exact packaging commit is the checked-out
+HEAD recorded in `BUILD_INFO.txt` and `BUILD_MANIFEST.json`, together with the
+archive and executable hashes.
 
 The archive was extracted into a path containing spaces, relocated to a deeper
 path containing spaces, and exercised from the relocated layout. PE closure,
 static-runtime linkage, CLI help, diagnostics, inference, one-step Vulkan
 training, checkpoint reload, checksum verification and relocation passed.
 
-The packaged P3 dispatch check also passed. A disposable Llama geometry with
-hidden/K = 64 and 4096-wide projections reaches 16,777,216 MACs per admitted
-projection, above the unchanged 16M floor while keeping the Full FP16 reduction
-within its 64-element cap. The extracted trainer reported
-`requested=full-fp16 cooperative_dispatches=8`, the profile named
-`wmma_gemm_f16_f16acc_twowave_p3`, and the packaged logits executable matched the
-FP32 logits within `max_abs 0.000738` / `rms 0.000122`. No variant override or
-threshold change was used. That synthetic geometry is outside the CLI's
-frontend-qualified 64-wide training profile; the test uses the packaged
-standalone trainer's production path.
+Both staging routes were verified from the package. The same disposable Llama
+geometry with hidden/K = 64 and 4096-wide projections gives 16,777,216 MACs per
+admitted projection, above the unchanged 16M floor and inside the 64-element
+reduction cap; at `rows=64` it satisfies the C1 contract and the extracted
+trainer reported `cooperative_dispatches=8` with the profile naming
+`wmma_gemm_f16_f16acc_twowave_p3_c1`. The same fixture at `rows=80` fails the
+tile-coverage condition while staying above the floor (20,971,520 MACs), and the
+trainer fell back to `wmma_gemm_f16_f16acc_twowave_p3` for its 4 cooperative
+dispatches. No variant override or threshold change was used. With WMMA off,
+both geometries recorded zero cooperative dispatches. The packaged logits
+executable matched FP32 within `max_abs 0.00079345` / `rms 0.00012127` on the C1
+route and `0.00079345` / `0.00012087` on the P3 route. Those synthetic geometries
+are outside the CLI's frontend-qualified 64-wide training profile; the test uses
+the packaged standalone trainer's production path.
 
 Numerical and performance qualification was re-run for this release on the
 measured RDNA3 adapter. The full record — seeds, configurations, 37 gates per
 receipt, raw paired timings, corrected 95 % confidence intervals, source and
-SPIR-V hashes — is the `phase_lxxxiv_evidence/` directory in the repository.
+SPIR-V hashes — is `validation/phase_lxxxviii_c1_promotion/` in the repository.
 Exact commands, log excerpts and blocked items are in `CLEAN_MACHINE_TEST.md`.
 
 No independent clean Windows installation, second physical CPU/GPU, physical
@@ -230,7 +246,7 @@ produced by:
 
 ```powershell
 .\hierarchos-vulkan\package-standalone.ps1 `
-  -OutDir C:\path\to\hierarchos-v025-stage `
+  -OutDir C:\path\to\hierarchos-v026-stage `
   -StaticCrt
 ```
 
