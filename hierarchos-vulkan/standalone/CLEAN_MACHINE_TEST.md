@@ -1,37 +1,31 @@
-# Hierarchos Native — Windows x64 Portable v0.2.5 Acceptance Report
+# Hierarchos Native — Windows x64 Portable v0.2.6 Acceptance Report
 
-Date: 2026-11-22
+Status: **LOCAL ACCEPTANCE PASS, with explicitly blocked items. Packaged C1
+dispatch and packaged P3 fallback both verified from the extracted, relocated
+archive.**
 
-Status: **LOCAL ACCEPTANCE PASS, with explicitly blocked items. Packaged P3
-dispatch: PASS on the measured adapter.**
-
-This is a same-host extracted-artifact acceptance report for the v0.2.5 binaries.
-An independent Windows installation, a second physical CPU/GPU and physical
-network isolation were not available. The result below is limited to the measured
-Windows 11 / AMD RDNA3 host.
-
-This report describes the **newly built v0.2.5 binaries**. It does not re-use, and
-must not be confused with, the older RC2 acceptance report, which described a
-different source commit and did not ship the production P3 epilogue.
+This is a same-host extracted-artifact acceptance report for the v0.2.6 binaries.
+It does not re-use, and does not replace, the v0.2.5 report: v0.2.6 changes the
+Full FP16 staging schedule, so the dispatch evidence was collected again from the
+new package.
 
 ## Artifact and provenance
 
-- Artifact: `Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip`
+- Artifact: `Hierarchos-Native-Windows-x64-Portable-v0.2.6.zip`
 - Packaging source commit: the exact checked-out HEAD at packaging, recorded in
   the archive's `BUILD_INFO.txt` and in `BUILD_MANIFEST.json` beside the archive.
-  It is the final commit of the release branch, not the earlier `f47989b` build.
-- Qualified kernel source commit: `b165c2994e9ef5929c9e36fca76192db8dd3df35`
-- Relation between the two: every commit after the qualified source adds only
-  documentation, acceptance/evidence records and checksum sidecars. No file under
-  `hierarchos-vulkan/src`, `hierarchos-vulkan/shaders`, `hierarchos-inference`,
-  `hierarchos-native-cli` or `hierarchos-gui` differs from the qualified commit.
+- Qualified source commit: `b2f5bee` (`codex/wmma-v026-optimization`), which is
+  the commit the numerical and performance qualification in
+  `validation/phase_lxxxviii_c1_promotion/` was run against. Every later commit
+  adds only documentation, acceptance evidence and checksum sidecars.
 - Target: `x86_64-pc-windows-msvc` (default target; **not** `target-cpu=native`)
 - Profile: release (`opt-level=3`, thin LTO, `codegen-units=1`)
 - CRT linkage: static MSVC C runtime (`-C target-feature=+crt-static`)
 - Toolchain: `rustc 1.93.0 (254b59607 2026-01-19)` / LLVM 21.1.8,
   `cargo 1.93.0 (083ac5135 2025-12-15)`
 - Standalone `Cargo.lock` SHA-256:
-  `f4360adfc4a2127c0be817c71c08659c181f7ff04813b5f8bc882a23ca7132d7`
+  `f4360adfc4a2127c0be817c71c08659c181f7ff04813b5f8bc882a23ca7132d7` (unchanged
+  from v0.2.5 — no dependency was added or upgraded for this release)
 - Packager: `hierarchos-vulkan/package-standalone.ps1 -StaticCrt` with the
   dependency scan **enabled** (no `-SkipDependencyScan`)
 - The archive SHA-256 is recorded in `BUILD_MANIFEST.json` and `SHA256SUMS` beside
@@ -39,121 +33,71 @@ different source commit and did not ship the production P3 epilogue.
 
 ## Package inventory
 
-Extracted into a directory whose path contains spaces, then relocated to a deeper
-path that also contains spaces. The final smoke tests were repeated from the
-relocated package.
-
-Present — exactly the allowlist:
-
 ```text
-bin/hierarchos-infer.exe
+bin/hierarchos-native.exe                     (GUI)
 bin/hierarchos-native-cli.exe
-bin/hierarchos-native.exe
-bin/hierarchos-vulkan-devices.exe
+bin/hierarchos-infer.exe
 bin/hierarchos-vulkan-train.exe
-bin/hierarchos-vulkan-transformer-logits.exe
+bin/hierarchos-vulkan-devices.exe
 bin/hierarchos-vulkan-transformer-train.exe
-BUILD_INFO.txt
-CLEAN_MACHINE_TEST.md
-DEPENDENCIES.txt
-LICENSE
-licenses/Microsoft-STL.txt
-README.md
-README_ARCHITECTURES.md
-RELEASE_NOTES.md
-THIRD_PARTY_NOTICES.md
+bin/hierarchos-vulkan-transformer-logits.exe
+LICENSE   THIRD_PARTY_NOTICES.md   licenses/
+README.md   README_ARCHITECTURES.md   RELEASE_NOTES.md
+CLEAN_MACHINE_TEST.md   BUILD_INFO.txt   DEPENDENCIES.txt
 ```
 
-Absent, as required: `crates/`, `Cargo.toml`, `Cargo.lock`, `target/`, any `.rs`,
-`.comp`, `.glsl`, `.pdb`, `.lib`, `.rlib`, `.d`, fixtures, model weights, caches,
-test harnesses and developer logs. The assembly step enforces this: it raises
-rather than producing an archive that contains any path outside the runtime
-allowlist.
+Exactly seven executables. No source tree, Cargo files, shader sources, PDBs,
+fixtures, validation tree, test harness or model weights.
 
 ## PE closure
 
-All seven executables:
+All seven executables are x64 PE32+, statically linked against the MSVC C
+runtime, with no `VCRUNTIME*`, `MSVCP*`, `MSVCR*`, `concrt*` or `ucrtbase` import.
+The packager's portable dependency scan passed with the scan enabled and wrote
+the full per-executable import closure to `DEPENDENCIES.txt`. `vulkan-1.dll`
+remains an external runtime requirement supplied by the graphics environment; it
+is not bundled and is not a substitute for the driver.
 
-| Check | Result |
-| --- | --- |
-| x64 PE architecture | **7/7** (`machine = 0x8664`, `PE32+`) |
-| `VCRUNTIME*.dll`, `MSVCP*.dll`, `MSVCR*.dll`, `concrt*.dll`, `ucrtbase.dll` imports | **none** |
-| Unexpected non-system DLL imports | **none** — import tables list only Windows system DLLs |
-| Export verifier verdict | **`RESULT: PASS`** (7 executables, `DEPENDENCIES.txt`) |
+## Embedding: both staging modules are inside the WMMA-enabled executables
 
-**Correction to the expected dependency report.** `vulkan-1.dll` does **not**
-appear in `DEPENDENCIES.txt`, because it is not a static import of any executable:
-the Vulkan loader is resolved at runtime and each Vulkan-enabled binary contains
-the `vulkan-1.dll` load string exactly once. The verifier's external-DLL allowlist
-still permits `vulkan-1.dll` if it were imported. The loader and the GPU driver
-remain **external runtime requirements and are not bundled**.
+The v0.2.6 Full FP16 route embeds two SPIR-V modules in the CLI, the transformer
+trainer and the logits executable:
 
-## Per-executable hashes
+| Module | Bytes | SPIR-V SHA-256 | Runtime FNV-1a64 |
+| --- | ---: | --- | --- |
+| `wmma_gemm_f16_f16acc_twowave_p3` (contract, fallback) | 23,280 | `2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2` | `0x076216ad97d7605f` |
+| `wmma_gemm_f16_f16acc_twowave_p3_c1` (batched staging) | 36,912 | `b072242034ba7bd0f53690c38c03b11ed587b538480c04ed13ecf19fe2a8b27d` | `0xfecb2a74c4bbbce4` |
 
-The archive's `BUILD_MANIFEST.json` records the byte count and SHA-256 of all seven
-executables, and `BUILD_INFO.txt` repeats the hashes. This report does not
-duplicate them, so it cannot drift from the shipped artifact.
+The P3 bytes are the v0.2.5 bytes, unchanged.
 
 ## Startup and diagnostics
 
-Run from the extracted and relocated directory (all exit statuses captured
-directly, not through a pipe):
-
-| Command | Exit | Observed |
+| Command | Exit | Result |
 | --- | ---: | --- |
-| `bin\hierarchos-native-cli.exe --help` | 0 | full command surface printed |
-| `… doctor` | 0 | `Vulkan compute devices: 1`, `[0] AMD Radeon Graphics (INTEGRATED_GPU, queue family 0)`, both companions resolved with absolute paths inside `bin\`, `Transformer registry: 146 canonical + 83 aliases` |
-| `… devices` | 0 | one JSON device record, `"name":"AMD Radeon Graphics"`, `"device_type":"INTEGRATED_GPU"` |
-| `… architectures` | 0 | `146 canonical + 83 package aliases` |
-| `… precision-info` | 0 | `full_fp16_supported: true`, `full_fp16_qualified: true`, `full_fp16_max_reduction: 64`, `device_key "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"` |
+| `bin\hierarchos-native-cli.exe --help` | 0 | usage rendered |
+| `bin\hierarchos-native-cli.exe doctor` | 0 | `Vulkan compute devices: 1`; all companions discovered beside `bin\` |
+| `bin\hierarchos-vulkan-devices.exe` | 0 | `AMD Radeon Graphics`, `INTEGRATED_GPU`, index 0 |
+| `bin\hierarchos-native-cli.exe precision-info --device-index 0` | 0 | `full_fp16_supported=true`, `mixed_supported=true`, `full_fp16_max_reduction=64` |
+| `bin\hierarchos-native-cli.exe architectures` | 0 | registry rendered |
 
-Companion executables resolve from `bin/` — confirmed by `doctor` printing the
-two companion paths inside the extracted `bin\` directory, and by the seven-file
-`bin\` listing.
+`precision-info` reports `full_fp16_qualified=false` on this host. That field is
+`precision_policy::full_fp16_hardware_qualified`, whose driver-key allowlist still
+names the v0.2.5 driver key (`…;driver=00800184`) while this host now reports
+`…;driver=008001a0`. It is the CLI's frontend profile qualification and it is
+unchanged from v0.2.5 — no threshold, predicate or allowlist was edited for
+v0.2.6. The production library route exercised below is governed by the
+capability contract, the 16M-MAC floor and the reduction cap, which are
+unchanged.
 
-## Functional smoke tests
+## Packaged C1 dispatch: PASS
 
-Model fixture: `hf-internal-testing/tiny-random-gpt2` from the per-user cache
-(`%LOCALAPPDATA%\Hierarchos\hf-cache`). It is an untrained random-weight model, so
-gibberish output is the expected result; the test is that the path runs.
-
-| Test | Result |
-| --- | --- |
-| Real inference, local model | **PASS** — `infer --prompt "Hello" --max-new-tokens 8 --no-do-sample` exit 0, emitted `" 200 200 200 reg reg regodod"` |
-| Native Vulkan training | **PASS** — `transformer-train … --epochs 1 --batch-size 1 --seq-len 16 --lr 5e-5` on the one-row `{"text":"Hello world"}` dataset: `steps=1 mean_loss=6.808818`, `backend=Vulkan device=AMD Radeon Graphics`, exit 0 |
-| Checkpoint reload | **PASS** — `infer` against the produced directory exit 0; the output contains `config.json`, `model.safetensors`, tokenizer assets and `training_report.json` |
-| Relocation | **PASS** — directory moved to a deeper path containing spaces; `--help`, `doctor` and `precision-info` all still exit 0 and still report the adapter |
-| Archive checksum | **PASS** — `SHA256SUMS` verification matched the ZIP and `BUILD_MANIFEST.json` |
-| Global WMMA default | **PASS** — the training run's `WMMA evidence` block reports `"requested":"off"` with `cooperative_dispatches: 0`, confirming opt-in behaviour |
-
-## Precision policy, as observed from the package
-
-- Global WMMA is **off by default**: the training run with no mode flag reported
-  `requested:"off"` and zero cooperative dispatches.
-- `--wmma-mode full-fp16` is accepted by the CLI and announces the request, then
-  **refuses** (exit 1) for a model outside the frontend-qualified 64-wide,
-  one-layer Llama profile. This is a deliberate frontend gate, not a silent
-  fallback. The standalone trainer and logits executables do not carry that
-  frontend profile check, but they enforce the capability contract, the unchanged
-  16M MAC floor and the Full FP16 reduction cap.
-- The exact qualified P3 module is embedded in the packaged binaries: the
-  complete 23,280-byte SPIR-V blob (SHA-256 `2aff4123…`, runtime FNV-1a64
-  `0x076216ad97d7605f`) appears **verbatim, exactly once**, in
-  `hierarchos-native-cli.exe`, `hierarchos-vulkan-transformer-train.exe` and
-  `hierarchos-vulkan-transformer-logits.exe`. The remaining four binaries
-  (`hierarchos-infer.exe`, `hierarchos-native.exe`,
-  `hierarchos-vulkan-devices.exe` and `hierarchos-vulkan-train.exe`) contain zero
-  copies.
-
-## Packaged P3 production dispatch: PASS
-
-An above-threshold cooperative P3 dispatch was exercised **from the extracted,
-relocated package**, using the packaged executables and the unchanged production
-selector.
+An above-threshold, C1-eligible cooperative dispatch was exercised **from the
+extracted, relocated package**, using the packaged executables and the unchanged
+production selector.
 
 ### Workload
 
-A disposable deterministic Llama package was generated with
+A disposable deterministic Llama package generated with
 `hierarchos-vulkan/validation/make_wmma_fixture.py`:
 
 ```text
@@ -162,158 +106,142 @@ num_hidden_layers=1, heads=8, kv_heads=8, head_dim=8, tie_word_embeddings=false
 batch=1, seq_len=64, rows=64
 ```
 
-It keeps the Full FP16 reduction at the qualified 64-element limit and reaches
-the profitability floor through the projection width:
-
-| Projection | Shape (rows × columns × reduction) | MACs | Route |
-| --- | --- | ---: | --- |
-| q/k/v/o | 64 × 64 × 64 | 262,144 | below floor — FP32 fallback |
-| gate/up | 64 × 4096 × 64 | 16,777,216 | admitted — Full FP16 |
-| down | 64 × 64 × 4096 | 16,777,216 | reduction 4096 > 64 — FP32 fallback |
-| lm_head | 64 × 4096 × 64 | 16,777,216 | admitted — Full FP16 |
-
-No floor, threshold, routing predicate or variant was changed. Only the
-documented opt-in mode variable was set; `HIERARCHOS_WMMA_FULL_FP16_VARIANT` was
-left unset, so the production default selected P3.
-
-### Commands and observed evidence
+`cols=4096`, `reduction=64`: full 32-row tile coverage, a multiple-of-16
+reduction and even strides, so the C1 contract holds. Admitted projections reach
+`64 × 4096 × 64 = 16,777,216` MACs, above the unchanged 16M floor and inside the
+64-element Full FP16 reduction cap.
 
 ```powershell
 $env:HIERARCHOS_WMMA_MODE = "full-fp16"
+$env:HIERARCHOS_VULKAN_PROFILE_KERNELS = "1"   # diagnostics only; selects nothing
 .\bin\hierarchos-vulkan-transformer-train.exe `
-  --model  C:\scratch\dispatch_fixture\model `
-  --dataset C:\scratch\dispatch_fixture\dataset.jsonl `
-  --output C:\scratch\dispatch_fixture\train_p3 `
-  --batch-size 1 --seq-len 64 --epochs 1 --max-steps 1 `
-  --device-index 0 --seed 42
+  --model "C:\scratch\v026 acceptance\fixture_c1\model" `
+  --dataset "C:\scratch\v026 acceptance\fixture_c1\dataset.jsonl" `
+  --output "C:\scratch\v026 acceptance\train_c1" `
+  --batch-size 1 --seq-len 64 --epochs 1 --max-steps 1 --device-index 0 --seed 42
 ```
 
-Exit 0. Observed on the measured adapter:
+Exit 0. Observed:
 
 ```text
 WMMA: full-fp16 selected for dense Transformer projections (... pci=1002:15bf ...)
 WMMA evidence: requested=full-fp16 cooperative_dispatches=8 shape_fallbacks=4
   (forward=3 weight_grad=4 input_grad=1)
-WMMA mode: training=full-finetune lora_rank=None weight_grad_expected=true
-  weight_grad_consistent=true
+hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3_c1
+  category=other dispatches=8 gpu_ms=0.862720 ...
+```
+
+`HIERARCHOS_WMMA_FULL_FP16_VARIANT` was unset. No variant override, no floor
+change, no test flag: the production selector chose the staging module.
+
+## Packaged P3 fallback dispatch: PASS
+
+The same fixture regenerated with `seq_len=80` gives `rows=80`, so `80 % 32 = 16`
+and the C1 tile-coverage condition fails. The geometry stays above the floor
+(`80 × 4096 × 64 = 20,971,520` MACs) and inside the reduction cap, so it is
+admitted to Full FP16 and must fall back to the original module:
+
+```text
+WMMA evidence: requested=full-fp16 cooperative_dispatches=4 shape_fallbacks=8
+  (forward=3 weight_grad=0 input_grad=1)
 hierarchos_vulkan_kernel_profile_shader shader=wmma_gemm_f16_f16acc_twowave_p3
-  dispatches=8 ...
+  category=other dispatches=4 gpu_ms=0.707040 ...
 ```
 
-The log identifies the adapter (`AMD Radeon Graphics`, PCI `1002:15bf`), the
-requested precision (`full-fp16`), the selected route (P3 shader), the
-cooperative dispatch count (8), the fallback count (4) and the phase split. The
-workload dimensions and MAC counts above come from the exact config and fixture
-that the run consumed; they are recorded here rather than printed by the trainer.
+The mask-kernel difference between the two runs is the same selector acting on
+rows: at 80 rows the weight-gradient projection is not tile-covered either, so it
+falls back to FP32 as well. Nothing about the fallback counters changed.
 
-The packaged forward path was checked independently with
-`hierarchos-vulkan-transformer-logits.exe` on the same model and fixture:
+## Packaged route table
 
-| Run | Cooperative dispatches | P3 shader |
-| --- | ---: | --- |
-| `HIERARCHOS_WMMA_MODE=off` | 0 | absent |
-| `HIERARCHOS_WMMA_MODE=full-fp16` | 3 | `wmma_gemm_f16_f16acc_twowave_p3` |
+| Run | Mode | Cooperative dispatches | Staging module observed |
+| --- | --- | ---: | --- |
+| logits, `rows=64`, `HIERARCHOS_WMMA_MODE=off` | off | 0 | absent |
+| logits, `rows=64`, `full-fp16` | full-fp16 | 3 | `…_p3_c1` |
+| logits, `rows=80`, `off` | off | 0 | absent |
+| logits, `rows=80`, `full-fp16` | full-fp16 | 3 | `…_p3` |
+| trainer, `rows=64`, `full-fp16` | full-fp16 | 8 | `…_p3_c1` |
+| trainer, `rows=80`, `full-fp16` | full-fp16 | 4 | `…_p3` |
 
-### Numerical comparison
+Zero cooperative dispatches with WMMA off, on both geometries.
 
-The Full FP16 logits were compared with the FP32 logits over all 262,144
-elements:
+## Numerical comparison from the package
 
-| Metric | Value |
-| --- | ---: |
-| finite | yes |
-| max absolute difference | `0.000738` |
-| RMS difference | `0.000122` |
+`hierarchos-vulkan-transformer-logits.exe` was run with `off` and with
+`full-fp16` on the same model and fixture, and the logits were compared element
+by element:
 
-That is well inside the project's `0.05` max-abs / `0.01` RMS Full FP16 component
-comparison limits. This is a functional comparison on the synthetic geometry, not
+| Geometry | Route | Elements | max abs | RMS | Finite |
+| --- | --- | ---: | ---: | ---: | --- |
+| `rows=64` | Full FP16 / C1 vs FP32 | 262,144 | `0.00079345` | `0.00012127` | yes |
+| `rows=80` | Full FP16 / P3 fallback vs FP32 | 327,680 | `0.00079345` | `0.00012087` | yes |
+
+Both are inside the project's `0.05` max-abs / `0.01` RMS Full FP16 component
+comparison limits. This is a functional comparison on a synthetic geometry, not
 the release oracle gate; the release numerical gate is the 37/37 per-seed result
-on the qualified profile reported in `phase_lxxxiv_evidence/`.
+and the 120/120 bit-identity comparison in
+`validation/phase_lxxxviii_c1_promotion/`.
 
-### Scope limitation, stated explicitly
+## Functional smoke tests
 
-The synthetic geometry is **outside the CLI's frontend-qualified 64-wide training
-profile**. The test therefore uses the packaged standalone trainer and logits
-executables, which are production entry points that apply the library's capability
-and profitability gates but not the CLI's additional profile whitelist. This
-proves the distributed executable dispatches the qualified P3 module through the
-normal production selector; it does not broaden the CLI's qualified profile, and
-it is not a new numerical qualification of arbitrary Full FP16 geometries.
+| Test | Result |
+| --- | --- |
+| full-finetune WMMA training, one step, `rows=64` | exit 0, 8 cooperative dispatches, `training_report.json` written |
+| full-finetune WMMA training, one step, `rows=80` | exit 0, 4 cooperative dispatches |
+| LoRA training, one step | exit 0, adapter + AdamW state written |
+| exact checkpoint reload (`--resume-training-state`) | exit 0, `exact resume: adapter weights, AdamW moments, optimizer step and dropout seed restored` |
+| FP32 logits inference + comparison | exit 0 (table above) |
+| relocation to a deeper path with spaces | exit 0, same dispatch evidence |
+| archive checksum verification | PASS |
 
-## Unified-release checker: known CodeView-only mismatch
+`hierarchos-vulkan-train.exe` (the native V4.1 trainer) starts and prints usage,
+but its functional smoke is **BLOCKED**: it requires a native V4.1 model package
+(`--model` with that architecture's config) and no such package or weights are
+available in this environment. `hierarchos-infer.exe` is **BLOCKED** for the same
+reason — it loads a native runtime package rather than the Llama fixture used
+here, and it exits with an I/O error on that fixture. Both executables are
+unchanged by this release; neither is on the Full FP16 path.
 
-During closeout, with a local release build present, the unchanged
-`check_unified_release.py` was run in this checkout:
+## Precision policy, as observed from the package
 
-```powershell
-python hierarchos-vulkan/validation/check_unified_release.py
-```
-
-It exited 1 with:
-
-```text
-ValueError: current executable changed: wmma_qualify
-```
-
-The local release build is
-`0e48f99d14b3a108e4d2b6f8dfc583ac35f3dfb676055ddedaff1ed0e94c5d5f`; the archived
-Phase LXXXIV harness is
-`138c2866af5eb499bf2e5c9e67505ea47dea9af2cfb7248ed6125b37e3773726`; the Phase 42
-receipt records `209c96bda5d47e1137ec6ebe5ca876ee9449b81c872df6886844ceff06dabada`.
-All three are 955,392 bytes. The local build differs from the archived harness in
-**20 bytes** at offsets 248, 830,436, 830,464, 830,492 and 830,832–830,847, which
-lie in the PE debug directory and CodeView `RSDS` record. The accuracy matrix was
-previously executed with two of these builds: all 40 receipts and all eight
-operand dumps were byte-identical.
-
-After that disposable local build was removed, the final tree — the condition
-hosted CI runs in — prints:
-
-```text
-UNIFIED RELEASE: PASS_SCOPED_RELEASE (2ef9b8d9642c, 2004 sources verified at
-their declared revision, 26 file(s) differ in this checkout)
-```
-
-The checker was not edited and no assertion was weakened. The local release
-executable was then removed as a disposable build artifact, so the final tree
-runs in the CI-equivalent condition. The local failure is binary link-metadata
-nondeterminism, not a source or functional-output difference.
+- Global WMMA is off by default: the `off` runs recorded zero cooperative
+  dispatches and no staging module in the profile.
+- `full-fp16` is opt-in and was the only mode variable set.
+- No environment variable, flag or variant name selected a staging module.
+  `HIERARCHOS_WMMA_FULL_FP16_VARIANT` was unset in every run; C1 and P3 were
+  chosen by the geometry alone.
+- `HIERARCHOS_VULKAN_PROFILE_KERNELS=1` was set for the dispatch-evidence runs.
+  It enables GPU timestamp profiling output; it does not influence selection, and
+  the same module was observed with it disabled (exit-0 runs without it produced
+  identical `cooperative_dispatches` counts).
 
 ## Blocked or unverified
 
-- **Independent clean-machine certification.** No independent Windows
-  installation, second physical CPU/GPU, or physical network-isolation test was
-  available. CPU compatibility is analytic only: default
-  `x86_64-pc-windows-msvc` target, no `target-cpu=native`, existing runtime
-  feature dispatch retained.
-- **Different-drive relocation.** Relocation was tested within the same volume,
-  into deeper paths containing spaces.
-- **GUI window interaction.** The GUI executable is present and was not driven:
-  no mouse/UI Automation harness is available in this environment. Reported as
-  **BLOCKED**, not as a pass.
-- **Code signing and automated GUI “Check backend” activation.** Not performed.
-- **No end-to-end training-step or application speedup is claimed anywhere.**
-  The qualification numbers are per-dispatch GPU GEMM kernel timings.
+- Independent clean Windows installation. **BLOCKED.**
+- A second physical CPU/GPU, or any non-AMD adapter. **BLOCKED.**
+- Physical network isolation and different-drive relocation. **BLOCKED.**
+- GUI interaction and automated GUI “Check backend” activation. **BLOCKED.**
+- Code signing. The binaries are **unsigned**.
+- `hierarchos-vulkan-train` and `hierarchos-infer` functional paths, as described
+  above. **BLOCKED.**
+- RGP, ISA, VGPR or occupancy counters. None were obtained; none are claimed.
 
 ## Numerical and performance qualification for these binaries
 
-The full record is `phase_lxxxiv_evidence/` in the repository
-(`PHASE_LXXXIV_REPORT.md`, 310-entry `SHA256SUMS_phase_lxxxiv.txt`, 40 accuracy
-receipts, raw paired timing samples). Summary on the measured `1002:15bf`
-adapter: 37/37 numerical gates at all eight seeds on the production route, 32/32
-preserved K=96 inputs and outputs bit-identical to the Phase LXXIX P3 tensors,
-and all four protected shapes above 1.0 on both the point estimate and the
-corrected 95 % confidence lower bound.
+The release gates were run against the source commit this package was built from,
+not against a different build:
 
-| Shape | Speedup | Corrected 95 % CI |
-| --- | ---: | --- |
-| 2048×768×2048 | 1.0243× | [1.0159, 1.0326] |
-| 512×2048×768 | 1.1246× | [1.1167, 1.1325] |
-| 512×768×768 | 1.1163× | [1.0879, 1.1446] |
-| 128×8192×768 | 1.2722× | [1.2584, 1.2860] |
+- Eight seeds, 40 receipts, `37/37` gates on the production tile16 route at every
+  seed, maximum tile16 distance `0.03125` — the unchanged hard gate value.
+- `cases=120 bit_identical=120 differing=0` against the v0.2.5 P3 baseline.
+- 24 paired blocks per protected shape: `1.7074×`, `2.0920×`, `1.3286×` and
+  `1.3782×` over v0.2.5, every corrected 95 % CI lower bound above `1.31`.
+- 17/17 selector sweep: ten aligned neighbours to C1, seven unaligned to P3.
+
+Those are per-dispatch GPU GEMM timings, not end-to-end training-step speedups.
+No end-to-end training speedup is claimed.
 
 ## Release status
 
-The package is prepared and locally validated. It is **not published**: PR #9 is
-open and the GitHub release/tag waits for that PR to merge. No public release is
-claimed by this report.
+Published as `v0.2.6`. Published contents are immutable; any further change is a
+new version.

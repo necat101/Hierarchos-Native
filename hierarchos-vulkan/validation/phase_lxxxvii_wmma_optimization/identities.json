@@ -1,0 +1,123 @@
+{
+ "source_derivation": {
+  "p3_source": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.comp",
+  "lean_source_recovered_from": "hierarchos-vulkan/validation/phase_lxxxvi_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_lean.comp",
+  "generator": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/make_candidates.py",
+  "build_recipe": "glslc -fshader-stage=compute --target-env=vulkan1.2 <src> -o <out>"
+ },
+ "production": {
+  "p3": {
+   "source": {
+    "path": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.comp",
+    "bytes": 17941,
+    "sha256": "4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12",
+    "spirv_fnv1a64": "0x006d8a2978fa34dc"
+   },
+   "spirv": {
+    "path": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.spv",
+    "bytes": 23280,
+    "sha256": "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2",
+    "spirv_fnv1a64": "0x076216ad97d7605f"
+   }
+  }
+ },
+ "candidates": {
+  "wmma_gemm_f16_f16acc_twowave_p3_lean": {
+   "source": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_lean.comp",
+    "bytes": 19186,
+    "sha256": "a75db2d3de7de7ae6d1c49412dde1f67d48580960b0e4e7750b88e2e3f8b335b",
+    "spirv_fnv1a64": "0x0f47c910d4220833"
+   },
+   "spirv": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_lean.spv",
+    "bytes": 23172,
+    "sha256": "fdafb2d6b45b5ff1679db60019decda3aae8b7bd447239dcaafabe56ea4e7b99",
+    "spirv_fnv1a64": "0xcf2949a95f7eee92"
+   }
+  },
+  "wmma_gemm_f16_f16acc_twowave_p3_batch": {
+   "source": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_batch.comp",
+    "bytes": 26229,
+    "sha256": "9857a8ad457f3b119e0465dde7c4bb36635053e9ee25522bce0a208452953da4",
+    "spirv_fnv1a64": "0x8c5cbdb5d030a956"
+   },
+   "spirv": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_batch.spv",
+    "bytes": 36912,
+    "sha256": "b072242034ba7bd0f53690c38c03b11ed587b538480c04ed13ecf19fe2a8b27d",
+    "spirv_fnv1a64": "0xfecb2a74c4bbbce4"
+   }
+  },
+  "wmma_gemm_f16_f16acc_twowave_p3_leanpad": {
+   "source": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_leanpad.comp",
+    "bytes": 18924,
+    "sha256": "f3007dc13929d08446ff003e99f461c289eafcc335308e9b2e118f7746264696",
+    "spirv_fnv1a64": "0x10db4c6993053e41"
+   },
+   "spirv": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_leanpad.spv",
+    "bytes": 23188,
+    "sha256": "0ce19e042f08656c2b8ef23927cf7c2c2eb2c23414df59b02559be334c369a9c",
+    "spirv_fnv1a64": "0xbe3b324461241bfa"
+   }
+  },
+  "wmma_gemm_f16_f16acc_twowave_p3_pad": {
+   "source": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_pad.comp",
+    "bytes": 18012,
+    "sha256": "14059af1b782c7c8175c562f782e66a6aaa462f5ebeb1fa9f784d3111510f841",
+    "spirv_fnv1a64": "0x06d56e8a86d41bad"
+   },
+   "spirv": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_pad.spv",
+    "bytes": 23296,
+    "sha256": "023220e7d5506c600f815f0173b716540b87cb14def57d770266f417b9999949",
+    "spirv_fnv1a64": "0xf8e7f2896a24af7e"
+   }
+  },
+  "wmma_gemm_f16_f16acc_twowave_p3_ablnoepi": {
+   "source": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_ablnoepi.comp",
+    "bytes": 18892,
+    "sha256": "a1a528effffc0f0da70a78aced6b27ad378f7f083634ef38b70ae57d39f3e11f",
+    "spirv_fnv1a64": "0xc2df2cde9ea2790e"
+   },
+   "spirv": {
+    "path": "hierarchos-vulkan/validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_ablnoepi.spv",
+    "bytes": 20692,
+    "sha256": "93168bd693319df4401cdb6bf4292eda4ec56cfea689270226057ba1b782c7f9",
+    "spirv_fnv1a64": "0xf4fd5b2aadfec2a9"
+   }
+  }
+ },
+ "harnesses": {
+  "bench_lxxxvii": {
+   "path": "hierarchos-vulkan/target-lxxxvii/release/wmma_bench.exe",
+   "bytes": 1017344,
+   "sha256": "08d932194dee572e0876a03d024eec14bd3bf1768e221e94c8301f8aab8f8fce"
+  },
+  "qualify_lxxxvii": {
+   "path": "hierarchos-vulkan/target-lxxxvii/release/wmma_qualify.exe",
+   "bytes": 1082880,
+   "sha256": "8eca59525badfb27da24d38d62887028c4f9ec83c314cc272c0feb43908d0a0e"
+  },
+  "bench_v025_archived": {
+   "path": "hierarchos-vulkan/validation/phase_lxxxvi_wmma_optimization/bin/wmma_bench_v025.exe",
+   "bytes": 877568,
+   "sha256": "8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b"
+  },
+  "qualify_v025_archived": {
+   "path": "hierarchos-vulkan/validation/phase_lxxxvi_wmma_optimization/bin/wmma_qualify_v025.exe",
+   "bytes": 954880,
+   "sha256": "9761361bdb5f5e31ef8f2f7f0b67f115aea05ba99f129b6a0be0950c0f734169"
+  }
+ },
+ "toolchain": {
+  "glslc": "shaderc v2023.8 v2025.3",
+  "rustc": "rustc 1.93.0 (254b59607 2026-01-19)",
+  "cargo": "cargo 1.93.0 (083ac5135 2025-12-15)"
+ }
+}

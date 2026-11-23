@@ -1,0 +1,100 @@
+seed 1593426484 full-fp16 tile16      rc=0 gates=37 failed=0
+seed 1593426484 full-fp16 split8      rc=0 gates=37 failed=0
+seed 1593426484 full-fp16 rdna3-dot2  rc=1 gates=37 failed=8
+seed 1593426484 full-fp16 split2      rc=1 gates=37 failed=3
+seed 1593426484 mixed     tile16      rc=0 gates=37 failed=0
+seed 1593426484 production dump rc=0
+seed         42 full-fp16 tile16      rc=0 gates=37 failed=0
+seed         42 full-fp16 split8      rc=0 gates=37 failed=0
+seed         42 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed         42 full-fp16 split2      rc=0 gates=37 failed=0
+seed         42 mixed     tile16      rc=0 gates=37 failed=0
+seed         42 production dump rc=0
+seed       1337 full-fp16 tile16      rc=0 gates=37 failed=0
+seed       1337 full-fp16 split8      rc=0 gates=37 failed=0
+seed       1337 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed       1337 full-fp16 split2      rc=1 gates=37 failed=1
+seed       1337 mixed     tile16      rc=0 gates=37 failed=0
+seed       1337 production dump rc=0
+seed     271828 full-fp16 tile16      rc=0 gates=37 failed=0
+seed     271828 full-fp16 split8      rc=0 gates=37 failed=0
+seed     271828 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed     271828 full-fp16 split2      rc=1 gates=37 failed=1
+seed     271828 mixed     tile16      rc=0 gates=37 failed=0
+seed     271828 production dump rc=0
+seed     314159 full-fp16 tile16      rc=0 gates=37 failed=0
+seed     314159 full-fp16 split8      rc=0 gates=37 failed=0
+seed     314159 full-fp16 rdna3-dot2  rc=1 gates=37 failed=4
+seed     314159 full-fp16 split2      rc=1 gates=37 failed=1
+seed     314159 mixed     tile16      rc=0 gates=37 failed=0
+seed     314159 production dump rc=0
+seed        777 full-fp16 tile16      rc=0 gates=37 failed=0
+seed        777 full-fp16 split8      rc=0 gates=37 failed=0
+seed        777 full-fp16 rdna3-dot2  rc=1 gates=37 failed=5
+seed        777 full-fp16 split2      rc=1 gates=37 failed=1
+seed        777 mixed     tile16      rc=0 gates=37 failed=0
+seed        777 production dump rc=0
+seed    8675309 full-fp16 tile16      rc=0 gates=37 failed=0
+seed    8675309 full-fp16 split8      rc=0 gates=37 failed=0
+seed    8675309 full-fp16 rdna3-dot2  rc=1 gates=37 failed=5
+seed    8675309 full-fp16 split2      rc=1 gates=37 failed=2
+seed    8675309 mixed     tile16      rc=0 gates=37 failed=0
+seed    8675309 production dump rc=0
+seed   20261119 full-fp16 tile16      rc=0 gates=37 failed=0
+seed   20261119 full-fp16 split8      rc=0 gates=37 failed=0
+seed   20261119 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed   20261119 full-fp16 split2      rc=1 gates=37 failed=3
+seed   20261119 mixed     tile16      rc=0 gates=37 failed=0
+seed   20261119 production dump rc=0
+receipts=40 receipts_with_failing_gates=15
+configs_with_failing_gates=['full-fp16/rdna3-dot2', 'full-fp16/split2']
+seed 1593426484 full-fp16 tile16      rc=0 gates=37 failed=0
+seed 1593426484 full-fp16 split8      rc=0 gates=37 failed=0
+seed 1593426484 full-fp16 rdna3-dot2  rc=1 gates=37 failed=8
+seed 1593426484 full-fp16 split2      rc=1 gates=37 failed=3
+seed 1593426484 mixed     tile16      rc=0 gates=37 failed=0
+seed 1593426484 production dump rc=0
+seed         42 full-fp16 tile16      rc=0 gates=37 failed=0
+seed         42 full-fp16 split8      rc=0 gates=37 failed=0
+seed         42 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed         42 full-fp16 split2      rc=0 gates=37 failed=0
+seed         42 mixed     tile16      rc=0 gates=37 failed=0
+seed         42 production dump rc=0
+seed       1337 full-fp16 tile16      rc=0 gates=37 failed=0
+seed       1337 full-fp16 split8      rc=0 gates=37 failed=0
+seed       1337 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed       1337 full-fp16 split2      rc=1 gates=37 failed=1
+seed       1337 mixed     tile16      rc=0 gates=37 failed=0
+seed       1337 production dump rc=0
+seed     271828 full-fp16 tile16      rc=0 gates=37 failed=0
+seed     271828 full-fp16 split8      rc=0 gates=37 failed=0
+seed     271828 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed     271828 full-fp16 split2      rc=1 gates=37 failed=1
+seed     271828 mixed     tile16      rc=0 gates=37 failed=0
+seed     271828 production dump rc=0
+seed     314159 full-fp16 tile16      rc=0 gates=37 failed=0
+seed     314159 full-fp16 split8      rc=0 gates=37 failed=0
+seed     314159 full-fp16 rdna3-dot2  rc=1 gates=37 failed=4
+seed     314159 full-fp16 split2      rc=1 gates=37 failed=1
+seed     314159 mixed     tile16      rc=0 gates=37 failed=0
+seed     314159 production dump rc=0
+seed        777 full-fp16 tile16      rc=0 gates=37 failed=0
+seed        777 full-fp16 split8      rc=0 gates=37 failed=0
+seed        777 full-fp16 rdna3-dot2  rc=1 gates=37 failed=5
+seed        777 full-fp16 split2      rc=1 gates=37 failed=1
+seed        777 mixed     tile16      rc=0 gates=37 failed=0
+seed        777 production dump rc=0
+seed    8675309 full-fp16 tile16      rc=0 gates=37 failed=0
+seed    8675309 full-fp16 split8      rc=0 gates=37 failed=0
+seed    8675309 full-fp16 rdna3-dot2  rc=1 gates=37 failed=5
+seed    8675309 full-fp16 split2      rc=1 gates=37 failed=2
+seed    8675309 mixed     tile16      rc=0 gates=37 failed=0
+seed    8675309 production dump rc=0
+seed   20261119 full-fp16 tile16      rc=0 gates=37 failed=0
+seed   20261119 full-fp16 split8      rc=0 gates=37 failed=0
+seed   20261119 full-fp16 rdna3-dot2  rc=1 gates=37 failed=6
+seed   20261119 full-fp16 split2      rc=1 gates=37 failed=3
+seed   20261119 mixed     tile16      rc=0 gates=37 failed=0
+seed   20261119 production dump rc=0
+receipts=40 receipts_with_failing_gates=15
+configs_with_failing_gates=['full-fp16/rdna3-dot2', 'full-fp16/split2']

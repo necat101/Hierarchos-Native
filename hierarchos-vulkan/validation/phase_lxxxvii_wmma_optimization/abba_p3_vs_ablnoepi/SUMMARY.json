@@ -1,0 +1,70 @@
+{
+ "base_variant": "p3",
+ "cand_variant": "p3-ablnoepi",
+ "shapes": "<built-in six>",
+ "skip_reference": false,
+ "ratio_convention": "reference_ms / candidate_ms; > 1.0 means candidate faster",
+ "interval_rule": "two-sided 95 % Student-t over per-pair ratios (abba_stats.py)",
+ "results": {
+  "128x8192x768": {
+   "pairs": 8,
+   "median_reference_ms": 1.41902,
+   "median_candidate_ms": 1.47229,
+   "mean_ratio": 0.9600652860088547,
+   "ci95_low": 0.9431881618821288,
+   "ci95_high": 0.9769424101355805,
+   "geomean_ratio": 0.9598781094096172,
+   "verdict": "SLOWER (CI excludes 1.0)"
+  },
+  "16x128x32": {
+   "pairs": 8,
+   "median_reference_ms": 0.03209,
+   "median_candidate_ms": 0.01927,
+   "mean_ratio": 1.6699063042443736,
+   "ci95_low": 1.660022248054556,
+   "ci95_high": 1.6797903604341913,
+   "geomean_ratio": 1.6698698076078513,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "2048x768x2048": {
+   "pairs": 8,
+   "median_reference_ms": 5.03548,
+   "median_candidate_ms": 4.877129999999999,
+   "mean_ratio": 1.0326293028899023,
+   "ci95_low": 1.0262260911060512,
+   "ci95_high": 1.0390325146737533,
+   "geomean_ratio": 1.0326045438176745,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "512x2048x768": {
+   "pairs": 8,
+   "median_reference_ms": 1.24078,
+   "median_candidate_ms": 1.10743,
+   "mean_ratio": 1.1227781527642078,
+   "ci95_low": 1.1127146376854107,
+   "ci95_high": 1.1328416678430049,
+   "geomean_ratio": 1.122721771280746,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "512x768x768": {
+   "pairs": 8,
+   "median_reference_ms": 0.5567099999999999,
+   "median_candidate_ms": 0.38551,
+   "mean_ratio": 1.459983663295053,
+   "ci95_low": 1.3818725235636486,
+   "ci95_high": 1.5380948030264572,
+   "geomean_ratio": 1.4573698766928458,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "64x64x64": {
+   "pairs": 8,
+   "median_reference_ms": 0.03862000000000001,
+   "median_candidate_ms": 0.02573,
+   "mean_ratio": 1.4989118381934465,
+   "ci95_low": 1.4925450549915034,
+   "ci95_high": 1.5052786213953897,
+   "geomean_ratio": 1.4988948753056404,
+   "verdict": "FASTER (lower > 1.0)"
+  }
+ }
+}

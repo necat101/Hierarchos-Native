@@ -1,0 +1,76 @@
+{
+ "shapes": [
+  "512x768x768",
+  "512x2048x768",
+  "2048x768x2048",
+  "128x8192x768",
+  "64x64x64",
+  "16x128x32"
+ ],
+ "base_exe_sha256": "8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b",
+ "cand_exe_sha256": "564ee931ccbb12c3e00acd5c5c8060bc93b592639922a3fd84a31c54139271e4",
+ "ratio_convention": "baseline_ms / candidate_ms; > 1.0 means candidate faster",
+ "interval_rule": "two-sided 95 % Student-t over per-pair ratios (abba_stats.py)",
+ "results": {
+  "128x8192x768": {
+   "pairs": 24,
+   "median_reference_ms": 1.3955199999999999,
+   "median_candidate_ms": 1.0066700000000002,
+   "mean_ratio": 1.3781508066421075,
+   "ci95_low": 1.3580302692153117,
+   "ci95_high": 1.3982713440689034,
+   "geomean_ratio": 1.377338670315132,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "16x128x32": {
+   "pairs": 24,
+   "median_reference_ms": 0.032209999999999996,
+   "median_candidate_ms": 0.03214,
+   "mean_ratio": 1.0021141690109323,
+   "ci95_low": 0.9998099562940749,
+   "ci95_high": 1.0044183817277899,
+   "geomean_ratio": 1.0020999216311617,
+   "verdict": "INCONCLUSIVE"
+  },
+  "2048x768x2048": {
+   "pairs": 24,
+   "median_reference_ms": 5.021659999999999,
+   "median_candidate_ms": 2.93471,
+   "mean_ratio": 1.7073573840195972,
+   "ci95_low": 1.6976363041315372,
+   "ci95_high": 1.7170784639076573,
+   "geomean_ratio": 1.707206560379191,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "512x2048x768": {
+   "pairs": 24,
+   "median_reference_ms": 1.23762,
+   "median_candidate_ms": 0.9316,
+   "mean_ratio": 1.328646085492682,
+   "ci95_low": 1.318220610518704,
+   "ci95_high": 1.33907156046666,
+   "geomean_ratio": 1.3284237898294278,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "512x768x768": {
+   "pairs": 24,
+   "median_reference_ms": 0.53519,
+   "median_candidate_ms": 0.257,
+   "mean_ratio": 2.091972417557509,
+   "ci95_low": 2.0414899240550275,
+   "ci95_high": 2.142454911059991,
+   "geomean_ratio": 2.0887041192021725,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "64x64x64": {
+   "pairs": 24,
+   "median_reference_ms": 0.03866,
+   "median_candidate_ms": 0.031090000000000003,
+   "mean_ratio": 1.245001824619876,
+   "ci95_low": 1.2423198227262182,
+   "ci95_high": 1.2476838265135337,
+   "geomean_ratio": 1.2449862825367426,
+   "verdict": "FASTER (lower > 1.0)"
+  }
+ }
+}

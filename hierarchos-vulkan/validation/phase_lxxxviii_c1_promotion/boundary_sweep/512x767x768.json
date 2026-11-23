@@ -1,0 +1,20 @@
+{
+  "device": "AMD Radeon Graphics",
+  "mode": "full-fp16",
+  "full_fp16_variant": "p3",
+  "full_fp16_pipeline": "wmma_gemm_f16_f16acc_twowave_p3/spirv-fnv1a64:0x076216ad97d7605f/len:23280",
+  "full_fp16_staging_pipeline": "wmma_gemm_f16_f16acc_twowave_p3_c1/spirv-fnv1a64:0xfecb2a74c4bbbce4/len:36912",
+  "rounds": 1,
+  "iterations_per_round": 4,
+  "cooperative_dispatches": 8,
+  "plain_dispatches": 8,
+  "shape_fallbacks": 0,
+  "staging_counters": {"batched": 0, "masked": 8},
+  "shapes": [
+    {"shape":"512x767x768","label":"512x767x768","arms":[
+      {"arm":"fp32-baseline","median_ms":3.753500,"min_ms":3.753500,"max_ms":3.753500,"speedup_vs_fp32":1.0000,"drift_vs_fp32_max_abs":2.384186e-7},
+      {"arm":"plain-f16-storage-f32acc","median_ms":10.594650,"min_ms":10.594650,"max_ms":10.594650,"speedup_vs_fp32":0.3543,"drift_vs_fp32_max_abs":7.396564e-5},
+      {"arm":"wmma-full-f16acc","median_ms":1.531950,"min_ms":1.531950,"max_ms":1.531950,"speedup_vs_fp32":2.4501,"drift_vs_fp32_max_abs":3.059842e-4}
+    ]}
+  ]
+}

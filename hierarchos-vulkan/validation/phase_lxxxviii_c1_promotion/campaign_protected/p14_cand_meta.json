@@ -1,0 +1,24 @@
+{
+ "pair": 14,
+ "arm": "cand",
+ "rc": 0,
+ "sha256": "564ee931ccbb12c3e00acd5c5c8060bc93b592639922a3fd84a31c54139271e4",
+ "exe": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target-v026\\release\\wmma_bench.exe",
+ "quad": 7,
+ "schedule": "ABBA",
+ "position": 3,
+ "pipeline": "wmma_gemm_f16_f16acc_twowave_p3/spirv-fnv1a64:0x076216ad97d7605f/len:23280",
+ "staging_pipeline": "wmma_gemm_f16_f16acc_twowave_p3_c1/spirv-fnv1a64:0xfecb2a74c4bbbce4/len:36912",
+ "staging_counters": {
+  "batched": 100,
+  "masked": 20
+ },
+ "shader": {
+  "512x768x768": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+  "512x2048x768": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+  "2048x768x2048": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+  "128x8192x768": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+  "64x64x64": "wmma_gemm_f16_f16acc_twowave_p3_c1",
+  "16x128x32": "wmma_gemm_f16_f16acc_twowave_p3"
+ }
+}

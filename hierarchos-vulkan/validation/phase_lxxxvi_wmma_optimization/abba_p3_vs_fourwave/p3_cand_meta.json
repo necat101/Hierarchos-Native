@@ -1,0 +1,13 @@
+{
+ "pair": 3,
+ "arm": "cand",
+ "rc": 0,
+ "sha256": "21435d3978c917dc2299162e747925fdca9b1e8dd3208087d1cecc44ccd563cc",
+ "variant": "fourwave",
+ "exe": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\phase_lxxxvi_wmma_optimization\\bin\\wmma_bench_fourwave.exe",
+ "quad": 2,
+ "schedule": "BAAB",
+ "position": 1,
+ "shader": "wmma_gemm_f16_f16acc_fourwave_p3",
+ "pipeline": "wmma_gemm_f16_f16acc_fourwave_p3/spirv-fnv1a64:0x574e051d008ffd6c/len:23344"
+}

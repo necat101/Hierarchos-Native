@@ -73,15 +73,13 @@ those textual session deltas are not promoted. [Sealed receipt](hierarchos-vulka
 
 ## Quick start
 
-**Download a prebuilt package:** the **v0.2.5** Windows x64 package is prepared
-from the P3 release branch and is **not published yet** — publication waits for
-PR #9 to merge. The validated local artifact is
-`Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip`, shipped with
-`BUILD_MANIFEST.json` and `SHA256SUMS`. It contains the CLI, the GUI and the
-Vulkan companion executables. Extract it and run
-`bin\hierarchos-native-cli.exe doctor`. No Rust, Python or Visual C++
-Redistributable is required at runtime — only Windows x64 and a Vulkan 1.x
-compute driver. [Jump to the package details](#windows-x64-portable-v025).
+**Download a prebuilt package:** the **v0.2.6** Windows x64 package is published
+with `Hierarchos-Native-Windows-x64-Portable-v0.2.6.zip`, `BUILD_MANIFEST.json`
+and `SHA256SUMS`. It contains the CLI, the GUI and the Vulkan companion
+executables. Extract it and run `bin\hierarchos-native-cli.exe doctor`. No Rust,
+Python or Visual C++ Redistributable is required at runtime — only Windows x64
+and a Vulkan 1.x compute driver.
+[Jump to the package details](#windows-x64-portable-v026).
 
 Or install Rust/Cargo and a Vulkan compute driver and build from source:
 
@@ -402,11 +400,15 @@ and **72-request generation** matrices.
 
 ## RDNA3 WMMA (opt-in)
 
-`v0.2.5` ships the **opt-in cooperative-matrix (WMMA) path for RDNA3**, with the
-P3 Full FP16 epilogue as the production default inside that mode. WMMA remains
-off by default, and the default FP32 path keeps its bit-identical logits and its
-previous-`main` performance (worst paired ratio `1.0007` across seven workloads,
-all FP32 logits byte-identical).
+`v0.2.6` ships the **opt-in cooperative-matrix (WMMA) path for RDNA3**, with the
+P3 Full FP16 contract and the new **C1 batched staging schedule** as the
+production route inside that mode. C1 changes only the staging schedule — four
+32-bit operand loads are issued before the shared-memory stores that consume
+them — and is selected per dispatch only when the host can prove every packed
+load aligned and in bounds; every other geometry keeps the v0.2.5 P3 module as
+its fallback. WMMA remains off by default, and the default FP32 path keeps its
+bit-identical logits and its previous-`main` performance (worst paired ratio
+`1.0007` across seven workloads, all FP32 logits byte-identical).
 
 ```powershell
 # Default: FP32, no cooperative-matrix feature queried.
@@ -423,26 +425,34 @@ all FP32 logits byte-identical).
 | --- | --- | --- | --- | --- |
 | FP32 | `off` (default) | FP32 → FP32 | FP32 | Qualified, unchanged |
 | Mixed WMMA | `mixed` | FP16 → **FP32** | FP32 | Opt-in, numerically gated |
-| Full FP16 | `full-fp16` | FP16 → **FP16** (reductions ≤ 64) | FP32 | Opt-in; P3 production default, CLI-qualified Llama-64 profile |
+| Full FP16 | `full-fp16` | FP16 → **FP16** (reductions ≤ 64) | FP32 | Opt-in; P3 contract with C1 staging, CLI-qualified Llama-64 profile |
 
 - **Hardware boundary.** Qualified on AMD RDNA3 PCI **`1002:15bf`** only, on
   Windows x64, with a cooperative `16x16x16` f16/f16→f32 tile. Other RDNA3
   parts, RDNA1/2, Intel Gen9 and multi-GPU device groups are **not** qualified;
   an unsupported explicit request fails with the probed reason instead of
   silently running FP32.
-- **Per-dispatch P3 performance.** P3 beat the preserved Main baseline on all
-  four protected production shapes: `1.0243×` (2048×768×2048), `1.1246×`
-  (512×2048×768), `1.1163×` (512×768×768) and `1.2722×` (128×8192×768), with
-  every corrected 95% CI lower bound above 1.0. These are **per-dispatch GPU GEMM
-  timings**, not end-to-end training-step or application speedups. The historical
-  25% tile16 headroom target remains informational and was not achieved.
+- **Per-dispatch C1 performance.** Against the v0.2.5 P3 binary, the integrated
+  production selector is faster on all four protected shapes: `1.7074×`
+  (2048×768×2048), `1.3286×` (512×2048×768), `2.0920×` (512×768×768) and
+  `1.3782×` (128×8192×768), with every corrected 95% CI lower bound above 1.31.
+  These are **per-dispatch GPU GEMM timings**, not end-to-end training-step or
+  application speedups. The historical 25% tile16 headroom target remains
+  informational and was not achieved.
 - **Opt-in remains the default policy.** Mixed is a separate, unchanged arm;
   neither Mixed nor Full FP16 is enabled by default. A measured 512-row Mixed
   training step was slower than FP32 (ratio `0.8708`), so no training-step
   speedup is claimed.
-- **Baked P3 identity.** The qualified 23,280-byte module with runtime FNV-1a64
-  `0x076216ad97d7605f` is compiled into the CLI, transformer trainer and logits
-  executables. The production selector resolves P3 with no variant override.
+- **Baked module identities.** Both modules are compiled into the CLI,
+  transformer trainer and logits executables: P3 (23,280 B, FNV-1a64
+  `0x076216ad97d7605f`) and C1 (36,912 B, FNV-1a64 `0xfecb2a74c4bbbce4`). The
+  production selector picks between them from the dispatch geometry alone — no
+  variant override, environment variable or flag can force either one — and
+  reports which ran through per-dispatch staging counters.
+- **Numerical identity with v0.2.5.** Eight seeds, 40 receipts, `37/37` gates on
+  every seed, and **120/120 production outputs bit-identical** to the v0.2.5 P3
+  baseline. No reference, tolerance, seed, oracle or threshold changed; the
+  `split2` and `rdna3-dot2` diagnostic failures stay recorded as diagnostics.
 - **Fallbacks are not dispatches.** Projections below
   `WMMA_MIN_PROFITABLE_MACS = 16,000,000`, and Full FP16 reductions above 64,
   keep their FP32 kernels and increment fallback counters. The released
@@ -673,18 +683,17 @@ The documented device qualification is Windows-based. The backend uses Rust and
 Vulkan; non-Windows builds use their platform's driver and executable conventions.
 Availability on a Vulkan device is separate from recorded numerical qualification.
 
-### Windows x64 portable v0.2.5
+### Windows x64 portable v0.2.6
 
-**Status: package prepared and locally validated; not published yet.** It is
-built from the final source commit of PR #9
-(`codex/rdna3-p3-release-20261121`); the GitHub release is published only after
-that PR merges. `BUILD_MANIFEST.json` records the exact packaging commit,
-toolchain, flags, per-executable hashes and the P3 artifact hashes.
+**Status: published.** It is built from the qualified source commit of
+`codex/wmma-v026-optimization`. `BUILD_MANIFEST.json` records the exact packaging
+commit, toolchain, flags, per-executable hashes and the P3 and C1 artifact hashes.
+The v0.2.5 assets remain published and unchanged.
 
 | Asset | Platform | Contents |
 | --- | --- | --- |
-| `Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip` | Windows x64 (`x86_64-pc-windows-msvc`) | `bin\` with `hierarchos-native.exe` (GUI), `hierarchos-native-cli.exe`, `hierarchos-infer.exe`, `hierarchos-vulkan-train.exe`, `hierarchos-vulkan-devices.exe`, `hierarchos-vulkan-transformer-train.exe`, `hierarchos-vulkan-transformer-logits.exe`; `licenses\`, `README.md`, `README_ARCHITECTURES.md`, `RELEASE_NOTES.md`, `CLEAN_MACHINE_TEST.md`, `THIRD_PARTY_NOTICES.md`, `BUILD_INFO.txt`, `DEPENDENCIES.txt` |
-| `BUILD_MANIFEST.json` | any | Exact source commit, target triple, toolchain, flags, executable and P3 hashes |
+| `Hierarchos-Native-Windows-x64-Portable-v0.2.6.zip` | Windows x64 (`x86_64-pc-windows-msvc`) | `bin\` with `hierarchos-native.exe` (GUI), `hierarchos-native-cli.exe`, `hierarchos-infer.exe`, `hierarchos-vulkan-train.exe`, `hierarchos-vulkan-devices.exe`, `hierarchos-vulkan-transformer-train.exe`, `hierarchos-vulkan-transformer-logits.exe`; `licenses\`, `README.md`, `README_ARCHITECTURES.md`, `RELEASE_NOTES.md`, `CLEAN_MACHINE_TEST.md`, `THIRD_PARTY_NOTICES.md`, `BUILD_INFO.txt`, `DEPENDENCIES.txt` |
+| `BUILD_MANIFEST.json` | any | Exact source commit, target triple, toolchain, flags, executable, P3 and C1 hashes |
 | `SHA256SUMS` | any | SHA-256 of the archive and the manifest |
 
 The archive is runtime-only: it contains no Rust source tree, Cargo files, build
@@ -700,13 +709,13 @@ let it download a public one (`--hf-model`).
 
 ```powershell
 # Verify the archive against the sidecar before extracting.
-$zip = ".\Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip"
+$zip = ".\Hierarchos-Native-Windows-x64-Portable-v0.2.6.zip"
 $expected = (Select-String -Path .\SHA256SUMS -Pattern ([regex]::Escape((Split-Path $zip -Leaf))) |
   Select-Object -First 1).Line.Split()[0]
 $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
 if ($actual -ne $expected) { throw "SHA-256 mismatch: $actual" }
-Expand-Archive $zip -DestinationPath .\hierarchos-v025
-cd .\hierarchos-v025
+Expand-Archive $zip -DestinationPath .\hierarchos-v026
+cd .\hierarchos-v026
 
 .\bin\hierarchos-native-cli.exe --help
 .\bin\hierarchos-native-cli.exe doctor
@@ -759,7 +768,7 @@ discovery. [Distribution layout](hierarchos-vulkan/standalone/README.md).
 ### Acceptance status
 
 This is a **same-host extracted-artifact acceptance pass**, not independent
-clean-machine certification. The v0.2.5 archive was extracted into a path with
+clean-machine certification. The v0.2.6 archive was extracted into a path with
 spaces, relocated to a deeper path with spaces, and exercised from the relocated
 layout. Results:
 
@@ -769,18 +778,28 @@ layout. Results:
   `precision-info`, local inference, one-step Vulkan training, checkpoint reload,
   relocation and checksum verification passed. Global WMMA stayed off in the
   default run.
-- **Packaged P3 dispatch PASS.** A disposable Llama geometry with hidden/K = 64
-  and 4096-wide projections gives `64 × 4096 × 64 = 16,777,216` MACs, above the
-  unchanged 16M floor while respecting the Full FP16 reduction cap. The extracted
-  trainer reported `requested=full-fp16 cooperative_dispatches=8` and the profile
-  named `wmma_gemm_f16_f16acc_twowave_p3`; the packaged logits executable
-  dispatched it three times and matched the FP32 logits within `max_abs
-  0.000738` / `rms 0.000122`. No variant override or floor change was used. The
-  geometry is outside the CLI's frontend-qualified 64-wide training profile; the
-  test uses the packaged standalone trainer.
+- **Packaged C1 dispatch PASS.** A disposable Llama geometry with hidden/K = 64
+  and 4096-wide projections gives `64 × 4096 × 64 = 16,777,216` MACs at `rows=64`,
+  above the unchanged 16M floor while respecting the Full FP16 reduction cap and
+  satisfying the C1 contract. The extracted trainer reported
+  `requested=full-fp16 cooperative_dispatches=8` and the profile named
+  `wmma_gemm_f16_f16acc_twowave_p3_c1`.
+- **Packaged P3 fallback PASS.** The same fixture at `rows=80` (`80 % 32 = 16`)
+  stays above the floor at 20,971,520 MACs but fails tile coverage, and the
+  extracted trainer fell back to `wmma_gemm_f16_f16acc_twowave_p3` for its 4
+  cooperative dispatches. No variant override, floor change or test flag was
+  used, and WMMA `off` recorded zero cooperative dispatches on both geometries.
+- **Packaged numerical comparison PASS.** The logits executable matched FP32
+  within `max_abs 0.00079345` / `rms 0.00012127` on the C1 route (262,144
+  elements) and `0.00079345` / `0.00012087` on the P3 route (327,680 elements).
+  Those geometries are outside the CLI's frontend-qualified 64-wide training
+  profile; the test uses the packaged standalone trainer.
 - **BLOCKED.** Independent clean Windows installation, a second physical CPU/GPU,
   physical network isolation, different-drive relocation, GUI interaction, code
-  signing and automated GUI “Check backend” activation were not performed.
+  signing and automated GUI “Check backend” activation were not performed. The
+  native V4.1 trainer and `hierarchos-infer` were not exercised functionally: both
+  need a V4.1 model package that this environment does not have, and neither is on
+  the Full FP16 path.
 - **Unified-release checker.** The checker reproduces the known local-only
   `wmma_qualify` digest mismatch: three builds differ in 20 bytes of PE
   debug-directory/CodeView metadata, while the 40 accuracy receipts and eight
@@ -789,7 +808,7 @@ layout. Results:
   nondeterminism, not a source or functional-output difference.
 
 The full per-executable receipts, commands and limitations are in
-[the v0.2.5 acceptance report](hierarchos-vulkan/standalone/CLEAN_MACHINE_TEST.md).
+[the v0.2.6 acceptance report](hierarchos-vulkan/standalone/CLEAN_MACHINE_TEST.md).
 No end-to-end application or training-step speedup is claimed.
 
 <div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>

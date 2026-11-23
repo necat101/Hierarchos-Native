@@ -1,27 +1,38 @@
 # Opt-in RDNA3 WMMA (cooperative matrix) GEMM
 
-## Release status — P3 production Full FP16 epilogue (2026-11-21)
+## Release status — C1 batched staging on the P3 contract (v0.2.6, 2026-11-23)
 
-The Full FP16 arm's production module is now the Phase LXXIX **P3** epilogue
-(`wmma_gemm_f16_f16acc_twowave_p3.spv`, SHA-256 `2aff4123…`, 23,280 B). It keeps
-the two-wave workgroup, staging, barriers and per-bank binary16 accumulation and
-replaces the 4 + 3 rounding merge tree with one float32 left-to-right sum of the
-eight bank partials and a single binary16 rounding.
+The Full FP16 arm's production route is the Phase LXXIX **P3** contract
+(`2aff4123…`, 23,280 B) with the Phase LXXXVIII **C1** staging schedule
+(`b0722420…`, 36,912 B) selected per dispatch whenever the host can prove every
+packed 32-bit load aligned and in bounds. The original P3 module is embedded and
+dispatched for every geometry the C1 contract cannot prove; it is the fallback,
+not a legacy option.
 
-* WMMA is still **opt-in**: `off` remains the default mode.
+* **The change is the staging schedule only.** The original loop issues four
+dependent global-load → shared-store pairs per thread per K slice. C1 issues the
+four 32-bit loads first and then the stores, so the loads overlap instead of
+queueing behind stores. Barriers, K-slice order, bank order, the float32 sum of
+the eight bank partials and the single binary16 rounding are unchanged.
+* **Selection is a proof, not a preference.** C1 requires full 32×32-tile and
+  16-wide-K coverage, even packed-pair strides, and operand buffers whose real
+  capacities cover every element the fast path reads. Everything else — including
+the odd-stride shapes where Phase LXXXVII measured a 1 % regression — takes P3.
+* WMMA is still **opt-in**: `off` remains the default mode, and no new mode,
+  flag or variant was added. `full-fp16` users need not know C1 exists.
 * `split8`, `two-bank` and `two-wave` remain selectable through
   `HIERARCHOS_WMMA_FULL_FP16_VARIANT` as fallbacks.
-* Four protected shapes measured 1.0194–1.2614× against Original Main with
-  corrected 95 % CI lower bounds ≥ 1.0109 (GPU timestamps, 24 paired blocks,
-  position-balanced ABBA/BAAB).
+* Four protected shapes measured 1.3286–2.0920× against the v0.2.5 P3 binary
+  with corrected 95 % CI lower bounds ≥ 1.3182 (GPU timestamps, 24 paired
+  blocks, position-balanced ABBA/BAAB). These are per-dispatch GPU GEMM timings.
 * The hard ULP gate `ULP_GATE_LIMITS = 0.03125` is unchanged and passes 37/37 on
-  all eight seeds. The historical 25 % tile16 headroom (`MARGIN_TARGET = 0.25`,
-  target `0.0234375`) is **informational**, not a blocker.
-* The direct-kernel `16×128×32` regression is disclosed (`0.7606` vs Main,
-  `[0.7583, 0.7630]`) and is 244× below `WMMA_MIN_PROFITABLE_MACS`; production
-  admission refuses it.
+  all eight seeds, and all 120 production outputs are bit-identical to v0.2.5.
+* The direct-kernel `16×128×32` control (`1.0021`, `[0.9998, 1.0044]`) is below
+  `WMMA_MIN_PROFITABLE_MACS` and fails the tile-fill requirement; production
+  admission refuses it, so it is a control and not a claim.
 
-Details, hashes and receipts: [RDNA3_P3_RELEASE.md](RDNA3_P3_RELEASE.md).
+Details, hashes and receipts: [RDNA3_C1_STAGING_RELEASE.md](RDNA3_C1_STAGING_RELEASE.md).
+The v0.2.5 P3 epilogue record is unchanged in [RDNA3_P3_RELEASE.md](RDNA3_P3_RELEASE.md).
 
 ---
 

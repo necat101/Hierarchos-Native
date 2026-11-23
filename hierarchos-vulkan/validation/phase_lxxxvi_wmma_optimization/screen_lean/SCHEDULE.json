@@ -1,0 +1,130 @@
+{
+ "patterns": [
+  "ABBA",
+  "BAAB",
+  "ABBA",
+  "BAAB"
+ ],
+ "order": [
+  {
+   "pair": 1,
+   "arm": "base",
+   "position": 1,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 1,
+   "arm": "cand",
+   "position": 2,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 2,
+   "arm": "cand",
+   "position": 3,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 2,
+   "arm": "base",
+   "position": 4,
+   "quad": 1,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 3,
+   "arm": "cand",
+   "position": 1,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 3,
+   "arm": "base",
+   "position": 2,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 4,
+   "arm": "base",
+   "position": 3,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 4,
+   "arm": "cand",
+   "position": 4,
+   "quad": 2,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 5,
+   "arm": "base",
+   "position": 1,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 5,
+   "arm": "cand",
+   "position": 2,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 6,
+   "arm": "cand",
+   "position": 3,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 6,
+   "arm": "base",
+   "position": 4,
+   "quad": 3,
+   "pattern": "ABBA"
+  },
+  {
+   "pair": 7,
+   "arm": "cand",
+   "position": 1,
+   "quad": 4,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 7,
+   "arm": "base",
+   "position": 2,
+   "quad": 4,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 8,
+   "arm": "base",
+   "position": 3,
+   "quad": 4,
+   "pattern": "BAAB"
+  },
+  {
+   "pair": 8,
+   "arm": "cand",
+   "position": 4,
+   "quad": 4,
+   "pattern": "BAAB"
+  }
+ ],
+ "pairs": 8,
+ "iterations": 16,
+ "rounds": 1,
+ "warmup_dropped": 3,
+ "exe_hashes": {
+  "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\phase_lxxxvi_wmma_optimization\\bin\\wmma_bench_v025.exe": "8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b",
+  "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\phase_lxxxvi_wmma_optimization\\bin\\wmma_bench_lean.exe": "06be7e8df579fa5b824c9f8ef67a300a3bc591d6d28d2644941cff203c58bec1"
+ }
+}

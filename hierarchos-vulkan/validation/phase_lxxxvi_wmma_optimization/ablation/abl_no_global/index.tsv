@@ -1,0 +1,9 @@
+pair	arm	rc	exe_sha256	run	variant	exe	quad	schedule	position
+1	base	0	8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b	p1_base	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_v025.exe	1	ABBA	1
+1	cand	0	90e83bfdb475f8a4b986da953721a413a89721018d0c131df944990503f14d2c	p1_cand	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_abl_no_global.exe	1	ABBA	2
+2	cand	0	90e83bfdb475f8a4b986da953721a413a89721018d0c131df944990503f14d2c	p2_cand	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_abl_no_global.exe	1	ABBA	3
+2	base	0	8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b	p2_base	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_v025.exe	1	ABBA	4
+3	cand	0	90e83bfdb475f8a4b986da953721a413a89721018d0c131df944990503f14d2c	p3_cand	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_abl_no_global.exe	2	BAAB	1
+3	base	0	8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b	p3_base	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_v025.exe	2	BAAB	2
+4	base	0	8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b	p4_base	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_v025.exe	2	BAAB	3
+4	cand	0	90e83bfdb475f8a4b986da953721a413a89721018d0c131df944990503f14d2c	p4_cand	p3	C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\validation\phase_lxxxvi_wmma_optimization\bin\wmma_bench_abl_no_global.exe	2	BAAB	4

@@ -1,0 +1,70 @@
+{
+ "base_variant": "p3",
+ "cand_variant": "p3-batch",
+ "shapes": "512x768x767,512x767x768,511x768x768,255x768x768,512x2047x768,2048x768x2047",
+ "skip_reference": true,
+ "ratio_convention": "reference_ms / candidate_ms; > 1.0 means candidate faster",
+ "interval_rule": "two-sided 95 % Student-t over per-pair ratios (abba_stats.py)",
+ "results": {
+  "2048x768x2047": {
+   "pairs": 8,
+   "median_reference_ms": 7.930879999999999,
+   "median_candidate_ms": 8.023480000000001,
+   "mean_ratio": 0.9898377599785382,
+   "ci95_low": 0.9859788590824011,
+   "ci95_high": 0.9936966608746752,
+   "geomean_ratio": 0.9898283419154612,
+   "verdict": "SLOWER (CI excludes 1.0)"
+  },
+  "255x768x768": {
+   "pairs": 8,
+   "median_reference_ms": 0.5363100000000001,
+   "median_candidate_ms": 0.29109,
+   "mean_ratio": 1.8787607688396863,
+   "ci95_low": 1.632295261772823,
+   "ci95_high": 2.1252262759065497,
+   "geomean_ratio": 1.858999374593454,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "511x768x768": {
+   "pairs": 8,
+   "median_reference_ms": 0.56352,
+   "median_candidate_ms": 0.30363999999999997,
+   "mean_ratio": 1.8356443703138525,
+   "ci95_low": 1.7034411081701424,
+   "ci95_high": 1.9678476324575627,
+   "geomean_ratio": 1.8293781242519833,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "512x2047x768": {
+   "pairs": 8,
+   "median_reference_ms": 1.26028,
+   "median_candidate_ms": 0.98799,
+   "mean_ratio": 1.2635603213013606,
+   "ci95_low": 1.2349291030802814,
+   "ci95_high": 1.29219153952244,
+   "geomean_ratio": 1.2631442699137752,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "512x767x768": {
+   "pairs": 8,
+   "median_reference_ms": 0.5817399999999999,
+   "median_candidate_ms": 0.3144,
+   "mean_ratio": 1.8861719542027957,
+   "ci95_low": 1.6470591865452726,
+   "ci95_high": 2.125284721860319,
+   "geomean_ratio": 1.868243456213537,
+   "verdict": "FASTER (lower > 1.0)"
+  },
+  "512x768x767": {
+   "pairs": 8,
+   "median_reference_ms": 0.8270000000000001,
+   "median_candidate_ms": 0.81511,
+   "mean_ratio": 1.0162759366347855,
+   "ci95_low": 0.9092640383161391,
+   "ci95_high": 1.123287834953432,
+   "geomean_ratio": 1.0093873240007991,
+   "verdict": "INCONCLUSIVE"
+  }
+ }
+}

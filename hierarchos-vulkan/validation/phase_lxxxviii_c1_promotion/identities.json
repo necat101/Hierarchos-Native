@@ -1,0 +1,55 @@
+{
+ "phase": "LXXXVIII",
+ "release": "v0.2.6",
+ "modules": {
+  "p3_contract_fallback": {
+   "source": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.comp",
+   "spirv": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.spv",
+   "source_sha256": "4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12",
+   "spirv_sha256": "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2",
+   "spirv_bytes": 23280,
+   "spirv_fnv1a64": "0x076216ad97d7605f",
+   "variant": "P3"
+  },
+  "c1_batched_staging": {
+   "source": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3_c1.comp",
+   "spirv": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3_c1.spv",
+   "source_sha256": "9857a8ad457f3b119e0465dde7c4bb36635053e9ee25522bce0a208452953da4",
+   "spirv_sha256": "b072242034ba7bd0f53690c38c03b11ed587b538480c04ed13ecf19fe2a8b27d",
+   "spirv_bytes": 36912,
+   "spirv_fnv1a64": "0xfecb2a74c4bbbce4",
+   "recovered_from": "validation/phase_lxxxvii_wmma_optimization/candidates/wmma_gemm_f16_f16acc_twowave_p3_batch.comp",
+   "recovered_from_sha256": "9857a8ad457f3b119e0465dde7c4bb36635053e9ee25522bce0a208452953da4",
+   "identity_note": "Bytes identical to the Phase LXXXVII candidate; only the artifact name changed."
+  }
+ },
+ "harnesses": {
+  "baseline_bench": {
+   "path": "validation/phase_lxxxvi_wmma_optimization/bin/wmma_bench_v025.exe",
+   "sha256": "8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b"
+  },
+  "baseline_qualify": {
+   "path": "validation/phase_lxxxvi_wmma_optimization/bin/wmma_qualify_v025.exe",
+   "sha256": "9761361bdb5f5e31ef8f2f7f0b67f115aea05ba99f129b6a0be0950c0f734169"
+  },
+  "candidate_bench": {
+   "path": "target-v026/release/wmma_bench.exe",
+   "sha256": "564ee931ccbb12c3e00acd5c5c8060bc93b592639922a3fd84a31c54139271e4"
+  },
+  "candidate_qualify": {
+   "path": "target-v026/release/wmma_qualify.exe",
+   "sha256": "61df84504cd186893c2eec1ddd00b6e1aabffa1411f2a54dcfc7e6cafb1f3643"
+  }
+ },
+ "toolchain": {
+  "glslc": "shaderc v2023.8 v2025.3",
+  "spirv_tools": "v2025.3",
+  "glslang": "11.1.0-1253",
+  "rustc": "1.93.0"
+ },
+ "device": {
+  "adapter": "AMD Radeon Graphics",
+  "pci": "1002:15bf",
+  "driver": "32.0.32015.14001"
+ }
+}

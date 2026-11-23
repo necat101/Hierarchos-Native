@@ -1,0 +1,13 @@
+{
+ "pair": 8,
+ "arm": "cand",
+ "rc": 0,
+ "sha256": "08d932194dee572e0876a03d024eec14bd3bf1768e221e94c8301f8aab8f8fce",
+ "variant": "p3-ablnoepi",
+ "exe": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target-lxxxvii\\release\\wmma_bench.exe",
+ "quad": 4,
+ "schedule": "BAAB",
+ "position": 4,
+ "shader": "wmma_gemm_f16_f16acc_twowave_p3_ablnoepi",
+ "pipeline": "wmma_gemm_f16_f16acc_twowave_p3_ablnoepi/spirv-fnv1a64:0xf4fd5b2aadfec2a9/len:20692"
+}
