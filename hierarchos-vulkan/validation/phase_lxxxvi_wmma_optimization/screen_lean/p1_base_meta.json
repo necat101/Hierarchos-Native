@@ -1,0 +1,13 @@
+{
+ "pair": 1,
+ "arm": "base",
+ "rc": 0,
+ "sha256": "8fcdc4a8453b2cdb529fe895130e2ec94f3b13a1ba00b15ebd264d2f1704862b",
+ "variant": "p3",
+ "exe": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\phase_lxxxvi_wmma_optimization\\bin\\wmma_bench_v025.exe",
+ "quad": 1,
+ "schedule": "ABBA",
+ "position": 1,
+ "shader": "wmma_gemm_f16_f16acc_twowave_p3",
+ "pipeline": "wmma_gemm_f16_f16acc_twowave_p3/spirv-fnv1a64:0x076216ad97d7605f/len:23280"
+}

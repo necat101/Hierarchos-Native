@@ -1,0 +1,994 @@
+{
+ "harness": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\phase_lxxxvi_wmma_optimization\\bin\\wmma_qualify_fourwave.exe",
+ "harness_sha256": "137921510801188c39cf37c60ca42a07b7419cb9280c68c62dc34482f7ad0a61",
+ "seeds": [
+  1593426484,
+  42,
+  1337,
+  271828,
+  314159,
+  777,
+  8675309,
+  20261119
+ ],
+ "configs": [
+  [
+   "full-fp16",
+   "tile16"
+  ],
+  [
+   "full-fp16",
+   "split8"
+  ],
+  [
+   "full-fp16",
+   "rdna3-dot2"
+  ],
+  [
+   "full-fp16",
+   "split2"
+  ],
+  [
+   "mixed",
+   "tile16"
+  ]
+ ],
+ "receipts": [
+  {
+   "seed": 1593426484,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "1593426484",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1593426484,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "1593426484",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1593426484,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "1593426484",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 8,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1593426484,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "1593426484",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 3,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1593426484,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "1593426484",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 42,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "42",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 42,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "42",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 42,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "42",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 6,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 42,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "42",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 42,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "42",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1337,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "1337",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1337,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "1337",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1337,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "1337",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 6,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1337,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "1337",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 1,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 1337,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "1337",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 271828,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "271828",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 271828,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "271828",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 271828,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "271828",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 6,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 271828,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "271828",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 1,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 271828,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "271828",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 314159,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "314159",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 314159,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "314159",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 314159,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "314159",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 4,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 314159,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "314159",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 1,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 314159,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "314159",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 777,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "777",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 777,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "777",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 777,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "777",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 5,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 777,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "777",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 1,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 777,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "777",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 8675309,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "8675309",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 8675309,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "8675309",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 8675309,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "8675309",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 5,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 8675309,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "8675309",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 2,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 8675309,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "8675309",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 20261119,
+   "mode": "full-fp16",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "tile16",
+    "--seed",
+    "20261119",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 20261119,
+   "mode": "full-fp16",
+   "oracle": "split8",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split8",
+    "--seed",
+    "20261119",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split8",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 20261119,
+   "mode": "full-fp16",
+   "oracle": "rdna3-dot2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "rdna3-dot2",
+    "--seed",
+    "20261119",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 6,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "rdna3-dot2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 20261119,
+   "mode": "full-fp16",
+   "oracle": "split2",
+   "argv": [
+    "--wmma-mode",
+    "full-fp16",
+    "--full-oracle",
+    "split2",
+    "--seed",
+    "20261119",
+    "--json"
+   ],
+   "rc": 1,
+   "gates": 37,
+   "failed": 3,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "split2",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  },
+  {
+   "seed": 20261119,
+   "mode": "mixed",
+   "oracle": "tile16",
+   "argv": [
+    "--wmma-mode",
+    "mixed",
+    "--seed",
+    "20261119",
+    "--json"
+   ],
+   "rc": 0,
+   "gates": 37,
+   "failed": 0,
+   "device": "AMD Radeon Graphics",
+   "full_oracle": "tile16",
+   "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+   }
+  }
+ ],
+ "receipts_total": 40,
+ "receipts_failed_nonzero": 15,
+ "configs_all_gates_pass": [
+  "full-fp16/split2",
+  "full-fp16/split8",
+  "full-fp16/tile16",
+  "mixed/tile16"
+ ],
+ "configs_with_failing_gates": [
+  "full-fp16/rdna3-dot2",
+  "full-fp16/split2"
+ ]
+}

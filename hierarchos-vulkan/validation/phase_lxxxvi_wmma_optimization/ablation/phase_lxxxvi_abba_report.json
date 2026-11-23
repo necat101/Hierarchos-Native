@@ -1,0 +1,153 @@
+{
+ "abl_staging_only": {
+  "128x8192x768": {
+   "pairs": 4,
+   "median_reference_ms": 1.38977,
+   "median_candidate_ms": 1.42837,
+   "mean_ratio": 0.9716933434000414,
+   "ci95_low": 0.9558353899749894,
+   "ci95_high": 0.9875512968250935,
+   "geomean_ratio": 0.9716548599459959,
+   "verdict": "SLOWER (CI excludes 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "16x128x32": {
+   "pairs": 4,
+   "median_reference_ms": 0.03214,
+   "median_candidate_ms": 0.016739999999999998,
+   "mean_ratio": 1.9249511570867528,
+   "ci95_low": 1.9023634166625116,
+   "ci95_high": 1.947538897510994,
+   "geomean_ratio": 1.924911930749361,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": false,
+   "control": true
+  },
+  "2048x768x2048": {
+   "pairs": 4,
+   "median_reference_ms": 5.01322,
+   "median_candidate_ms": 3.98774,
+   "mean_ratio": 1.2586393641889142,
+   "ci95_low": 1.2515063780516391,
+   "ci95_high": 1.2657723503261893,
+   "geomean_ratio": 1.2586333828576939,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "512x2048x768": {
+   "pairs": 4,
+   "median_reference_ms": 1.24749,
+   "median_candidate_ms": 0.88217,
+   "mean_ratio": 1.4192206415097297,
+   "ci95_low": 1.369165564429746,
+   "ci95_high": 1.4692757185897134,
+   "geomean_ratio": 1.4189608971590406,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "512x768x768": {
+   "pairs": 4,
+   "median_reference_ms": 0.5503100000000001,
+   "median_candidate_ms": 0.27292,
+   "mean_ratio": 1.9427744575267887,
+   "ci95_low": 1.5653323098063907,
+   "ci95_high": 2.3202166052471864,
+   "geomean_ratio": 1.931098148397041,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "64x64x64": {
+   "pairs": 4,
+   "median_reference_ms": 0.03856,
+   "median_candidate_ms": 0.022629999999999997,
+   "mean_ratio": 1.7037081598585033,
+   "ci95_low": 1.6916010097317338,
+   "ci95_high": 1.7158153099852729,
+   "geomean_ratio": 1.7036954138088887,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": false,
+   "control": true
+  }
+ },
+ "abl_no_global": {
+  "128x8192x768": {
+   "pairs": 4,
+   "median_reference_ms": 1.41743,
+   "median_candidate_ms": 0.5526699999999999,
+   "mean_ratio": 2.565751105443162,
+   "ci95_low": 2.502367060404375,
+   "ci95_high": 2.629135150481949,
+   "geomean_ratio": 2.5655210147724437,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "16x128x32": {
+   "pairs": 4,
+   "median_reference_ms": 0.03219,
+   "median_candidate_ms": 0.027530000000000002,
+   "mean_ratio": 1.1686925848461862,
+   "ci95_low": 1.1663568091869496,
+   "ci95_high": 1.1710283605054228,
+   "geomean_ratio": 1.1686918936786916,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": false,
+   "control": true
+  },
+  "2048x768x2048": {
+   "pairs": 4,
+   "median_reference_ms": 5.025409999999999,
+   "median_candidate_ms": 1.87643,
+   "mean_ratio": 2.6774527183398567,
+   "ci95_low": 2.6377545363797053,
+   "ci95_high": 2.717150900300008,
+   "geomean_ratio": 2.6773655211633436,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "512x2048x768": {
+   "pairs": 4,
+   "median_reference_ms": 1.2418,
+   "median_candidate_ms": 0.5249,
+   "mean_ratio": 2.3632932863632807,
+   "ci95_low": 2.2822257440243217,
+   "ci95_high": 2.44436082870224,
+   "geomean_ratio": 2.3628802723831273,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "512x768x768": {
+   "pairs": 4,
+   "median_reference_ms": 0.5586500000000001,
+   "median_candidate_ms": 0.30062000000000005,
+   "mean_ratio": 1.8457064855591252,
+   "ci95_low": 1.7414498500067404,
+   "ci95_high": 1.94996312111151,
+   "geomean_ratio": 1.8448341862791933,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": true,
+   "control": false
+  },
+  "64x64x64": {
+   "pairs": 4,
+   "median_reference_ms": 0.03868,
+   "median_candidate_ms": 0.032440000000000004,
+   "mean_ratio": 1.1930008568631028,
+   "ci95_low": 1.1858493417494658,
+   "ci95_high": 1.2001523719767397,
+   "geomean_ratio": 1.1929945166286438,
+   "verdict": "FASTER (CI lower bound >= 1.0)",
+   "protected": false,
+   "control": true
+  }
+ },
+ "statistics_implementation": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\abba_stats.py",
+ "interval_rule": "two-sided 95 % Student-t over per-pair ratios, df = pairs - 1, from the regularized incomplete beta function; no normal-quantile fallback",
+ "ratio_convention": "reference_ms / candidate_ms; > 1.0 means candidate faster"
+}
