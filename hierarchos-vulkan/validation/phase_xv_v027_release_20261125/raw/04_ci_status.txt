@@ -1,17 +1,25 @@
 # v0.2.7 CI status on the release candidate
 #
 # Branch: release/v0.2.7
-# Latest fully-run head: 15d0fbc (the shader-verification commit c05131e is the
-# next head and was still unpushed when this file was written).
 
-=== gh run list --branch release/v0.2.7 ===
+=== head 4561b6d (the delivered candidate) ===
+45597058767 candidate a          push             completed/success
+45597072048 evidence integrity   pull_request     completed/success
+45597071988 phase lxv            pull_request     completed/success
+45597073249 candidate a          pull_request     completed/success
+45597058722 evidence integrity   push             completed/success
+45597058742 phase lxv            push             completed/success
+45597058832 workspace check      push             completed/failure
+45597071760 workspace check      pull_request     completed/failure
+
+=== head 15d0fbc (the same failure, one commit earlier) ===
 45592741585 candidate a                                    completed/success
 45592741823 evidence integrity                             completed/success
 45592741713 phase lxv                                      completed/success
 45592741594 workspace check                                completed/failure
 45592688387 packed-cell producer A/B                       queued/
 
-=== workspace check — job "workspace-check", step 19 ===
+=== workspace check — job "workspace-check", step 19 (both heads) ===
 Unified FP32 Mixed and scoped Full FP16 release
     raise ValueError(f"matrix source contract changed: {name}")
 ValueError: matrix source contract changed: transformer_sha256
