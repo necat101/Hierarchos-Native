@@ -1,0 +1,3 @@
+checked 531 shader push blocks, 109 host structs
+PASS: push-constant blocks agree across SPIR-V, GLSL and host structs
+PUSH_EXIT=0
