@@ -1,0 +1,1057 @@
+diff --git a/RDNA3_WMMA.md b/RDNA3_WMMA.md
+index c8268ce..7ea0274 100644
+--- a/RDNA3_WMMA.md
++++ b/RDNA3_WMMA.md
+@@ -706,15 +706,24 @@ the correctness harness in `validation/two_pass_backward_equivalence.sh`, whose
+ adapter comparison is only meaningful once the dispatch evidence shows both new
+ kernels ran.
+ 
+-## Two-pass attention backward (Llama mode 9), measured
++**Update 2026-11-24:** the pair is now wired. Mode-0 and mode-9 gradient parity
++is bit-exact over four geometries, scratch is sized exactly and allocated only
++for eligible geometry, and the path is the default for the existing gate. See
++`validation/mha_attention_backward_closeout_20261124/`.
++
++## Two-pass attention backward (Llama mode 9): historical opt-in measurement
+ 
+ `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1` replaces the scalar Llama attention
+ backward with two owned passes: a query pass that writes softmax and `dS`
+-scratch, and a key/value pass that reduces it. The default stays scalar; the
+-pair is gated to `unfused_qk` 0/9 with `num_heads == num_key_value_heads`.
++scratch, and a key/value pass that reduces it. At the time of this measurement
++the default was scalar; Phase III later made it the default for the same gate
++(`unfused_qk` 0/9, `num_heads == num_key_value_heads`).
+ 
+ Geometry: batch 8, sequence 64, 8 heads / 8 KV heads, head_dim 128, 2 layers.
+-Scratch: `rows * query_hidden` floats per layer (8 * 64 * 1024 * 4 B = 2 MiB).
++Scratch at the time: `rows * query_hidden` floats per buffer (8 * 64 * 1024 * 4 B
++= 2 MiB per buffer, 4 MiB per layer). Phase III replaced this with the exact
++`batch * num_heads * query_seq * kv_seq` size (1 MiB per buffer, 2 MiB per layer)
++allocated lazily only for eligible geometry.
+ 
+ Kernel time per step, 12 profiled steps after warmup:
+ 
+@@ -736,6 +745,13 @@ exported adapter after two LoRA steps is bit-identical between arms
+ (`b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4`), and the
+ candidate arm dispatches the scalar backward zero times.
+ 
++**This 2.88x narrative has no committed benchmark receipt.** It is retained here
++as an unverified historical measurement, not as a verified result. The fresh
++Phase III reproduction of the same protocol measured 3.2492x on the complete
++optimizer step (95% CI 3.1146..3.3838, five paired ABBA rounds) and 9.7965x on
++the attention backward alone; both the fresh reproduction and its raw samples are
++bound in `hierarchos-vulkan/validation/mha_attention_backward_closeout_20261124/`.
++
+ ## Native V4.1: numerical qualification, not dispatch evidence
+ 
+ **Scope (current source).** The native V4.1 bounded fixture is a *numerical*
+diff --git a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp
+index 4959c4d..891f923 100644
+--- a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp
++++ b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp
+@@ -274,7 +274,12 @@ void main() {
+         float ds_q = p * (dp - softmax_dot);
+         uint slot = scratch_base + key;
+         scratch_probability[slot] = p;
+-        scratch_ds[slot] = p * (dp - kv_softmax_dot);
++        // Mode 9's scalar adjoint reduces dK/dV against the `precise` per-key dot
++        // it caches in row_softmax_dot. Mode 0's scalar path keeps no cached
++        // statistics and reduces against the primary plain `softmax_dot`.
++        // Carrying the one the owning scalar path uses keeps dK/dV bit-exact.
++        float kv_dot = pc.unfused_qk == 9u ? float(kv_softmax_dot) : softmax_dot;
++        scratch_ds[slot] = p * (dp - kv_dot);
+         if (pc.unfused_qk == 9u) {
+             precise float score_scale = pc.scale * 1.0;
+             score_scale = score_scale * ds_q;
+diff --git a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv
+index 8ddc547..04e8471 100644
+Binary files a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv and b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv differ
+diff --git a/hierarchos-vulkan/src/bin/held_out_eval.rs b/hierarchos-vulkan/src/bin/held_out_eval.rs
+index 340cf6d..c8ce69b 100644
+--- a/hierarchos-vulkan/src/bin/held_out_eval.rs
++++ b/hierarchos-vulkan/src/bin/held_out_eval.rs
+@@ -549,9 +549,7 @@ fn evaluate(
+ 
+ fn run(args: Args) -> Result<()> {
+     let precision = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new()?;
+     let mut graph =
+         VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+diff --git a/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs b/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs
+index a4aee65..4e7dcc9 100644
+--- a/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs
++++ b/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs
+@@ -353,9 +353,7 @@ fn run(args: Args) -> Result<()> {
+         );
+     }
+     let precision = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new()?;
+     let mut graph = VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+     let mut hyper = AdamWHyperParams {
+diff --git a/hierarchos-vulkan/src/bin/training-stability.rs b/hierarchos-vulkan/src/bin/training-stability.rs
+index e476d5e..8c4397b 100644
+--- a/hierarchos-vulkan/src/bin/training-stability.rs
++++ b/hierarchos-vulkan/src/bin/training-stability.rs
+@@ -368,9 +368,7 @@ fn run(args: Args) -> Result<()> {
+         );
+     }
+     let precision = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new()?;
+     let mut graph = VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+     let mut hyper = AdamWHyperParams {
+diff --git a/hierarchos-vulkan/src/bin/transformer_train.rs b/hierarchos-vulkan/src/bin/transformer_train.rs
+index e2f685e..a9a8155 100644
+--- a/hierarchos-vulkan/src/bin/transformer_train.rs
++++ b/hierarchos-vulkan/src/bin/transformer_train.rs
+@@ -1262,6 +1262,20 @@ fn main() -> Result<()> {
+             );
+         }
+     }
++    // The backward route is a per-geometry decision; report the counters the
++    // dispatch actually recorded so a benchmark or qualification log cannot
++    // claim a fast path that never ran.
++    let attention = hierarchos_vulkan::attention_backward_dispatch_counts();
++    eprintln!(
++        "two-pass backward counters: effective={} scalar={} query={} key={} \
++         scratch_allocations={} scratch_bytes={}",
++        hierarchos_vulkan::attention_backward_two_pass_enabled(),
++        attention.scalar,
++        attention.query,
++        attention.key,
++        attention.scratch_allocations,
++        attention.scratch_bytes
++    );
+     let mut report=serde_json::to_value(report)?;
+     report["attempted_optimizer_windows"]=serde_json::json!(optimizer_steps);
+     report["optimizer_steps"]=serde_json::json!(graph.step()-starting_optimizer_step);
+diff --git a/hierarchos-vulkan/src/bin/wmma_drift.rs b/hierarchos-vulkan/src/bin/wmma_drift.rs
+index 3fcb6a3..4c91982 100644
+--- a/hierarchos-vulkan/src/bin/wmma_drift.rs
++++ b/hierarchos-vulkan/src/bin/wmma_drift.rs
+@@ -771,9 +771,7 @@ fn run(args: Args) -> Result<()> {
+         return run_compare_forward(&args);
+     }
+     let mode = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new_for_wmma(mode)?;
+     let mut graph = VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+     graph.set_dropout_seed(args.seed as u32 ^ (args.seed >> 32) as u32);
+diff --git a/hierarchos-vulkan/src/lib.rs b/hierarchos-vulkan/src/lib.rs
+index 1fc478d..c8c68e4 100644
+--- a/hierarchos-vulkan/src/lib.rs
++++ b/hierarchos-vulkan/src/lib.rs
+@@ -55,6 +55,10 @@ mod token_frontend;
+ mod training_numerics;
+ mod transformer;
+ pub mod precision_policy;
++pub use transformer::{
++    attention_backward_dispatch_counts, attention_backward_two_pass_enabled,
++    attention_backward_two_pass_explicitly_requested, AttentionBackwardDispatchCounts,
++};
+ pub use transformer::deepseek_v41_vision::{
+     DeepseekV41VisionConfig, DeepseekV41VisionTensor, VulkanDeepseekV41Image,
+     VulkanDeepseekV41Vision,
+diff --git a/hierarchos-vulkan/src/transformer.rs b/hierarchos-vulkan/src/transformer.rs
+index 174e915..b6297e6 100644
+--- a/hierarchos-vulkan/src/transformer.rs
++++ b/hierarchos-vulkan/src/transformer.rs
+@@ -25531,53 +25531,170 @@ fn rdna3_short_attention_supported(push: &AttentionPush) -> bool {
+         && push.value_scale == 1.0
+ }
+ 
+-/// Whether the opt-in two-pass attention backward is switched on.
+-///
+-/// Off by default: the scalar kernel stays the qualified path until the two-pass
+-/// pair has its own numerical evidence. Read once so a dispatch never consults
+-/// the environment.
+-fn two_pass_attention_enabled() -> bool {
++/// The explicit two-pass selection, read once so a dispatch never consults the
++/// environment. `None` is the eligible default.
++fn two_pass_attention_setting() -> Option<bool> {
+     use std::sync::OnceLock;
+-    static ENABLED: OnceLock<bool> = OnceLock::new();
+-    *ENABLED.get_or_init(|| {
+-        std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-            .map(|value| value == "1")
+-            .unwrap_or(false)
++    static SETTING: OnceLock<Option<bool>> = OnceLock::new();
++    *SETTING.get_or_init(|| {
++        match std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS") {
++            Ok(value) => match value.trim() {
++                "1" | "true" | "on" => Some(true),
++                "0" | "false" | "off" => Some(false),
++                other => {
++                    eprintln!(
++                        "two-pass backward: unrecognized \
++                         HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS={other:?}; \
++                         using the eligible default"
++                    );
++                    None
++                }
++            },
++            Err(_) => None,
++        }
+     })
+ }
+ 
+-/// Allocate the two-pass scratch for a layer, or nothing when the switch is off.
++/// Whether the two-pass attention backward is selected for eligible geometry.
+ ///
+-/// Sized from `rows * query_hidden`, an upper bound for every geometry the
+-/// dispatcher admits (it additionally requires `seq <= head_dim`). A geometry
+-/// outside that bound keeps the scalar kernel rather than growing the buffer on
+-/// the hot path.
+-fn two_pass_attention_scratch(
+-    device: &VulkanDevice,
+-    rows: usize,
+-    query_hidden: usize,
+-) -> Result<Option<TwoPassAttentionScratch>> {
+-    if !two_pass_attention_enabled() {
+-        return Ok(None);
++/// On by default now that the pair has mode-0 and mode-9 gradient evidence,
++/// exact scratch sizing and a per-geometry decision report. Every geometry the
++/// eligibility proof rejects keeps the scalar kernel, and an explicit
++/// `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0` forces the scalar path.
++fn two_pass_attention_enabled() -> bool {
++    two_pass_attention_setting() != Some(false)
++}
++
++/// True only when the environment explicitly asks for the two-pass path. A
++/// hardware qualification uses this to turn a missing device or artifact into
++/// a failure instead of a silent skip.
++pub fn attention_backward_two_pass_explicitly_requested() -> bool {
++    std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
++        .map(|value| matches!(value.trim(), "1" | "true" | "on"))
++        .unwrap_or(false)
++}
++
++/// The effective selection, for binaries that report the requested route.
++pub fn attention_backward_two_pass_enabled() -> bool {
++    two_pass_attention_enabled()
++}
++
++static ATTENTION_BACKWARD_SCALAR_DISPATCHES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_KEY_DISPATCHES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_SCRATCH_BYTES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++
++/// Actual attention-backward dispatch counters for this process.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct AttentionBackwardDispatchCounts {
++    pub scalar: u64,
++    pub query: u64,
++    pub key: u64,
++    pub scratch_allocations: u64,
++    pub scratch_bytes: u64,
++}
++
++pub fn attention_backward_dispatch_counts() -> AttentionBackwardDispatchCounts {
++    use std::sync::atomic::Ordering;
++    AttentionBackwardDispatchCounts {
++        scalar: ATTENTION_BACKWARD_SCALAR_DISPATCHES.load(Ordering::Relaxed),
++        query: ATTENTION_BACKWARD_QUERY_DISPATCHES.load(Ordering::Relaxed),
++        key: ATTENTION_BACKWARD_KEY_DISPATCHES.load(Ordering::Relaxed),
++        scratch_allocations: ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS.load(Ordering::Relaxed),
++        scratch_bytes: ATTENTION_BACKWARD_SCRATCH_BYTES.load(Ordering::Relaxed),
++    }
++}
++
++/// Floats each pass-1 scratch buffer must hold, derived from the shaders' own
++/// indexing: pass 1 writes slot
++/// `(b * num_heads + head) * query_seq * key_value_seq + query * key_value_seq + key`
++/// and pass 2 reads exactly the slots pass 1 wrote, so the highest index is
++/// `batch_size * num_heads * query_seq_len * key_value_seq_len - 1`.
++///
++/// The earlier `rows * query_hidden` bound over-allocated by
++/// `head_dim / key_value_seq_len` and made every ineligible geometry pay for a
++/// fast path it would never run.
++fn two_pass_attention_scratch_elements(push: &AttentionPush) -> Option<usize> {
++    (push.batch_size as usize)
++        .checked_mul(push.num_heads as usize)?
++        .checked_mul(push.query_seq_len as usize)?
++        .checked_mul(push.key_value_seq_len as usize)
++}
++
++/// Report each distinct backward-route decision once per process.
++///
++/// A one-shot line described only the first geometry, so a later layer that fell
++/// back stayed invisible. The set is keyed by the whole decision, including the
++/// geometry, so two layers with different shapes each get their own line and a
++/// repeated training step adds none.
++fn report_two_pass_decision(
++    push: &AttentionPush,
++    kernels_available: bool,
++    key_blocks: u32,
++    route: &'static str,
++    eligible: bool,
++    reason: &'static str,
++    scratch_elements: usize,
++) {
++    use std::sync::{Mutex, OnceLock};
++    static SEEN: OnceLock<Mutex<std::collections::BTreeSet<String>>> = OnceLock::new();
++    let head_dim = push.query_hidden_size / push.num_heads.max(1);
++    let key = format!(
++        "{route}|{eligible}|{reason}|{kernels_available}|{key_blocks}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
++        push.batch_size,
++        push.num_heads,
++        push.num_key_value_heads,
++        push.query_seq_len,
++        push.key_value_seq_len,
++        head_dim,
++        push.causal,
++        push.unfused_qk,
++        scratch_elements,
++    );
++    {
++        let seen = SEEN.get_or_init(|| Mutex::new(std::collections::BTreeSet::new()));
++        let mut seen = match seen.lock() {
++            Ok(guard) => guard,
++            Err(poisoned) => poisoned.into_inner(),
++        };
++        if !seen.insert(key) {
++            return;
++        }
+     }
+-    let capacity = rows
+-        .checked_mul(query_hidden)
+-        .ok_or_else(|| anyhow::anyhow!("two-pass attention scratch size overflow"))?;
+-    Ok(Some(TwoPassAttentionScratch {
+-        probability: GpuBuffer::zeros_f32(device, capacity)?,
+-        ds: GpuBuffer::zeros_f32(device, capacity)?,
+-        capacity,
+-    }))
++    eprintln!(
++        "two-pass backward: route={route} eligible={eligible} reason={reason} \
++         kernels={kernels_available} scratch={} \
++         key_blocks={key_blocks} batch={} heads={} kv_heads={} q_seq={} kv_seq={} \
++         head_dim={head_dim} causal={} unfused_qk={} scratch_elements={scratch_elements} \
++         scratch_bytes={}",
++        scratch_elements != 0,
++        push.batch_size,
++        push.num_heads,
++        push.num_key_value_heads,
++        push.query_seq_len,
++        push.key_value_seq_len,
++        push.causal,
++        push.unfused_qk,
++        scratch_elements * 2 * std::mem::size_of::<f32>(),
++    );
+ }
+ 
+-/// Whether the two-pass pair reproduces this geometry exactly.
++/// The first reason the two-pass pair does not reproduce this geometry, or
++/// `None` when it does.
+ ///
+ /// Covers the plain fused path (mode 0) and Llama's materialised-SLEEF adjoint
+ /// (mode 9), both of which the pair implements. Everything else keeps the scalar
+ /// kernel: a shared score parameter or a non-plain softmax would need reductions
+ /// this pair does not implement, and an unsupported ordering can only be a
+-/// silent numerical change.
+-fn two_pass_attention_supported(push: &AttentionPush, capacity: usize) -> bool {
++/// silent numerical change. The reasons are reported per distinct geometry; the
++/// order is the order the gate has always applied.
++fn two_pass_attention_rejection(push: &AttentionPush) -> Option<&'static str> {
+     if push.batch_size == 0
+         || push.query_seq_len == 0
+         || push.key_value_seq_len == 0
+@@ -25587,35 +25704,69 @@ fn two_pass_attention_supported(push: &AttentionPush, capacity: usize) -> bool {
+         || push.query_hidden_size % push.num_heads != 0
+         || push.value_hidden_size % push.num_key_value_heads != 0
+     {
+-        return false;
++        return Some("invalid_geometry");
+     }
+     let head_dim = push.query_hidden_size / push.num_heads;
+     let value_head_dim = push.value_hidden_size / push.num_key_value_heads;
+-    let elements = push.batch_size as usize
+-        * push.num_heads as usize
+-        * push.query_seq_len as usize
+-        * push.key_value_seq_len as usize;
+     // One query head per KV head keeps pass 2's per-head accumulator identical
+     // to the generic adjoint's shared accumulator; a grouped geometry would need
+     // the head nesting measured on its own before it can be claimed.
+-    push.num_heads == push.num_key_value_heads
+-        && matches!(push.unfused_qk, 0 | 9)
+-        && head_dim == value_head_dim
+-        && head_dim <= 128
+-        && push.key_value_seq_len as usize <= head_dim as usize
+-        && elements <= capacity
+-        && push.window_size == 0
+-        && push.softcap == 0.0
+-        && push.alibi_mode == 0
+-        && push.relative_bias_mode == 0
+-        && push.dropout_p == 0.0
+-        && push.has_sink == 0
+-        && push.causal <= 1
+-        && push.query_position_offset == 0
+-        && push.has_sparse_mask == 0
+-        && push.compressed_key_count == 0
+-        && push.paged_kv == 0
+-        && push.value_scale == 1.0
++    if push.num_heads != push.num_key_value_heads {
++        return Some("grouped_query_attention");
++    }
++    if !matches!(push.unfused_qk, 0 | 9) {
++        return Some("unsupported_arithmetic_mode");
++    }
++    if head_dim != value_head_dim {
++        return Some("mismatched_head_dim");
++    }
++    if head_dim > 128 {
++        return Some("head_dim_above_128");
++    }
++    if push.key_value_seq_len as usize > head_dim as usize {
++        return Some("kv_sequence_above_head_dim");
++    }
++    if push.window_size != 0 {
++        return Some("sliding_window");
++    }
++    if push.softcap != 0.0 {
++        return Some("softcap");
++    }
++    if push.alibi_mode != 0 {
++        return Some("alibi");
++    }
++    if push.relative_bias_mode != 0 {
++        return Some("relative_bias");
++    }
++    if push.dropout_p != 0.0 {
++        return Some("dropout");
++    }
++    if push.has_sink != 0 {
++        return Some("attention_sink");
++    }
++    if push.causal > 1 {
++        return Some("causal_mode");
++    }
++    if push.query_position_offset != 0 {
++        return Some("query_position_offset");
++    }
++    if push.has_sparse_mask != 0 {
++        return Some("sparse_mask");
++    }
++    if push.compressed_key_count != 0 {
++        return Some("compressed_keys");
++    }
++    if push.paged_kv != 0 {
++        return Some("paged_kv");
++    }
++    if push.value_scale != 1.0 {
++        return Some("value_scale");
++    }
++    None
++}
++
++fn two_pass_attention_supported(push: &AttentionPush) -> bool {
++    two_pass_attention_rejection(push).is_none()
+ }
+ 
+ fn rdna3_avx512_sdpa_supported(push: &AttentionPush) -> bool {
+@@ -59397,20 +59548,32 @@ struct VulkanTransformerLayer {
+     base_frozen_for_peft: bool,
+     cross_attention: Option<VulkanCrossAttention>,
+     tape: TransformerLayerTape,
+-    /// Scratch shared by both passes of the opt-in two-pass attention backward.
+-    /// Allocated once per layer when the switch is set and reused by every step
+-    /// that fits, so the hot path never allocates.
+-    two_pass_attention_scratch: Option<TwoPassAttentionScratch>,
++    /// Scratch shared by both passes of the two-pass attention backward.
++    /// Empty until an eligible geometry first dispatches, so a GQA,
++    /// long-context or otherwise ineligible layer never pays for the fast path.
++    /// Each layer owns its own storage.
++    two_pass_attention_scratch: std::cell::RefCell<Option<TwoPassAttentionScratch>>,
+ }
+ 
+ /// The per-element quantities pass 1 hands to pass 2 for one attention call.
+-/// `capacity` is in floats and bounds both buffers.
++/// `capacity` is in floats and is exactly the highest slot each shader indexes
++/// plus one; both buffers are that size.
+ struct TwoPassAttentionScratch {
+     probability: GpuBuffer,
+     ds: GpuBuffer,
+     capacity: usize,
+ }
+ 
++impl TwoPassAttentionScratch {
++    fn new(device: &VulkanDevice, elements: usize) -> Result<Self> {
++        Ok(Self {
++            probability: GpuBuffer::zeros_f32(device, elements)?,
++            ds: GpuBuffer::zeros_f32(device, elements)?,
++            capacity: elements,
++        })
++    }
++}
++
+ impl VulkanTransformerLayer {
+     /// Return the exact Q/K tensors consumed by the self-attention kernel in
+     /// the most recent forward pass. The forward path has several ordering
+@@ -60425,7 +60588,7 @@ impl VulkanTransformerLayer {
+                 value_hidden,
+                 attention_hidden,
+             )?,
+-            two_pass_attention_scratch: two_pass_attention_scratch(device, rows, q)?,
++            two_pass_attention_scratch: std::cell::RefCell::new(None),
+         };
+         if config.uses_parameter_free_layer_norm() {
+             layer.ln1.freeze();
+@@ -60631,11 +60794,7 @@ impl VulkanTransformerLayer {
+                 self.value_hidden_size,
+                 self.attention_hidden_size,
+             )?,
+-            two_pass_attention_scratch: two_pass_attention_scratch(
+-                device,
+-                rows,
+-                self.query_hidden_size,
+-            )?,
++            two_pass_attention_scratch: std::cell::RefCell::new(None),
+         })
+     }
+ 
+@@ -62802,6 +62961,112 @@ impl VulkanTransformerLayer {
+         )
+     }
+ 
++    /// Decide the backward route for this geometry and allocate the pair's
++    /// scratch on the first eligible call.
++    ///
++    /// Allocation happens here rather than at construction because eligibility
++    /// depends on values only the dispatch knows (mask mode, sink, bias, key
++    /// splitting). A rejected geometry returns before touching the allocator,
++    /// so it never pays for a fast path it cannot run.
++    fn select_two_pass_attention_backward(
++        &self,
++        commands: &vulkan::ComputeBatch,
++        kernels: &TransformerKernels,
++        push: &AttentionPush,
++        key_blocks: u32,
++    ) -> Result<bool> {
++        if !two_pass_attention_enabled() {
++            report_two_pass_decision(
++                push,
++                kernels.rdna3_two_pass_attention_backward.is_some(),
++                key_blocks,
++                "scalar",
++                false,
++                "disabled_by_environment",
++                0,
++            );
++            return Ok(false);
++        }
++        let kernels_available = kernels.rdna3_two_pass_attention_backward.is_some();
++        if key_blocks != 1 {
++            report_two_pass_decision(
++                push,
++                kernels_available,
++                key_blocks,
++                "scalar",
++                false,
++                "key_range_split",
++                0,
++            );
++            return Ok(false);
++        }
++        if !kernels_available {
++            report_two_pass_decision(
++                push,
++                false,
++                key_blocks,
++                "scalar",
++                false,
++                "kernels_unavailable",
++                0,
++            );
++            return Ok(false);
++        }
++        if let Some(reason) = two_pass_attention_rejection(push) {
++            report_two_pass_decision(push, true, key_blocks, "scalar", false, reason, 0);
++            return Ok(false);
++        }
++        let Some(elements) = two_pass_attention_scratch_elements(push) else {
++            report_two_pass_decision(
++                push,
++                true,
++                key_blocks,
++                "scalar",
++                false,
++                "scratch_size_overflow",
++                0,
++            );
++            return Ok(false);
++        };
++        let existing = self
++            .two_pass_attention_scratch
++            .borrow()
++            .as_ref()
++            .map(|scratch| scratch.capacity);
++        if existing != Some(elements) {
++            use std::sync::atomic::Ordering;
++            let scratch = TwoPassAttentionScratch::new(commands.device(), elements)?;
++            ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
++            ATTENTION_BACKWARD_SCRATCH_BYTES.fetch_add(
++                (elements * 2 * std::mem::size_of::<f32>()) as u64,
++                Ordering::Relaxed,
++            );
++            eprintln!(
++                "two-pass backward scratch: layer={} batch={} heads={} kv_heads={} \
++                 q_seq={} kv_seq={} elements={} bytes={}",
++                self.layer_index,
++                push.batch_size,
++                push.num_heads,
++                push.num_key_value_heads,
++                push.query_seq_len,
++                push.key_value_seq_len,
++                elements,
++                elements * 2 * std::mem::size_of::<f32>(),
++            );
++            *self.two_pass_attention_scratch.borrow_mut() = Some(scratch);
++        }
++        report_two_pass_decision(
++            push,
++            true,
++            key_blocks,
++            "two-pass",
++            true,
++            "eligible",
++            elements,
++        );
++        Ok(true)
++    }
++
+     fn record_backward_with_cross_attention(
+         &self,
+         commands: &mut vulkan::ComputeBatch,
+@@ -64216,49 +64481,25 @@ impl VulkanTransformerLayer {
+                 // The two-pass pair is opt-in and geometry-gated: pass 1 owns one
+                 // query row per lane, pass 2 owns one key per lane, and every
+                 // geometry either pass cannot reproduce keeps the scalar kernel.
+-                let two_pass = if key_blocks == 1 && two_pass_attention_enabled() {
+-                    let pair = kernels.rdna3_two_pass_attention_backward.as_ref();
+-                    let scratch = self.two_pass_attention_scratch.as_ref();
+-                    let supported = scratch
+-                        .map(|scratch| {
+-                            two_pass_attention_supported(&attention_push, scratch.capacity)
+-                        })
+-                        .unwrap_or(false);
+-                    // One line per process, only under the opt-in switch: a silent
+-                    // fallback would look exactly like a qualified run.
+-                    {
+-                        use std::sync::atomic::{AtomicBool, Ordering};
+-                        static REPORTED: AtomicBool = AtomicBool::new(false);
+-                        if !REPORTED.swap(true, Ordering::Relaxed) {
+-                            eprintln!(
+-                                "two-pass backward: kernels={} scratch={} supported={} \
+-                                 key_blocks={} causal={} unfused_qk={} head_dim={} kv_seq={} \
+-                                 value_scale={} bias={} sparse={} compressed={} paged={} offset={}",
+-                                pair.is_some(),
+-                                scratch.is_some(),
+-                                supported,
+-                                key_blocks,
+-                                attention_push.causal,
+-                                attention_push.unfused_qk,
+-                                attention_push.query_hidden_size
+-                                    / attention_push.num_heads.max(1),
+-                                attention_push.key_value_seq_len,
+-                                attention_push.value_scale,
+-                                attention_push.relative_bias_mode,
+-                                attention_push.has_sparse_mask,
+-                                attention_push.compressed_key_count,
+-                                attention_push.paged_kv,
+-                                attention_push.query_position_offset,
+-                            );
+-                        }
+-                    }
+-                    match (pair, scratch) {
+-                        (Some(pair), Some(scratch)) if supported => Some((pair, scratch)),
+-                        _ => None,
+-                    }
++                let two_pass_scratch = if self.select_two_pass_attention_backward(
++                    commands,
++                    kernels,
++                    &attention_push,
++                    key_blocks,
++                )? {
++                    Some(self.two_pass_attention_scratch.borrow())
+                 } else {
+                     None
+                 };
++                let two_pass = match (
++                    kernels.rdna3_two_pass_attention_backward.as_ref(),
++                    two_pass_scratch
++                        .as_ref()
++                        .and_then(|guard| guard.as_ref()),
++                ) {
++                    (Some(pair), Some(scratch)) => Some((pair, scratch)),
++                    _ => None,
++                };
+                 if let Some((two_pass_kernels, two_pass_scratch)) = two_pass {
+                     let query_rows = attention_push.batch_size
+                         * attention_push.num_heads
+@@ -64282,6 +64523,8 @@ impl VulkanTransformerLayer {
+                         bytemuck::bytes_of(&attention_push),
+                         [(query_rows + 63) / 64, 1, 1],
+                     )?;
++                    ATTENTION_BACKWARD_QUERY_DISPATCHES
++                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                     two_pass_kernels[1].record_dispatch(
+                         commands,
+                         &[
+@@ -64297,6 +64540,8 @@ impl VulkanTransformerLayer {
+                         bytemuck::bytes_of(&attention_push),
+                         [(key_rows + 63) / 64, 1, 1],
+                     )?;
++                    ATTENTION_BACKWARD_KEY_DISPATCHES
++                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 } else if let Some(family) = kernels
+                     .rdna3_avx512_gpt2
+                     .as_ref()
+@@ -64395,6 +64640,8 @@ impl VulkanTransformerLayer {
+                             ),
+                             [num_key_value_heads as u32, batch_rows, 1],
+                         )?;
++                        ATTENTION_BACKWARD_SCALAR_DISPATCHES
++                            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                         if key_block + 1 < key_blocks {
+                             commands.submit_and_restart()?;
+                         }
+@@ -135589,7 +135836,7 @@ mod tests {
+     /// Compare one gradient tensor element by element and describe the first
+     /// divergence in full. Returns the report and whether every element matched
+     /// bit for bit.
+-    fn gradient_report(name: &str, expected: &[f32], actual: &[f32]) -> (bool, String) {
++    fn gradient_report(name: &str, expected: &[f32], actual: &[f32]) -> (bool, String, f32, u32) {
+         assert_eq!(expected.len(), actual.len(), "{name} length mismatch");
+         let mut equal = 0usize;
+         let mut max_abs = 0.0_f32;
+@@ -135658,7 +135905,7 @@ mod tests {
+                 (ulp_order(expected_value) - ulp_order(actual_value)).abs(),
+             )),
+         }
+-        (equal == expected.len(), report)
++        (equal == expected.len(), report, max_abs, max_ulp as u32)
+     }
+ 
+     /// Deterministic input bytes for the direct comparison: two runs of the same
+@@ -135675,25 +135922,55 @@ mod tests {
+             .collect()
+     }
+ 
+-    /// Direct dQ/dK/dV comparison between the scalar mode-9 backward and the
+-    /// two-pass pair, both driven through their production kernels, descriptor
+-    /// bindings and push-constant layouts on the same device.
++    /// Direct dQ/dK/dV comparison between the scalar backward and the two-pass
++    /// pair, both driven through their production kernels, descriptor bindings
++    /// and push-constant layouts on the same device.
++    ///
++    /// Both arithmetic modes the eligibility gate admits -- the plain fused path
++    /// (mode 0) and Llama's materialised-SLEEF adjoint (mode 9) -- are exercised
++    /// over the same four geometries. The adapters agreed after two LoRA steps,
++    /// but that only observes the composition; this reads the gradient tensors
++    /// themselves. Outputs start as a sentinel so an element the kernel never
++    /// writes cannot pass as a zero.
+     ///
+-    /// The adapters agreed after two LoRA steps, but that only observes the
+-    /// composition; this reads the gradient tensors themselves. Outputs start as
+-    /// NaN so an element the kernel never writes cannot pass as a zero.
++    /// A missing device is a visible SKIP unless the run explicitly asked for
++    /// the two-pass path (``=1``), in which case it is BLOCKED and fails. A
++    /// device that is present but cannot qualify is always a FAIL.
+     #[test]
+     fn two_pass_attention_backward_matches_scalar_gradients() -> Result<()> {
+-        let Ok(device) = VulkanDevice::new() else {
+-            return Ok(());
+-        };
+-        let kernels = TransformerKernels::new(&device)?;
+-        let Some(two_pass) = kernels.rdna3_two_pass_attention_backward.as_ref() else {
++        let explicitly_requested = attention_backward_two_pass_explicitly_requested();
++        if two_pass_attention_setting() == Some(false) {
+             eprintln!(
+-                "two-pass backward not loaded; run with \
+-                 HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1 to compare gradients"
++                "two-pass gradient qualification: status=SKIP reason=disabled_by_environment"
+             );
+             return Ok(());
++        }
++        let device = match VulkanDevice::new() {
++            Ok(device) => device,
++            Err(error) => {
++                eprintln!(
++                    "two-pass gradient qualification: status=BLOCKED \
++                     reason=no_vulkan_device detail={error}"
++                );
++                if explicitly_requested {
++                    panic!("two-pass gradient qualification BLOCKED: no Vulkan device: {error}");
++                }
++                return Ok(());
++            }
++        };
++        let kernels = match TransformerKernels::new(&device) {
++            Ok(kernels) => kernels,
++            Err(error) => {
++                eprintln!(
++                    "two-pass gradient qualification: status=FAIL \
++                     reason=kernels_failed detail={error}"
++                );
++                return Err(error);
++            }
++        };
++        let Some(two_pass) = kernels.rdna3_two_pass_attention_backward.as_ref() else {
++            eprintln!("two-pass gradient qualification: status=FAIL reason=kernels_unavailable");
++            panic!("two-pass kernels are not loaded although they are the eligible default");
+         };
+         let cases: [(&str, u32, u32, u32, u32, u32, bool); 4] = [
+             ("fixture-causal", 8, 8, 64, 128, 1, false),
+@@ -135701,7 +135978,19 @@ mod tests {
+             ("padded-causal", 2, 2, 16, 64, 1, true),
+             ("small-causal", 1, 1, 4, 4, 1, false),
+         ];
++        let modes = [0u32, 9u32];
+         let mut failures = 0usize;
++        let mut executed_cases = 0usize;
++        let mut comparisons = 0usize;
++        let mut total_elements = 0usize;
++        let mut total_equal = 0usize;
++        let mut total_unwritten = 0usize;
++        let mut max_abs = 0.0f32;
++        let mut max_ulp = 0u32;
++        let mut query_dispatches = 0usize;
++        let mut key_dispatches = 0usize;
++        let mut scalar_dispatches = 0usize;
++        for mode in modes {
+         for (label, batch, heads, seq, head_dim, causal, masked) in cases {
+             let hidden = seq * head_dim;
+             let rows = batch * heads * seq;
+@@ -135776,7 +136065,7 @@ mod tests {
+                 paged_kv: 0,
+                 kv_page_size: 1,
+                 kv_page_table_stride: 1,
+-                unfused_qk: 9,
++                unfused_qk: mode,
+             };
+             let mut scalar_commands = vulkan::ComputeBatch::new(&device)?;
+             kernels.attention_backward.record_dispatch(
+@@ -135803,8 +136092,16 @@ mod tests {
+                 // its grid has to cover the whole case or one head runs alone.
+                 [heads as u32, batch as u32, 1],
+             )?;
++            assert_eq!(
++                scalar_commands.dispatch_count(),
++                1,
++                "[{label}] mode={mode}: the scalar arm recorded {} dispatches",
++                scalar_commands.dispatch_count()
++            );
++            scalar_dispatches += scalar_commands.dispatch_count();
+             scalar_commands.submit()?;
+-            let capacity = (batch * heads * seq * head_dim) as usize;
++            let capacity = two_pass_attention_scratch_elements(&push)
++                .ok_or_else(|| anyhow::anyhow!("two-pass attention scratch size overflow"))?;
+             let scratch_sentinel = vec![sentinel_value; capacity];
+             let probability = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
+             let ds = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
+@@ -135840,6 +136137,15 @@ mod tests {
+                 bytemuck::bytes_of(&push),
+                 [(key_rows + 63) / 64, 1, 1],
+             )?;
++            assert_eq!(
++                parallel_commands.dispatch_count(),
++                2,
++                "[{label}] mode={mode}: the two-pass arm recorded {} dispatches, \
++                 expected both passes",
++                parallel_commands.dispatch_count()
++            );
++            query_dispatches += 1;
++            key_dispatches += 1;
+             parallel_commands.submit()?;
+ 
+             let count = (batch * heads * hidden) as usize;
+@@ -135869,22 +136175,150 @@ mod tests {
+                     .chain(actual.iter())
+                     .filter(|value| **value == sentinel_value)
+                     .count();
+-                let (equal, report) = gradient_report(name, &expected, &actual);
++                let (equal, report, case_max_abs, case_max_ulp) =
++                    gradient_report(name, &expected, &actual);
+                 eprintln!(
+-                    "[{label}] batch={batch} heads={heads} seq={seq} head_dim={head_dim} \
+-                     causal={causal} masked={masked} unwritten={unwritten} {report} {}",
++                    "[{label}] mode={mode} batch={batch} heads={heads} seq={seq} \
++                     head_dim={head_dim} causal={causal} masked={masked} \
++                     unfused_qk={mode} unwritten={unwritten} {report} {}",
+                     if equal && unwritten == 0 { "PASS" } else { "FAIL" }
+                 );
++                comparisons += 1;
++                total_elements += expected.len();
++                if equal {
++                    total_equal += expected.len();
++                }
++                total_unwritten += unwritten;
++                max_abs = max_abs.max(case_max_abs);
++                max_ulp = max_ulp.max(case_max_ulp);
+                 if !equal || unwritten != 0 {
+                     case_failed += 1;
+                 }
+             }
++            if case_failed == 0 {
++                executed_cases += 1;
++            }
+             failures += case_failed;
+         }
++        }
++        let status = if failures == 0 && executed_cases == 8 && comparisons == 24 {
++            "PASS"
++        } else {
++            "FAIL"
++        };
++        eprintln!(
++            "two-pass gradient qualification: status={status} cases={executed_cases}/8 \
++             comparisons={comparisons}/24 elements={total_elements} \
++             bitwise_equal={total_equal} max_abs={max_abs:.3e} max_ulp={max_ulp} \
++             unwritten={total_unwritten} scalar_dispatches={scalar_dispatches} \
++             query_dispatches={query_dispatches} key_dispatches={key_dispatches}"
++        );
+         assert_eq!(failures, 0, "two-pass gradients diverge from the scalar path");
+         Ok(())
+     }
+ 
++    /// The comparator that decides a gradient PASS must reject a one-ULP change;
++    /// otherwise the qualification would be vacuous.
++    #[test]
++    fn gradient_report_rejects_a_one_ulp_difference() {
++        let expected = vec![1.0_f32, -2.5, 0.75, 0.0];
++        let mut actual = expected.clone();
++        let (equal, _, _, max_ulp) = gradient_report("identical", &expected, &actual);
++        assert!(equal);
++        assert_eq!(max_ulp, 0);
++        actual[1] = f32::from_bits(actual[1].to_bits() ^ 1);
++        let (equal, report, _, max_ulp) = gradient_report("one-ulp", &expected, &actual);
++        assert!(!equal, "a one-ULP change must not pass: {report}");
++        assert!(max_ulp >= 1, "the report must carry the ULP distance");
++        assert!(report.contains("first_divergence=index 1"), "{report}");
++    }
++
++    fn eligibility_push(
++        batch: u32,
++        heads: u32,
++        kv_heads: u32,
++        seq: u32,
++        head_dim: u32,
++        mode: u32,
++    ) -> AttentionPush {
++        AttentionPush {
++            batch_size: batch,
++            query_seq_len: seq,
++            key_value_seq_len: seq,
++            query_hidden_size: heads * head_dim,
++            value_hidden_size: kv_heads * head_dim,
++            num_heads: heads,
++            num_key_value_heads: kv_heads,
++            window_size: 0,
++            scale: 1.0 / (head_dim as f32).sqrt(),
++            value_scale: 1.0,
++            softcap: 0.0,
++            alibi_mode: 0,
++            alibi_bias_max: 0.0,
++            dropout_p: 0.0,
++            rng_step: 0,
++            rng_site: 0,
++            rng_seed: 0,
++            has_sink: 0,
++            causal: 1,
++            relative_bias_mode: 0,
++            relative_bias_num_buckets: 0,
++            relative_bias_max_distance: 0,
++            query_position_offset: 0,
++            has_sparse_mask: 0,
++            compressed_key_count: 0,
++            compressed_key_rate: 0,
++            paged_kv: 0,
++            kv_page_size: 1,
++            kv_page_table_stride: 1,
++            unfused_qk: mode,
++        }
++    }
++
++    /// The scratch contract is derived from the shaders' slot indexing, and every
++    /// geometry the gate rejects is rejected before any allocation.
++    #[test]
++    fn two_pass_scratch_sizing_and_eligibility_are_geometry_exact() {
++        let eligible = eligibility_push(8, 8, 8, 64, 128, 9);
++        assert_eq!(two_pass_attention_rejection(&eligible), None);
++        assert_eq!(
++            two_pass_attention_scratch_elements(&eligible),
++            Some(8 * 8 * 64 * 64)
++        );
++        assert_eq!(two_pass_attention_scratch_elements(&eligible), Some(262_144));
++
++        let mode0 = eligibility_push(2, 4, 4, 16, 64, 0);
++        assert_eq!(two_pass_attention_rejection(&mode0), None);
++        assert_eq!(
++            two_pass_attention_scratch_elements(&mode0),
++            Some(2 * 4 * 16 * 16)
++        );
++
++        // A grouped geometry must never reach the allocator.
++        let grouped = eligibility_push(1, 8, 2, 64, 128, 9);
++        assert_eq!(
++            two_pass_attention_rejection(&grouped),
++            Some("grouped_query_attention")
++        );
++
++        // A key sequence above the admitted head dimension is unsupported.
++        let long = eligibility_push(1, 8, 8, 256, 128, 9);
++        assert_eq!(
++            two_pass_attention_rejection(&long),
++            Some("kv_sequence_above_head_dim")
++        );
++
++        // Other adjoint arithmetic orders keep the scalar kernel.
++        let mode1 = eligibility_push(8, 8, 8, 64, 128, 1);
++        assert_eq!(
++            two_pass_attention_rejection(&mode1),
++            Some("unsupported_arithmetic_mode")
++        );
++
++        assert!(two_pass_attention_supported(&eligible));
++        assert!(!two_pass_attention_supported(&grouped));
++    }
++
+     #[test]
+     fn attention_backward_key_range_split_is_bit_exact() -> Result<()> {
+         let Ok(device) = VulkanDevice::new() else {
+diff --git a/hierarchos-vulkan/src/vulkan.rs b/hierarchos-vulkan/src/vulkan.rs
+index b07a5f9..70a04b5 100644
+--- a/hierarchos-vulkan/src/vulkan.rs
++++ b/hierarchos-vulkan/src/vulkan.rs
+@@ -7443,6 +7443,12 @@ impl ComputeBatch {
+         self.dispatch_count
+     }
+ 
++    /// The device this batch records against, so a caller that must size or
++    /// allocate a buffer at record time does not need a separate handle.
++    pub(crate) fn device(&self) -> &VulkanDevice {
++        &self.device
++    }
++
+     pub(crate) fn shader_barrier_count(&self) -> usize {
+         self.shader_barrier_count
+     }

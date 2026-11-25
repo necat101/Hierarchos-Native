@@ -1,0 +1,33 @@
+ M RDNA3_WMMA.md
+ M hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.comp
+ M hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.spv
+ M hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp
+ M hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv
+ M hierarchos-vulkan/src/bin/held_out_eval.rs
+ M hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs
+ M hierarchos-vulkan/src/bin/training-stability.rs
+ M hierarchos-vulkan/src/bin/transformer_train.rs
+ M hierarchos-vulkan/src/bin/wmma_drift.rs
+ M hierarchos-vulkan/src/lib.rs
+ M hierarchos-vulkan/src/transformer.rs
+ M hierarchos-vulkan/src/vulkan.rs
+ M hierarchos-vulkan/validation/training_shader_manifest.json
+?? hierarchos-vulkan/shaders/transformer_attention_backward_key_channel4_rdna3.comp
+?? hierarchos-vulkan/shaders/transformer_attention_backward_key_channel4_rdna3.spv
+?? hierarchos-vulkan/shaders/transformer_attention_forward_rowpacked64_cached_rdna3.comp
+?? hierarchos-vulkan/shaders/transformer_attention_forward_rowpacked64_cached_rdna3.spv
+?? hierarchos-vulkan/src/phase_ix_row_packed_forward_tests.rs
+?? hierarchos-vulkan/src/phase_viii_key_block_tests.rs
+?? hierarchos-vulkan/src/phase_x_row_packed_promotion_tests.rs
+?? hierarchos-vulkan/src/phase_xi_channel_tiling_tests.rs
+?? hierarchos-vulkan/src/phase_xii_channel4_key_production_tests.rs
+?? hierarchos-vulkan/validation/gqa_attention_backward_experiment_20261124/
+?? hierarchos-vulkan/validation/gqa_end_to_end_training_20261124/
+?? hierarchos-vulkan/validation/gqa_production_promotion_20261124/
+?? hierarchos-vulkan/validation/mha_attention_backward_closeout_20261124/
+?? hierarchos-vulkan/validation/phase_ix_row_packed_forward_20261124/
+?? hierarchos-vulkan/validation/phase_viii_key_blocks/
+?? hierarchos-vulkan/validation/phase_x_row_packed_forward_promotion_20261125/
+?? hierarchos-vulkan/validation/phase_xi_channel_tiling_20261125/
+?? hierarchos-vulkan/validation/phase_xii_channel4_key_production_20261125/
+?? hierarchos-vulkan/validation/phase_xiii_mixed_wmma_requalification_20261125/

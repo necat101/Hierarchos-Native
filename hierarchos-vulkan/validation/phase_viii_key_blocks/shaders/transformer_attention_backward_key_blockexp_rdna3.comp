@@ -1,0 +1,260 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+
+// Phase VIII experiment: key-pass partitioning across key blocks.
+//
+// This is an ISOLATED candidate. It is not the production key pass, it is not
+// referenced by any production dispatch, and it is compiled only into the
+// Phase VIII test harness (`phase_viii_key_block_*`). The production artifact
+// `shaders/transformer_attention_backward_key_rdna3.comp` is untouched.
+//
+// What changes relative to production:
+//
+//   1. The destination key range is partitioned into `key_block_count`
+//      contiguous blocks per (batch, KV head), and one submission owns exactly
+//      one block: `[block * kv_len / blocks, (block + 1) * kv_len / blocks)`.
+//      That is the same partition the generic scalar backward already uses for
+//      its streaming split, so a block never changes which key a lane owns
+//      within its range, only which dispatch owns the key.
+//   2. The workgroup width is a compile-time constant (`KEY_WORKGROUP_LANES`,
+//      default 64 = production) so the same source can be built at 64, 32, 16
+//      and 8 lanes. This is the only way to change the *workgroup count* at
+//      this geometry without changing the lane total, because the pass already
+//      owns exactly one lane per (batch, KV head, key).
+//
+// What does NOT change, deliberately:
+//
+//   * One lane still owns exactly one destination key. No reduction over
+//     queries is split, no atomics are used, no partial dK/dV is written and
+//     read back, and no new summation tree exists. For a given key element the
+//     operand sequence is byte-for-byte the production sequence: the mapped
+//     query heads ascending, and inside each head the query positions
+//     ascending, in the mode-specific nesting production implements.
+//   * Mode 0 keeps one continuous grouped accumulator with `precise` product
+//     and `precise` add (no contraction into fma).
+//   * Mode 9 keeps the per-head accumulator combined in head order.
+//   * The key-mask zeroing path, the qk/value head dimensions, the scratch slot
+//     indexing and every push-constant meaning are unchanged.
+//
+// Because of that, a block partition is expected to be bit-exact by
+// construction. The experiment exists to test the *performance* claim, which
+// does not follow from the workgroup count and must be measured.
+//
+// Push block: identical to `AttentionBackwardPush` in src/transformer.rs --
+// the 30 production `AttentionPush` words plus `key_block_index` and
+// `key_block_count` at the end (128 bytes total).
+
+#ifndef KEY_WORKGROUP_LANES
+#define KEY_WORKGROUP_LANES 64
+#endif
+
+layout(local_size_x = KEY_WORKGROUP_LANES, local_size_y = 1, local_size_z = 1) in;
+
+const uint MAX_HEAD_DIM = 128u;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ProbabilityBuffer { float scratch_probability[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DsBuffer { float scratch_ds[]; };
+layout(set = 0, binding = 4, std430) buffer GradKBuffer { float grad_k[]; };
+layout(set = 0, binding = 5, std430) buffer GradVBuffer { float grad_v[]; };
+layout(set = 0, binding = 6, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 7, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+    uint key_block_index;
+    uint key_block_count;
+} pc;
+
+bool query_contributes(uint query_row, uint key, uint absolute_query) {
+    if (query_mask[query_row] <= 0.0) return false;
+    if (pc.causal != 0u && key > absolute_query) return false;
+    return true;
+}
+
+void main() {
+    // The block this submission owns. The range is the generic backward's own
+    // partition, so a key position is owned by exactly one block for any count
+    // that divides the sequence, and by exactly one block otherwise (the
+    // quotients differ by at most one key and never overlap).
+    uint blocks = max(pc.key_block_count, 1u);
+    uint block = min(pc.key_block_index, blocks - 1u);
+    uint block_begin = block * pc.key_value_seq_len / blocks;
+    uint block_end = (block + 1u) * pc.key_value_seq_len / blocks;
+    uint block_span = block_end - block_begin;
+    // A count larger than the sequence leaves some blocks empty. They dispatch
+    // nothing useful and return immediately rather than writing anything.
+    if (block_span == 0u) return;
+
+    // Rows inside this block, in the production order: (batch, KV head, key).
+    uint block_rows = pc.batch_size * pc.num_key_value_heads * block_span;
+    uint local_row = gl_GlobalInvocationID.x;
+    if (local_row >= block_rows) return;
+
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    if (qk_head_dim > MAX_HEAD_DIM || value_head_dim > MAX_HEAD_DIM) return;
+
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+
+    uint key = block_begin + local_row % block_span;
+    uint rest = local_row / block_span;
+    uint kv_head = rest % pc.num_key_value_heads;
+    uint b = rest / pc.num_key_value_heads;
+
+    uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+    uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+        + kv_head * value_head_dim;
+
+    if (key_mask[b * pc.key_value_seq_len + key] <= 0.0) {
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            grad_k[k_base + d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            grad_v[v_base + d] = 0.0;
+        }
+        return;
+    }
+
+    uint first_head = kv_head * queries_per_kv;
+
+    if (pc.unfused_qk != 9u) {
+        // Mode 0: one continuous grouped accumulator, product rounded, then
+        // added. Both qualifiers are load-bearing (Phase V measured the fma
+        // contraction as a real divergence at every grouped head boundary).
+        float dk[MAX_HEAD_DIM];
+        float dv[MAX_HEAD_DIM];
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            dk[d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            dv[d] = 0.0;
+        }
+
+        for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+            for (uint query = 0u; query < pc.query_seq_len; ++query) {
+                uint query_row = b * pc.query_seq_len + query;
+                uint absolute_query = pc.query_position_offset + query;
+                if (!query_contributes(query_row, key, absolute_query)) continue;
+                uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                    + query * pc.key_value_seq_len + key;
+                float p = scratch_probability[slot];
+                float ds = scratch_ds[slot];
+                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+                for (uint d = 0; d < qk_head_dim; ++d) {
+                    precise float contribution = pc.scale * ds * q_values[q_base + d];
+                    precise float next_k = dk[d] + contribution;
+                    dk[d] = next_k;
+                }
+                for (uint d = 0; d < value_head_dim; ++d) {
+                    precise float contribution = p * grad_output[grad_out_base + d];
+                    precise float next_v = dv[d] + contribution;
+                    dv[d] = next_v;
+                }
+            }
+        }
+
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            grad_k[k_base + d] = dk[d];
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            grad_v[v_base + d] = dv[d];
+        }
+        return;
+    }
+
+    // Mode 9: per-head reduction, then the completed heads combined in head
+    // order -- the production two-stage tree, unchanged.
+    float dk[MAX_HEAD_DIM];
+    float dv[MAX_HEAD_DIM];
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        dk[d] = 0.0;
+    }
+    for (uint d = 0; d < value_head_dim; ++d) {
+        dv[d] = 0.0;
+    }
+
+    for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+        float head_k[MAX_HEAD_DIM];
+        float head_v[MAX_HEAD_DIM];
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            head_k[d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            head_v[d] = 0.0;
+        }
+        for (uint query = 0u; query < pc.query_seq_len; ++query) {
+            uint query_row = b * pc.query_seq_len + query;
+            uint absolute_query = pc.query_position_offset + query;
+            if (!query_contributes(query_row, key, absolute_query)) continue;
+            uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                + query * pc.key_value_seq_len + key;
+            float p = scratch_probability[slot];
+            float ds = scratch_ds[slot];
+            uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+            uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+            precise float score_scale = pc.scale * 1.0;
+            score_scale = score_scale * ds;
+            for (uint d = 0; d < qk_head_dim; ++d) {
+                precise float contribution = score_scale * q_values[q_base + d];
+                precise float next_k = head_k[d] + contribution;
+                head_k[d] = next_k;
+            }
+            for (uint d = 0; d < value_head_dim; ++d) {
+                precise float weighted_p = p * 1.0;
+                precise float product = weighted_p * grad_output[grad_out_base + d];
+                product = product * 1.0;
+                precise float next_v = head_v[d] + product;
+                head_v[d] = next_v;
+            }
+        }
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            dk[d] = dk[d] + head_k[d];
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            dv[d] = dv[d] + head_v[d];
+        }
+    }
+
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        grad_k[k_base + d] = dk[d];
+    }
+    for (uint d = 0; d < value_head_dim; ++d) {
+        grad_v[v_base + d] = dv[d];
+    }
+}

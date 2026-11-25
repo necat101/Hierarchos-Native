@@ -1,0 +1,7 @@
+compiler=glslc
+shaderc v2023.8 v2025.3
+spirv-tools v2025.3 v2022.4-833-g33e02568
+glslang 11.1.0-1253-gefd24d75
+validator=SPIRV-Tools v2025.3 v2025.3.rc1-0-g33e02568
+flags=-fshader-stage=compute --target-env=vulkan1.2 --target-spv=spv1.4 -O -Ishaders
+workgroup=64x1x1

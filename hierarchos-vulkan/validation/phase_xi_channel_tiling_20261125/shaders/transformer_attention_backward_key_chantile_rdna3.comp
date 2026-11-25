@@ -1,0 +1,330 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+
+// Phase XI experiment: channel-tiled lane ownership for the two-pass key pass.
+//
+// This file is the experiment's only shader source. Nothing here is reachable
+// from a production build: no production file embeds it and no selector names
+// it. It is compiled from `validation/phase_xi_channel_tiling_20261125/` into
+// one SPIR-V artifact per configuration, and the test-only module
+// `src/phase_xi_channel_tiling_tests.rs` is the only dispatcher.
+//
+// The production key pass gives one lane one (batch, KV head, key) and the full
+// head dimension: dK[key][0..dim) and dV[key][0..dim) both accumulate in that
+// lane. Phase VIII measured that mapping's private state and Phase X measured
+// it as the largest single kernel of the training step.
+//
+// This candidate instead splits the *channel* axis. A lane owns one destination
+// key row and one contiguous chunk of channels:
+//
+//     dK[key][c0 .. c0 + CHUNK)   and   dV[key][c0 .. c0 + CHUNK)
+//
+// Other lanes own the remaining chunks of the same key row. Every output
+// element still belongs to exactly one lane, and that lane still walks the
+// mapped query heads (ascending) and, inside each head, the query positions
+// (ascending) in the production order. No output element is reduced across
+// lanes: there is no shared memory, no subgroup operation and no atomic, so the
+// per-element accumulation sequence is the production sequence and the scalar
+// contract is unchanged by construction.
+//
+// Both arithmetic modes are reproduced statement-for-statement from
+// `shaders/transformer_attention_backward_key_rdna3.comp`. The mode comments
+// there explain why the two trees are not interchangeable; nothing about that
+// is re-derived here, only re-scoped over a channel chunk.
+//
+// Compile-time configuration (all required, so a variant cannot be built by
+// accident from a stale default):
+//
+//   XI_CHANNEL_CHUNK   channels owned per lane: 4, 8, 16, 32 or 128.
+//   XI_CHANNEL_BLOCKS  128 / XI_CHANNEL_CHUNK; the number of lanes that share
+//                      one destination key row.
+//   XI_UNROLL_CHANNEL  1 to expand the channel body at compile time (constant
+//                      indices, so the accumulator arrays are promoted out of
+//                      function storage), 0 to keep a runtime `d` loop, which
+//                      is the shape the production shader compiles to.
+//
+// KEYS_PER_WORKGROUP is derived: 64 lanes per workgroup / XI_CHANNEL_BLOCKS.
+// The 64-lane workgroup width is the production width and is kept here so the
+// two-pass pair's geometry matches on both arms.
+#ifndef XI_CHANNEL_CHUNK
+#error "XI_CHANNEL_CHUNK must be defined (4, 8, 16, 32 or 128)"
+#endif
+#ifndef XI_CHANNEL_BLOCKS
+#error "XI_CHANNEL_BLOCKS must be defined (128 / XI_CHANNEL_CHUNK)"
+#endif
+#ifndef XI_UNROLL_CHANNEL
+#error "XI_UNROLL_CHANNEL must be defined (0 or 1)"
+#endif
+#if 128 % XI_CHANNEL_CHUNK != 0
+#error "XI_CHANNEL_CHUNK must divide 128"
+#endif
+#if XI_CHANNEL_BLOCKS * XI_CHANNEL_CHUNK != 128
+#error "XI_CHANNEL_BLOCKS must be 128 / XI_CHANNEL_CHUNK"
+#endif
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+const uint MAX_HEAD_DIM = 128u;
+const uint CHUNK = uint(XI_CHANNEL_CHUNK);
+const uint CHANNEL_BLOCKS = uint(XI_CHANNEL_BLOCKS);
+
+// Repeat lists for the compile-time-expanded channel body. `M(I)` receives a
+// literal for the unrolled form and the loop induction variable for the loop
+// form, which is why every step macro indexes its arrays with `[I]` and casts
+// `uint(I)`.
+#define XI_R2(M) M(0) M(1)
+#define XI_R4(M) XI_R2(M) M(2) M(3)
+#define XI_R8(M) XI_R4(M) M(4) M(5) M(6) M(7)
+#define XI_R16(M) XI_R8(M) M(8) M(9) M(10) M(11) M(12) M(13) M(14) M(15)
+#define XI_R32(M) \
+    XI_R16(M) M(16) M(17) M(18) M(19) M(20) M(21) M(22) M(23) \
+    M(24) M(25) M(26) M(27) M(28) M(29) M(30) M(31)
+
+#if XI_CHANNEL_CHUNK == 4
+#define XI_UNROLL_LIST(M) XI_R4(M)
+#elif XI_CHANNEL_CHUNK == 8
+#define XI_UNROLL_LIST(M) XI_R8(M)
+#elif XI_CHANNEL_CHUNK == 16
+#define XI_UNROLL_LIST(M) XI_R16(M)
+#elif XI_CHANNEL_CHUNK == 32
+#define XI_UNROLL_LIST(M) XI_R32(M)
+#elif XI_CHANNEL_CHUNK == 128
+#define XI_UNROLL_LIST(M) XI_R32(XI_R32(M))
+#else
+#error "no repeat list for this XI_CHANNEL_CHUNK"
+#endif
+
+// The channel body, once per usage. Each macro is written so that the emitted
+// statements are textually the production shader's statements with `d` replaced
+// by `c0 + I`; the floating-point expression is unchanged, including operand
+// order and the `precise` qualifiers that stop the driver contracting a
+// multiply and an add.
+#define XI_ZERO_K(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < qk_head_dim) { dk[I] = 0.0; } }
+#define XI_ZERO_V(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < value_head_dim) { dv[I] = 0.0; } }
+#define XI_ZERO_HK(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < qk_head_dim) { hk[I] = 0.0; } }
+#define XI_ZERO_HV(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < value_head_dim) { hv[I] = 0.0; } }
+
+// Mode 0 accumulation: one continuous chain per element across the whole group.
+#define XI_ACC_K(I) \
+    { const uint d_ = c0 + uint(I); \
+      if (d_ < qk_head_dim) { \
+          precise float contribution = pc.scale * ds * q_values[q_base + d_]; \
+          precise float next_k = dk[I] + contribution; \
+          dk[I] = next_k; \
+      } }
+#define XI_ACC_V(I) \
+    { const uint d_ = c0 + uint(I); \
+      if (d_ < value_head_dim) { \
+          precise float contribution = p * grad_output[grad_out_base + d_]; \
+          precise float next_v = dv[I] + contribution; \
+          dv[I] = next_v; \
+      } }
+
+// Mode 9 accumulation: per-head chain, combined into the shared chain in head
+// order after the head's query loop completes.
+#define XI_HACC_K(I) \
+    { const uint d_ = c0 + uint(I); \
+      if (d_ < qk_head_dim) { \
+          precise float contribution = score_scale * q_values[q_base + d_]; \
+          precise float next_k = hk[I] + contribution; \
+          hk[I] = next_k; \
+      } }
+#define XI_HACC_V(I) \
+    { const uint d_ = c0 + uint(I); \
+      if (d_ < value_head_dim) { \
+          precise float weighted_p = p * 1.0; \
+          precise float product = weighted_p * grad_output[grad_out_base + d_]; \
+          product = product * 1.0; \
+          precise float next_v = hv[I] + product; \
+          hv[I] = next_v; \
+      } }
+
+#define XI_COMB_K(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < qk_head_dim) { dk[I] = dk[I] + hk[I]; } }
+#define XI_COMB_V(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < value_head_dim) { dv[I] = dv[I] + hv[I]; } }
+
+#define XI_STORE_K(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < qk_head_dim) { grad_k[k_base + d_] = dk[I]; } }
+#define XI_STORE_V(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < value_head_dim) { grad_v[v_base + d_] = dv[I]; } }
+
+// A key whose mask is not positive is written as zero by the scalar oracle, and
+// this lane's channel chunk is its share of that zeroing.
+#define XI_CLEAR_K(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < qk_head_dim) { grad_k[k_base + d_] = 0.0; } }
+#define XI_CLEAR_V(I) \
+    { const uint d_ = c0 + uint(I); if (d_ < value_head_dim) { grad_v[v_base + d_] = 0.0; } }
+
+// One invocation of a channel step list: compile-time expanded, or the runtime
+// loop the production shader compiles to.
+#if XI_UNROLL_CHANNEL
+#define XI_CHANNEL_BODY(M) XI_UNROLL_LIST(M)
+#else
+#define XI_CHANNEL_BODY(M) for (uint i_ = 0u; i_ < CHUNK; ++i_) { M(i_) }
+#endif
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ProbabilityBuffer { float scratch_probability[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DsBuffer { float scratch_ds[]; };
+layout(set = 0, binding = 4, std430) buffer GradKBuffer { float grad_k[]; };
+layout(set = 0, binding = 5, std430) buffer GradVBuffer { float grad_v[]; };
+layout(set = 0, binding = 6, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 7, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+// Identical to the production predicate: the generic row's key range reaches
+// this key and the row was not masked out.
+bool query_contributes(uint query_row, uint key, uint absolute_query) {
+    if (query_mask[query_row] <= 0.0) return false;
+    if (pc.causal != 0u && key > absolute_query) return false;
+    return true;
+}
+
+void main() {
+    uint rows = pc.batch_size * pc.num_key_value_heads * pc.key_value_seq_len;
+    uint slot_index = gl_GlobalInvocationID.x;
+    // Lane -> (destination key row, channel chunk). The chunk varies fastest, so
+    // the CHANNEL_BLOCKS lanes of one key row read one contiguous run of the
+    // shared `q_values` / `grad_output` row between them, exactly the bytes the
+    // production lane reads for that row.
+    uint chunk_index = slot_index % CHANNEL_BLOCKS;
+    uint row = slot_index / CHANNEL_BLOCKS;
+    if (row >= rows) return;
+
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    if (qk_head_dim > MAX_HEAD_DIM || value_head_dim > MAX_HEAD_DIM) return;
+
+    uint c0 = chunk_index * CHUNK;
+    // A chunk that begins at or beyond both output dimensions owns no element
+    // and must not read a key row's state. Every chunk below covers its own
+    // half-open channel range, so the surviving lanes partition the output.
+    if (c0 >= qk_head_dim && c0 >= value_head_dim) return;
+
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+
+    uint key = row % pc.key_value_seq_len;
+    uint rest = row / pc.key_value_seq_len;
+    uint kv_head = rest % pc.num_key_value_heads;
+    uint b = rest / pc.num_key_value_heads;
+
+    uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+    uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+        + kv_head * value_head_dim;
+
+    if (key_mask[b * pc.key_value_seq_len + key] <= 0.0) {
+        XI_CHANNEL_BODY(XI_CLEAR_K)
+        XI_CHANNEL_BODY(XI_CLEAR_V)
+        return;
+    }
+
+    uint first_head = kv_head * queries_per_kv;
+
+    if (pc.unfused_qk != 9u) {
+        // Mode 0: the generic primary pass owns one continuous accumulator per
+        // (key, element), zeroed once before the head loop and then extended by
+        // every (head, query) pair in order.
+        float dk[XI_CHANNEL_CHUNK];
+        float dv[XI_CHANNEL_CHUNK];
+        XI_CHANNEL_BODY(XI_ZERO_K)
+        XI_CHANNEL_BODY(XI_ZERO_V)
+
+        for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+            for (uint query = 0u; query < pc.query_seq_len; ++query) {
+                uint query_row = b * pc.query_seq_len + query;
+                uint absolute_query = pc.query_position_offset + query;
+                if (!query_contributes(query_row, key, absolute_query)) continue;
+                uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                    + query * pc.key_value_seq_len + key;
+                float p = scratch_probability[slot];
+                float ds = scratch_ds[slot];
+                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+                XI_CHANNEL_BODY(XI_ACC_K)
+                XI_CHANNEL_BODY(XI_ACC_V)
+            }
+        }
+
+        XI_CHANNEL_BODY(XI_STORE_K)
+        XI_CHANNEL_BODY(XI_STORE_V)
+        return;
+    }
+
+    // Mode 9: the generic strict adjoint reduces queries from zero for each
+    // repeated head, then sums the completed heads. The head nesting is kept;
+    // the per-head accumulator is the inner reduction and the shared
+    // accumulator is the outer one.
+    float dk[XI_CHANNEL_CHUNK];
+    float dv[XI_CHANNEL_CHUNK];
+    XI_CHANNEL_BODY(XI_ZERO_K)
+    XI_CHANNEL_BODY(XI_ZERO_V)
+
+    for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+        float hk[XI_CHANNEL_CHUNK];
+        float hv[XI_CHANNEL_CHUNK];
+        XI_CHANNEL_BODY(XI_ZERO_HK)
+        XI_CHANNEL_BODY(XI_ZERO_HV)
+        for (uint query = 0u; query < pc.query_seq_len; ++query) {
+            uint query_row = b * pc.query_seq_len + query;
+            uint absolute_query = pc.query_position_offset + query;
+            if (!query_contributes(query_row, key, absolute_query)) continue;
+            uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                + query * pc.key_value_seq_len + key;
+            float p = scratch_probability[slot];
+            float ds = scratch_ds[slot];
+            uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+            uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+            precise float score_scale = pc.scale * 1.0;
+            score_scale = score_scale * ds;
+            XI_CHANNEL_BODY(XI_HACC_K)
+            XI_CHANNEL_BODY(XI_HACC_V)
+        }
+        XI_CHANNEL_BODY(XI_COMB_K)
+        XI_CHANNEL_BODY(XI_COMB_V)
+    }
+
+    XI_CHANNEL_BODY(XI_STORE_K)
+    XI_CHANNEL_BODY(XI_STORE_V)
+}

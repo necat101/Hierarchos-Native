@@ -1,0 +1,40 @@
+branch=main
+head=560809eead186f832344c15d1a9b70795da3b75d
+tracked_diff_sha256=d83c0868c0d1ec73a80b988fafb67734d16d635fde1936887d74bac6f22c4e57
+binary_diff_sha256=cfa0d1c059d1dab6500f23ec981e2e4fdfc6c47bd43c1d86957ee686f8d7319a
+full_diff_sha256=3a671c752ccf8bb7ad714781fae3f11e6264cd6085001da9caf9896c7244853f
+staged_index_tree=4709d4508ca02c854741617b379795929f673760
+staged_diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stash0=831f892774619603c2dd68d0dd654d315f1a8f7e
+ M ../RDNA3_WMMA.md
+ M shaders/transformer_attention_backward_key_rdna3.comp
+ M shaders/transformer_attention_backward_key_rdna3.spv
+ M shaders/transformer_attention_backward_query_rdna3.comp
+ M shaders/transformer_attention_backward_query_rdna3.spv
+ M src/bin/held_out_eval.rs
+ M src/bin/hierarchos-vulkan-training-qualification.rs
+ M src/bin/training-stability.rs
+ M src/bin/transformer_train.rs
+ M src/bin/wmma_drift.rs
+ M src/lib.rs
+ M src/transformer.rs
+ M src/vulkan.rs
+ M validation/training_shader_manifest.json
+?? shaders/transformer_attention_backward_key_channel4_rdna3.comp
+?? shaders/transformer_attention_backward_key_channel4_rdna3.spv
+?? shaders/transformer_attention_forward_rowpacked64_cached_rdna3.comp
+?? shaders/transformer_attention_forward_rowpacked64_cached_rdna3.spv
+?? src/phase_ix_row_packed_forward_tests.rs
+?? src/phase_viii_key_block_tests.rs
+?? src/phase_x_row_packed_promotion_tests.rs
+?? src/phase_xi_channel_tiling_tests.rs
+?? src/phase_xii_channel4_key_production_tests.rs
+?? validation/gqa_attention_backward_experiment_20261124/
+?? validation/gqa_end_to_end_training_20261124/
+?? validation/gqa_production_promotion_20261124/
+?? validation/mha_attention_backward_closeout_20261124/
+?? validation/phase_ix_row_packed_forward_20261124/
+?? validation/phase_viii_key_blocks/
+?? validation/phase_x_row_packed_forward_promotion_20261125/
+?? validation/phase_xi_channel_tiling_20261125/
+?? validation/phase_xii_channel4_key_production_20261125/

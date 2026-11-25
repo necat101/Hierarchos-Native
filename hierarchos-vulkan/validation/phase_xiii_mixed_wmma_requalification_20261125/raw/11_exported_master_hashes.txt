@@ -1,0 +1,11 @@
+# Exported master-weight packages compared in 60_numerics.json
+# (54 MB each; hashes recorded here, files removed to keep the receipt small.
+#  reproduce.sh step 10 regenerates them before numerics.py runs.)
+86e59e0fc570b1d410b4537ca1c7f39d799b4a8326ed385d234cfe73a1687199 *raw/tmp/42_full_off_export/model.safetensors
+f5f1703b3bc3c5be79fcde969ec7ebba500455fdb893906e82059d1fbeb8f68e *raw/tmp/42_full_off_export/config.json
+39a813f912116648714f4a98d7cbac5cee3288d5eaee802b6f2ef52aa5ac8ea3 *raw/tmp/43_full_mixed_export/model.safetensors
+f5f1703b3bc3c5be79fcde969ec7ebba500455fdb893906e82059d1fbeb8f68e *raw/tmp/43_full_mixed_export/config.json
+fdff01ed83ad409d4fbb90ef2208819dd13f5866d148c25b652713963e87efed *raw/tmp/44_full_off_lr1e4_export/model.safetensors
+f5f1703b3bc3c5be79fcde969ec7ebba500455fdb893906e82059d1fbeb8f68e *raw/tmp/44_full_off_lr1e4_export/config.json
+4e24164b046682f87f713f0244cf5c0d54730fb01dd47658cb0f691deb1d0922 *raw/tmp/45_full_mixed_lr1e4_export/model.safetensors
+f5f1703b3bc3c5be79fcde969ec7ebba500455fdb893906e82059d1fbeb8f68e *raw/tmp/45_full_mixed_lr1e4_export/config.json

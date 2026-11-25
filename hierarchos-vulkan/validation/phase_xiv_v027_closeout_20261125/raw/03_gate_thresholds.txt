@@ -1,0 +1,20 @@
+hierarchos-vulkan/src/wmma.rs:99:pub const MIXED_VS_FP32_MAX_ABS: f64 = 2.0e-2;
+hierarchos-vulkan/src/wmma.rs:100:pub const MIXED_VS_FP32_RMS: f64 = 3.0e-3;
+hierarchos-vulkan/src/wmma.rs:101:pub const MIXED_VS_MATCHED_ORACLE_MAX_ABS: f64 = 1.0e-3;
+hierarchos-vulkan/src/wmma.rs:102:pub const FULL_VS_FP32_MAX_ABS: f64 = 5.0e-2;
+hierarchos-vulkan/src/wmma.rs:103:pub const FULL_VS_FP32_RMS: f64 = 1.0e-2;
+hierarchos-vulkan/src/wmma.rs:659:pub const WMMA_MIN_PROFITABLE_MACS: u64 = 16_000_000;
+hierarchos-vulkan/src/wmma.rs:670:            >= WMMA_MIN_PROFITABLE_MACS
+hierarchos-vulkan/src/wmma.rs:2371:        assert!(WMMA_MIN_PROFITABLE_MACS > 128 * 256 * 256);
+hierarchos-vulkan/src/wmma.rs:2454:                    measured.max_abs <= MIXED_VS_MATCHED_ORACLE_MAX_ABS,
+hierarchos-vulkan/src/wmma.rs:2461:                    MIXED_VS_MATCHED_ORACLE_MAX_ABS
+hierarchos-vulkan/src/wmma.rs:2525:    /// measured 0.0631-0.0731 against the unchanged `FULL_VS_FP32_MAX_ABS` of
+hierarchos-vulkan/src/wmma.rs:2569:                measured.max_abs <= FULL_VS_FP32_MAX_ABS,
+hierarchos-vulkan/src/wmma.rs:2576:                FULL_VS_FP32_MAX_ABS
+hierarchos-vulkan/src/wmma.rs:2579:                measured.rms <= FULL_VS_FP32_RMS,
+hierarchos-vulkan/src/wmma.rs:2586:                FULL_VS_FP32_RMS
+hierarchos-vulkan/src/wmma.rs:2625:            measured.max_abs <= MIXED_VS_MATCHED_ORACLE_MAX_ABS,
+hierarchos-vulkan/src/precision_policy.rs:6:pub const FULL_FP16_MAX_REDUCTION: usize = 64;
+
+# are the threshold-bearing files modified in this worktree?
+(empty above means both files are at HEAD and no threshold moved)

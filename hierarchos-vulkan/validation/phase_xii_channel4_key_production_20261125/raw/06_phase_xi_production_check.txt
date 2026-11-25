@@ -1,0 +1,7 @@
+# sha256sum -c of the Phase XI receipt's production-hash list, run from hierarchos-vulkan/
+shaders/transformer_attention_backward_key_rdna3.comp: OK
+shaders/transformer_attention_backward_key_rdna3.spv: OK
+shaders/transformer_attention_backward_query_rdna3.comp: OK
+shaders/transformer_attention_backward_query_rdna3.spv: OK
+shaders/transformer_attention_forward_rowpacked64_cached_rdna3.comp: OK
+shaders/transformer_attention_forward_rowpacked64_cached_rdna3.spv: OK

@@ -1,0 +1,20 @@
+# SPIR-V structure: per-lane private state and workgroup width
+Counts are OpVariable declarations in Function storage with a 128-element float array type.
+
+file: shaders/transformer_attention_backward_key_rdna3.spv
+  sha256: ccf609843be2a37d33bb6df3b1ab490b7b3fa6a52e5816975c21524af71cd925
+  LocalSize: LocalSize 64 1 1
+  function_scope_float128_arrays: 7
+  private_storage_variables: 0
+  total_instructions (disassembled lines): 686
+file: validation/phase_viii_key_blocks/shaders/transformer_attention_backward_key_blockexp_l64_rdna3.spv
+  sha256: 00f653445611e631667c5f5208949d3a98e21b740f39f72e9738c99fe84f11fd
+  LocalSize: LocalSize 64 1 1
+  function_scope_float128_arrays: 7
+  private_storage_variables: 0
+  total_instructions (disassembled lines): 710
+
+Per-lane state implied by the function-scope arrays: 7 x 128 floats x 4 bytes = 3584 bytes
+per lane. RDNA3 allows 256 32-bit VGPRs per lane = 1024 bytes, so at least part of that
+state cannot be register-resident. This is arithmetic on the SPIR-V, not a driver
+occupancy or VGPR counter reading; no such counter is exposed by the tooling used here.

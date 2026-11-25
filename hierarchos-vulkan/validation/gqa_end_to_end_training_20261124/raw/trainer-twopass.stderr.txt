@@ -1,0 +1,4 @@
+two-pass backward scratch: layer=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 elements=65536 bytes=524288
+two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward scratch: layer=0 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 elements=65536 bytes=524288
+two-pass backward counters: effective=true scalar=0 query=4 key=4 scratch_allocations=2 scratch_bytes=1048576

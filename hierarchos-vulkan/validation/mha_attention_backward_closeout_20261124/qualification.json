@@ -1,0 +1,818 @@
+{
+  "schema": 1,
+  "kind": "mha_attention_backward_closeout_receipt",
+  "phase": "Phase III: MHA attention-backward closeout and default readiness",
+  "date": "2026-11-24",
+  "verdict": "GO_SCOPED_MHA_DEFAULT",
+  "failures": [],
+  "source": {
+    "commit": "560809eead186f832344c15d1a9b70795da3b75d",
+    "expected_commit": "560809eead186f832344c15d1a9b70795da3b75d",
+    "working_tree_changed_files": [
+      "../RDNA3_WMMA.md",
+      "shaders/transformer_attention_backward_query_rdna3.comp",
+      "shaders/transformer_attention_backward_query_rdna3.spv",
+      "src/bin/held_out_eval.rs",
+      "src/bin/hierarchos-vulkan-training-qualification.rs",
+      "src/bin/training-stability.rs",
+      "src/bin/transformer_train.rs",
+      "src/bin/wmma_drift.rs",
+      "src/lib.rs",
+      "src/transformer.rs",
+      "src/vulkan.rs",
+      "validation/mha_attention_backward_closeout_20261124/"
+    ],
+    "stash": "stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)",
+    "diff_sha256": "cf1b7a7c7cc80937a0366fbba392997dd3bcf25a6278d296057b4c5bfdeb803f",
+    "base_commit_matches_expected": true,
+    "executable_sha256": {
+      "hierarchos-vulkan-transformer-train.exe": "fc70c096837276dce0b4cb23ab128cac0cc453d16175aaf72cd00f952e5dcec9",
+      "hierarchos-vulkan-training-qualification.exe": "cc1818b3ecbaccaa6f0247c0b5a456cab115b5945eb6ff2cb5edeafb469b5514"
+    },
+    "source_sha256": {
+      "src/transformer.rs": "2767378aaa55fdb2d5c3a4a7408582ad076d60f52424da435d130d71a67b26bb",
+      "src/vulkan.rs": "799af909ee693d5ff58b019e88d4ab4bb51c624de2c15c94e15c92a3bc0cc245",
+      "src/lib.rs": "34caa58349a8d6565f30ede09573a0135d06206c835319fe8faac4dca32ee70a",
+      "src/bin/transformer_train.rs": "a7dd6b89c3b632af61bfb45ea4bc8ba04d918bd62f6f0943c827b02c2715a023",
+      "src/bin/hierarchos-vulkan-training-qualification.rs": "53c075a45205917783b524baec41aa3941e840e849927828f816c876dd8bfad6",
+      "src/bin/training-stability.rs": "5c01377c3ae18f8796fd64fd983a3106271ad99ee3d3982e65b32803b5db028d",
+      "src/bin/wmma_drift.rs": "377f3b1c936d1b027a5801750a5c28cde7191bab72c29610276df00774689331",
+      "src/bin/held_out_eval.rs": "6a2176c666d9214f6adf1b6809af35f1e7db5cd6d0b422f84ce81113cad677d8",
+      "shaders/transformer_attention_backward_query_rdna3.comp": "2e3f5720da27ca6d31567f4734b140e8b9c768afa2e287333f617817fad7eb56",
+      "shaders/transformer_attention_backward_query_rdna3.spv": "f9652f525cbc9256188d9c998fc602ad1eff43c68bbbc6b88650697584104256",
+      "shaders/transformer_attention_backward_key_rdna3.comp": "af89d64c7cb8241f790eb0a494209fb9c9c8f5f239ae281a6812c6b4ce97b4a0",
+      "shaders/transformer_attention_backward_key_rdna3.spv": "5f69d500fa703549bda2175e0dc566481bc646125038ff952860a3bb7da983a7",
+      "shaders/transformer_attention_backward.comp": "3c8e6267e320c1f187175209e8a42e6a2658494c6bb3762b1e009cb8b7810a34",
+      "shaders/transformer_attention_backward.spv": "e78cb2920e3253d7187c479c23bee40d4b4ab677fedeaa97f3109bf6a00dc5a8"
+    }
+  },
+  "environment": {
+    "rustc": "rustc 1.93.0 (254b59607 2026-01-19)",
+    "cargo": "cargo 1.93.0 (083ac5135 2025-12-15)",
+    "glslc": "shaderc v2023.8 v2025.3",
+    "spirv_val": "SPIRV-Tools v2025.3 v2025.3.rc1-0-g33e02568",
+    "device": "AMD Radeon Graphics",
+    "driver_version": "32.0.32015.14001",
+    "driver_date": "10/27/2026 8:00:00 PM"
+  },
+  "fixture": {
+    "model": "target/wmma-fixture/model (2 layers, Llama, MHA)",
+    "dataset": "target/wmma-fixture/dataset.jsonl",
+    "config_sha256": "474f2bcade245631309021744ebf67236891ac9bda99b9418d0f4e66af3be63e",
+    "weights_sha256": "841390b8f44d25f3d35d0ad97277e9fa806ebb62a43f848784c54b5759bf6927",
+    "dataset_sha256": "0c5d3e907ff5158d819fbca3cd67a81f0d35578a7dfe596237879683a086af9c",
+    "batch": 8,
+    "seq": 64,
+    "num_heads": 8,
+    "num_key_value_heads": 8,
+    "head_dim": 128,
+    "layers": 2,
+    "lora_rank": 8,
+    "lora_alpha": 16,
+    "learning_rate": 0.01,
+    "seed": 7,
+    "benchmark_arithmetic_mode": 9,
+    "gradient_modes_covered": [
+      0,
+      9
+    ]
+  },
+  "protocol": {
+    "gradient_test": "cargo test --offline --lib transformer::tests::two_pass_attention_backward_matches_scalar_gradients -- --nocapture --test-threads=1",
+    "equivalence": "bash validation/two_pass_backward_equivalence.sh",
+    "benchmark": "python raw/phase2-bench.py --rounds 5 --steps 26 --warmup 3 --kernel-steps 12 --phase all",
+    "abba_rounds": 5,
+    "steps_per_run": 26,
+    "warmup_steps": 3,
+    "kernel_steps": 12,
+    "statistic": "per-round median scalar / median two-pass, Student-t interval over rounds"
+  },
+  "parity": {
+    "cases": [
+      {
+        "case": "fixture-causal",
+        "mode": 0,
+        "tensor": "q",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 1,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-causal",
+        "mode": 0,
+        "tensor": "k",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 1,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-causal",
+        "mode": 0,
+        "tensor": "v",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 1,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-full",
+        "mode": 0,
+        "tensor": "q",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 0,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-full",
+        "mode": 0,
+        "tensor": "k",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 0,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-full",
+        "mode": 0,
+        "tensor": "v",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 0,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "padded-causal",
+        "mode": 0,
+        "tensor": "q",
+        "batch": 2,
+        "heads": 2,
+        "seq": 16,
+        "head_dim": 64,
+        "causal": 1,
+        "masked": true,
+        "elements": 4096,
+        "bitwise_equal": 4096,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "padded-causal",
+        "mode": 0,
+        "tensor": "k",
+        "batch": 2,
+        "heads": 2,
+        "seq": 16,
+        "head_dim": 64,
+        "causal": 1,
+        "masked": true,
+        "elements": 4096,
+        "bitwise_equal": 4096,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "padded-causal",
+        "mode": 0,
+        "tensor": "v",
+        "batch": 2,
+        "heads": 2,
+        "seq": 16,
+        "head_dim": 64,
+        "causal": 1,
+        "masked": true,
+        "elements": 4096,
+        "bitwise_equal": 4096,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "small-causal",
+        "mode": 0,
+        "tensor": "q",
+        "batch": 1,
+        "heads": 1,
+        "seq": 4,
+        "head_dim": 4,
+        "causal": 1,
+        "masked": false,
+        "elements": 16,
+        "bitwise_equal": 16,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "small-causal",
+        "mode": 0,
+        "tensor": "k",
+        "batch": 1,
+        "heads": 1,
+        "seq": 4,
+        "head_dim": 4,
+        "causal": 1,
+        "masked": false,
+        "elements": 16,
+        "bitwise_equal": 16,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "small-causal",
+        "mode": 0,
+        "tensor": "v",
+        "batch": 1,
+        "heads": 1,
+        "seq": 4,
+        "head_dim": 4,
+        "causal": 1,
+        "masked": false,
+        "elements": 16,
+        "bitwise_equal": 16,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-causal",
+        "mode": 9,
+        "tensor": "q",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 1,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-causal",
+        "mode": 9,
+        "tensor": "k",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 1,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-causal",
+        "mode": 9,
+        "tensor": "v",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 1,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-full",
+        "mode": 9,
+        "tensor": "q",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 0,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-full",
+        "mode": 9,
+        "tensor": "k",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 0,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "fixture-full",
+        "mode": 9,
+        "tensor": "v",
+        "batch": 8,
+        "heads": 8,
+        "seq": 64,
+        "head_dim": 128,
+        "causal": 0,
+        "masked": false,
+        "elements": 524288,
+        "bitwise_equal": 524288,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "padded-causal",
+        "mode": 9,
+        "tensor": "q",
+        "batch": 2,
+        "heads": 2,
+        "seq": 16,
+        "head_dim": 64,
+        "causal": 1,
+        "masked": true,
+        "elements": 4096,
+        "bitwise_equal": 4096,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "padded-causal",
+        "mode": 9,
+        "tensor": "k",
+        "batch": 2,
+        "heads": 2,
+        "seq": 16,
+        "head_dim": 64,
+        "causal": 1,
+        "masked": true,
+        "elements": 4096,
+        "bitwise_equal": 4096,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "padded-causal",
+        "mode": 9,
+        "tensor": "v",
+        "batch": 2,
+        "heads": 2,
+        "seq": 16,
+        "head_dim": 64,
+        "causal": 1,
+        "masked": true,
+        "elements": 4096,
+        "bitwise_equal": 4096,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "small-causal",
+        "mode": 9,
+        "tensor": "q",
+        "batch": 1,
+        "heads": 1,
+        "seq": 4,
+        "head_dim": 4,
+        "causal": 1,
+        "masked": false,
+        "elements": 16,
+        "bitwise_equal": 16,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "small-causal",
+        "mode": 9,
+        "tensor": "k",
+        "batch": 1,
+        "heads": 1,
+        "seq": 4,
+        "head_dim": 4,
+        "causal": 1,
+        "masked": false,
+        "elements": 16,
+        "bitwise_equal": 16,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      },
+      {
+        "case": "small-causal",
+        "mode": 9,
+        "tensor": "v",
+        "batch": 1,
+        "heads": 1,
+        "seq": 4,
+        "head_dim": 4,
+        "causal": 1,
+        "masked": false,
+        "elements": 16,
+        "bitwise_equal": 16,
+        "max_abs": 0.0,
+        "max_ulp": 0,
+        "unwritten": 0,
+        "verdict": "PASS"
+      }
+    ],
+    "summary": {
+      "status": "PASS",
+      "cases": 8,
+      "cases_total": 8,
+      "comparisons": 24,
+      "comparisons_total": 24,
+      "elements": 6316128,
+      "bitwise_equal": 6316128,
+      "max_abs": 0.0,
+      "max_ulp": 0,
+      "unwritten": 0,
+      "scalar_dispatches": 8,
+      "query_dispatches": 8,
+      "key_dispatches": 8
+    },
+    "skipped": {
+      "status": "SKIP",
+      "reason": "disabled_by_environment"
+    },
+    "blocked": {
+      "status": "BLOCKED",
+      "reason": "no_vulkan_device"
+    },
+    "comparator_negative_control": "PASS"
+  },
+  "dispatch": {
+    "equivalence": {
+      "scalar": {
+        "scalar": 2,
+        "query": 0,
+        "key": 0
+      },
+      "twopass": {
+        "scalar": 0,
+        "query": 2,
+        "key": 2
+      }
+    },
+    "kernel": {
+      "scalar": {
+        "scalar": 24,
+        "query": 0,
+        "key": 0,
+        "expected_per_shader": 24,
+        "blocks": 12
+      },
+      "twopass": {
+        "scalar": 0,
+        "query": 24,
+        "key": 24,
+        "expected_per_shader": 24,
+        "blocks": 12
+      }
+    }
+  },
+  "scratch": {
+    "formula": "batch * num_heads * query_seq_len * key_value_seq_len floats per buffer (two buffers), the highest slot the pass-1 and pass-2 shaders index",
+    "eligible": {
+      "decisions": [
+        {
+          "route": "two-pass",
+          "eligible": "true",
+          "reason": "eligible",
+          "kernels": "true",
+          "scratch": "true",
+          "key_blocks": "1",
+          "batch": "8",
+          "heads": "8",
+          "kv_heads": "8",
+          "q_seq": "64",
+          "kv_seq": "64",
+          "head_dim": "128",
+          "causal": "1",
+          "unfused_qk": "9",
+          "scratch_elements": "262144",
+          "scratch_bytes": "2097152"
+        }
+      ],
+      "counters": {
+        "effective": "true",
+        "scalar": "0",
+        "query": "4",
+        "key": "4",
+        "scratch_allocations": "2",
+        "scratch_bytes": "4194304"
+      }
+    },
+    "explicit_opt_out": {
+      "decisions": [
+        {
+          "route": "scalar",
+          "eligible": "false",
+          "reason": "disabled_by_environment",
+          "kernels": "false",
+          "scratch": "false",
+          "key_blocks": "1",
+          "batch": "8",
+          "heads": "8",
+          "kv_heads": "8",
+          "q_seq": "64",
+          "kv_seq": "64",
+          "head_dim": "128",
+          "causal": "1",
+          "unfused_qk": "9",
+          "scratch_elements": "0",
+          "scratch_bytes": "0"
+        }
+      ],
+      "counters": {
+        "effective": "false",
+        "scalar": "4",
+        "query": "0",
+        "key": "0",
+        "scratch_allocations": "0",
+        "scratch_bytes": "0"
+      }
+    },
+    "grouped_query_attention": {
+      "decisions": [
+        {
+          "route": "scalar",
+          "eligible": "false",
+          "reason": "grouped_query_attention",
+          "kernels": "true",
+          "scratch": "false",
+          "key_blocks": "1",
+          "batch": "2",
+          "heads": "8",
+          "kv_heads": "2",
+          "q_seq": "8",
+          "kv_seq": "8",
+          "head_dim": "32",
+          "causal": "1",
+          "unfused_qk": "9",
+          "scratch_elements": "0",
+          "scratch_bytes": "0"
+        }
+      ],
+      "counters": {
+        "effective": "true",
+        "scalar": "2",
+        "query": "0",
+        "key": "0",
+        "scratch_allocations": "0",
+        "scratch_bytes": "0"
+      }
+    },
+    "kv_sequence_above_head_dim": {
+      "decisions": [
+        {
+          "route": "scalar",
+          "eligible": "false",
+          "reason": "kv_sequence_above_head_dim",
+          "kernels": "true",
+          "scratch": "false",
+          "key_blocks": "1",
+          "batch": "2",
+          "heads": "8",
+          "kv_heads": "8",
+          "q_seq": "64",
+          "kv_seq": "64",
+          "head_dim": "32",
+          "causal": "1",
+          "unfused_qk": "9",
+          "scratch_elements": "0",
+          "scratch_bytes": "0"
+        }
+      ],
+      "counters": {
+        "effective": "true",
+        "scalar": "2",
+        "query": "0",
+        "key": "0",
+        "scratch_allocations": "0",
+        "scratch_bytes": "0"
+      }
+    }
+  },
+  "performance": {
+    "kernel_ms_per_step": {
+      "scalar": 435.2787,
+      "query_pass": 27.7139,
+      "key_pass": 16.7182,
+      "two_pass_total": 44.4321,
+      "speedup": 9.79649172557678
+    },
+    "complete_step": {
+      "scalar_mean_ms": 562.3987369565217,
+      "two_pass_mean_ms": 173.9012647826087,
+      "scalar_median_ms": 560.77505,
+      "two_pass_median_ms": 171.10385,
+      "paired_ratios": [
+        3.329600698485223,
+        3.300871150167307,
+        3.273233920199546,
+        3.283034250836554,
+        3.059063840105879
+      ],
+      "mean_paired_speedup": 3.249160771958902,
+      "ci95": [
+        3.114555692976037,
+        3.3837658509417667
+      ],
+      "df": 4,
+      "samples_per_arm": 230
+    },
+    "phase2_narrative_reference": {
+      "note": "Narrative comparison only; not bound to a committed receipt.",
+      "scalar_backward_ms": 431.93,
+      "two_pass_backward_ms": 44.59,
+      "backward_speedup": 9.69,
+      "scalar_step_ms": 561.56,
+      "two_pass_step_ms": 170.28,
+      "mean_paired_speedup": 3.304,
+      "ci95": [
+        3.253,
+        3.3549
+      ]
+    }
+  },
+  "numerics": {
+    "benchmark_arms": {
+      "scalar": {
+        "dispatch": {
+          "scalar": 4,
+          "query": 0,
+          "key": 0,
+          "expected_per_shader": 4,
+          "blocks": 2
+        },
+        "diagnostic": "two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=8 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0",
+        "loss_bits": [
+          1088659837,
+          1088672584
+        ],
+        "losses": [
+          7.113463,
+          7.119541
+        ],
+        "adapter_files": {
+          "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+          "adapter_model.safetensors": "b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4"
+        },
+        "parameter_end_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+        "parameter_frozen": true
+      },
+      "twopass": {
+        "dispatch": {
+          "scalar": 0,
+          "query": 4,
+          "key": 4,
+          "expected_per_shader": 4,
+          "blocks": 2
+        },
+        "diagnostic": "two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=8 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152",
+        "loss_bits": [
+          1088659837,
+          1088672584
+        ],
+        "losses": [
+          7.113463,
+          7.119541
+        ],
+        "adapter_files": {
+          "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+          "adapter_model.safetensors": "b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4"
+        },
+        "parameter_end_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+        "parameter_frozen": true
+      },
+      "loss_bits_equal": true,
+      "adapters_equal": true,
+      "parameter_end_equal": true
+    },
+    "sequence_16": {
+      "arms": {
+        "tp0": {
+          "loss_bits": [
+            1088507454,
+            1088697126,
+            1089011736
+          ],
+          "parameter_end_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+          "adapter_model_sha256": "d990fa646b7f463445e80ad05d5a0054a50346823581e2f62fb27842f11d35b4",
+          "adapter_config_sha256": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+          "optimizer_steps": 3
+        },
+        "tp1": {
+          "loss_bits": [
+            1088507454,
+            1088697126,
+            1089011736
+          ],
+          "parameter_end_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+          "adapter_model_sha256": "d990fa646b7f463445e80ad05d5a0054a50346823581e2f62fb27842f11d35b4",
+          "adapter_config_sha256": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+          "optimizer_steps": 3
+        }
+      },
+      "loss_bits_equal": true,
+      "parameter_end_digest_equal": true,
+      "adapter_model_equal": true,
+      "adapter_config_equal": true
+    }
+  },
+  "historical_receipts": {
+    "phase16": "validation/release_parity/multimodal_training/20261109-rdna3-phase16-attention-backward-qualification",
+    "note": "Historical Phase XVI receipts bind the previous query SPIR-V (615c27dc...); they remain historical and are not revalidated against this tree. The 2.88x narrative has no committed benchmark receipt and is not preserved as a verified historical measurement."
+  },
+  "limitations": [
+    "Only the admitted MHA geometry is covered (num_heads == num_key_value_heads).",
+    "Only unfused_qk 0 and 9 are covered; other adjoint orders keep the scalar kernel.",
+    "kv_seq_len must be <= head_dim, head_dim <= 128.",
+    "Sliding window, softcap, ALiBi, relative bias, dropout, attention sink, position offset, sparse masks, compressed keys, paged KV and value_scale != 1 keep the scalar kernel.",
+    "The missing-device BLOCKED path was code-reviewed but could not be produced on this host; the SKIP path was executed with the explicit opt-out.",
+    "Complete-step timings are host and driver specific; the paired interval covers run-to-run variation on this machine only."
+  ]
+}

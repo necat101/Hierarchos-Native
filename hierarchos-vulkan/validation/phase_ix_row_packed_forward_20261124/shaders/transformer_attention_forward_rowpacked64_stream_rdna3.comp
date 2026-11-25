@@ -1,0 +1,183 @@
+#version 450
+
+// RDNA3 wave64 row-packed attention forward — Phase IX experiment.
+//
+// TEST/BENCHMARK ARTIFACT. This module lives under `validation/` and is not
+// installed in `shaders/`, so nothing in the production build can reach it.
+//
+// The generic `transformer_attention_forward.comp` launches
+// `local_size_x = 1` and dispatches `[query_seq, num_heads, batch]`. One
+// invocation owns one (batch, head, query) row and the other 63 lanes of the
+// wave are idle.
+//
+// This module keeps one lane per row and only changes how the rows are packed:
+// `local_size_x = 64` with a flat row index whose decomposition reproduces the
+// generic dispatch order exactly (query fastest, then head, then batch). The
+// arithmetic inside a lane is the generic kernel's plain *streaming* path,
+// copied operation for operation:
+//
+//   * one FP32 accumulator per QK dot product, formed with `fma`
+//   * ascending key traversal, `first_key = 0`, `last_key = min(query, kv-1)`
+//     under causal masking
+//   * `max_score = found ? max(max_score, s) : s` in key order
+//   * hardware `exp(s - max_score)` accumulated in key order
+//   * `1.0 / exp_sum`, then `p = e * inv_sum`
+//   * `value = fma(p, v * value_scale, value)` over ascending keys per
+//     output channel, with a fresh accumulator per channel
+//
+// The generic kernel caches a row's scores in workgroup shared memory when the
+// visible key span is below 1024. This module does not cache: a packed
+// workgroup owns 64 rows, so a shared cache would need 64 rows' worth of
+// storage and a per-lane private array would need 64 VGPRs. It therefore walks
+// the keys three times and recomputes each score. Every recomputation is the
+// same pure function of the same operands, so the recomputed word is identical
+// to the cached word; the parity test is what establishes that, not this
+// comment.
+//
+// Plain-path contract (host-gated; the same field list the shipped
+// short-attention module uses): causality in {0, 1}, no window, no sink, no
+// alibi, no relative bias, no sparse mask, no compressed keys, no paged KV, no
+// softcap, no dropout, `value_scale == 1`, `unfused_qk == 0`,
+// `query_position_offset == 0`.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer AlibiPositionBuffer { float alibi_positions[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 7, std430) readonly buffer SinkBuffer { float sink_values[]; };
+layout(set = 0, binding = 8, std430) readonly buffer RelativeBiasBuffer { float relative_bias[]; };
+layout(set = 0, binding = 9, std430) readonly buffer SparseMaskBuffer { float sparse_mask[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KvPageTableBuffer { uint kv_page_table[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+// The generic kernel's plain-path score: fma reduction over the head dimension,
+// then the scale.
+float plain_score(uint q_base, uint k_base, uint qk_head_dim) {
+    float value = 0.0;
+    for (uint d = 0u; d < qk_head_dim; ++d) {
+        value = fma(q_values[q_base + d], k_values[k_base + d], value);
+    }
+    return value * pc.scale;
+}
+
+void main() {
+    uint query_seq = pc.query_seq_len;
+    uint total_rows = pc.batch_size * pc.num_heads * query_seq;
+    uint row_index = gl_GlobalInvocationID.x;
+    // Partial final workgroup: every lane past the last row returns before it
+    // reads Q, K, V or the masks, and writes nothing.
+    if (row_index >= total_rows) {
+        return;
+    }
+    // Same row order as the generic [query, head, batch] dispatch.
+    uint query = row_index % query_seq;
+    uint head = (row_index / query_seq) % pc.num_heads;
+    uint batch = row_index / (query_seq * pc.num_heads);
+
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint kv_head = head / queries_per_kv;
+
+    uint row = batch * query_seq + query;
+    uint out_base = row * output_hidden_size + head * value_head_dim;
+    if (pc.causal != 2u && query_mask[row] <= 0.0) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    uint q_base = row * pc.query_hidden_size + head * qk_head_dim;
+    uint key_row_base = batch * pc.key_value_seq_len;
+    uint first_key = 0u;
+    uint last_key = pc.key_value_seq_len - 1u;
+    if (pc.causal != 0u) {
+        last_key = min(pc.query_position_offset + query, pc.key_value_seq_len - 1u);
+    }
+
+    bool found = false;
+    float max_score = -3.402823466e+38;
+    for (uint key = first_key; key <= last_key; ++key) {
+        if (key_mask[key_row_base + key] <= 0.0) {
+            continue;
+        }
+        float s = plain_score(q_base, key_row_base * key_hidden_size
+            + key * key_hidden_size + kv_head * qk_head_dim, qk_head_dim);
+        max_score = found ? max(max_score, s) : s;
+        found = true;
+    }
+    if (!found) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    float exp_sum = 0.0;
+    for (uint key = first_key; key <= last_key; ++key) {
+        if (key_mask[key_row_base + key] <= 0.0) {
+            continue;
+        }
+        float s = plain_score(q_base, key_row_base * key_hidden_size
+            + key * key_hidden_size + kv_head * qk_head_dim, qk_head_dim);
+        exp_sum += exp(s - max_score);
+    }
+    float inv_sum = 1.0 / exp_sum;
+
+    for (uint d = 0u; d < value_head_dim; ++d) {
+        float value = 0.0;
+        for (uint key = first_key; key <= last_key; ++key) {
+            if (key_mask[key_row_base + key] <= 0.0) {
+                continue;
+            }
+            float s = plain_score(q_base, key_row_base * key_hidden_size
+                + key * key_hidden_size + kv_head * qk_head_dim, qk_head_dim);
+            float probability = exp(s - max_score) * inv_sum;
+            probability *= 1.0;
+            uint v_index = (key_row_base + key) * pc.value_hidden_size
+                + kv_head * value_head_dim + d;
+            value = fma(probability, v_values[v_index] * pc.value_scale, value);
+        }
+        output_values[out_base + d] = value;
+    }
+}

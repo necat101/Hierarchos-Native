@@ -1,0 +1,18 @@
+# source
+e1373db7ea1e7e0a1ac700ec7a9d464571f8b24f6065dbcc23c7d6df286e78f9 *shaders/transformer_attention_backward_key_channel4_rdna3.comp
+f5480ccedce8c2752f7b94b2fe478d9c9e4f496f284344c2140abc3367f7b2c8 *shaders/transformer_attention_backward_key_channel4_rdna3.spv
+e1373db7ea1e7e0a1ac700ec7a9d464571f8b24f6065dbcc23c7d6df286e78f9 *validation/phase_xi_channel_tiling_20261125/shaders/transformer_attention_backward_key_chantile_rdna3.comp
+f5480ccedce8c2752f7b94b2fe478d9c9e4f496f284344c2140abc3367f7b2c8 *validation/phase_xi_channel_tiling_20261125/shaders/key_chantile_c4_u0.spv
+spv_match=c4_u0
+preprocessed_sha256=51792d65ac0e45075b901b5af0397b8968e72971f3f14759c314eddf5c0b0702
+compiler=glslc
+shaderc v2023.8 v2025.3
+spirv-tools v2025.3 v2022.4-833-g33e02568
+glslang 11.1.0-1253-gefd24d75
+
+Target: SPIR-V 1.0
+validator=SPIRV-Tools
+SPIRV-Tools v2025.3 v2025.3.rc1-0-g33e02568
+flags=-fshader-stage=compute --target-env=vulkan1.2 --target-spv=spv1.4 -O -Ishaders -DXI_CHANNEL_CHUNK=4 -DXI_CHANNEL_BLOCKS=32 -DXI_UNROLL_CHANNEL=0
+workgroup=64x1x1
+chunk=4 blocks=32

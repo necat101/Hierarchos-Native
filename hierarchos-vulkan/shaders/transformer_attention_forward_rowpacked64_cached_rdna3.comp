@@ -1,0 +1,260 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+
+// RDNA3 wave64 row-packed attention forward — Phase IX experiment, candidate B.
+//
+// TEST/BENCHMARK ARTIFACT. This module lives under `validation/` and is not
+// installed in `shaders/`, so nothing in the production build can reach it.
+//
+// Structure: the shipped `transformer_attention_short_amd_rdna3.comp`'s row
+// packing and per-lane score array, with the short-sequence bound raised from
+// 16 to 64, and the generic kernel's *cached* plain-path arithmetic inside each
+// row.
+//
+// Arithmetic: the generic kernel selects four arithmetic switches from
+// `unfused_qk`, and this module reproduces them through the same helpers from
+// the same headers, so it is a drop-in for both the mode-0 path and the
+// production Llama mode-9 path:
+//
+//   mode 0        : fma QK reduction, hardware exp, raw 1.0 / sum
+//   unfused_qk==1 : separately rounded QK, separately rounded P@V, SLEEF u10
+//                   exp, correctly rounded FP32 reciprocal
+//   mode 9        : separately rounded QK, separately rounded P@V, SLEEF u10
+//                   exp, correctly rounded FP32 reciprocal
+//   bits 2..3 of (unfused_qk - 2) select SLEEF exp and the FP32 reciprocal
+//   individually, as in the generic kernel
+//
+// This matters: the Phase VII Llama GQA workload runs mode 9, and a mode-0
+// candidate is one ulp away from it in the loss. The parity test covers both
+// modes.
+//
+// The rest of the per-row sequence is the generic kernel's cached path, in the
+// same order: ascending keys `0..=last_key` with `last_key = min(offset +
+// query, kv-1)` under causal masking; `max_score` folded in key order; the
+// exponential accumulated in key order; `p = e * inv_sum`; then
+// `value = fma(p, v * value_scale, value)` (mode 0) or a materialized product
+// with a `precise` add (materialized modes) per output channel.
+//
+// Row ownership is derived from the *linearised workgroup index*, so the module
+// is correct under the production `[query, head, batch]` grid as well as under
+// the packed `[ceil(rows/64), 1, 1]` grid it wants. Under the production grid
+// the first `ceil(rows/64)` linearised workgroups own those rows and every
+// further workgroup returns immediately: the written set is identical, and the
+// cost of those launches is measured rather than hidden.
+//
+// Plain-path contract (host-gated; the same field list the shipped
+// short-attention module uses): causality in {0, 1}, no window, no sink, no
+// alibi, no relative bias, no sparse mask, no compressed keys, no paged KV, no
+// softcap, no dropout, `value_scale == 1`, `query_position_offset == 0`, and
+// both sequence lengths at most `MAX_PACKED_SEQ`.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer AlibiPositionBuffer { float alibi_positions[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 7, std430) readonly buffer SinkBuffer { float sink_values[]; };
+layout(set = 0, binding = 8, std430) readonly buffer RelativeBiasBuffer { float relative_bias[]; };
+layout(set = 0, binding = 9, std430) readonly buffer SparseMaskBuffer { float sparse_mask[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KvPageTableBuffer { uint kv_page_table[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+const uint MAX_PACKED_SEQ = 64u;
+
+// Verbatim from the generic kernel: the same switches, the same predicates.
+bool diagnostic_attention_mode_bit(uint bit) {
+    if (pc.unfused_qk < 2u) {
+        return false;
+    }
+    return (((pc.unfused_qk - 2u) >> bit) & 1u) != 0u;
+}
+
+bool separately_rounded_qk() {
+    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(0u);
+}
+
+bool separately_rounded_value() {
+    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(1u);
+}
+
+bool deterministic_attention_exp() {
+    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(2u);
+}
+
+bool deterministic_attention_divider() {
+    return pc.unfused_qk == 1u || pc.unfused_qk == 9u || diagnostic_attention_mode_bit(3u);
+}
+
+float attention_exp(float value) {
+    return deterministic_attention_exp() ? sleef_expf_u10_fused(value) : exp(value);
+}
+
+// The generic kernel's `raw_score` plain-path tail: QK reduction, then scale.
+float plain_score(uint q_base, uint k_base, uint qk_head_dim) {
+    float value = 0.0;
+    if (separately_rounded_qk()) {
+        precise float unfused_value = 0.0;
+        for (uint d = 0u; d < qk_head_dim; ++d) {
+            precise float product = q_values[q_base + d] * k_values[k_base + d];
+            unfused_value += product;
+        }
+        value = unfused_value;
+    } else {
+        for (uint d = 0u; d < qk_head_dim; ++d) {
+            value = fma(q_values[q_base + d], k_values[k_base + d], value);
+        }
+    }
+    return value * pc.scale;
+}
+
+void main() {
+    uint query_seq = pc.query_seq_len;
+    uint total_rows = pc.batch_size * pc.num_heads * query_seq;
+    uint groups = (total_rows + 63u) / 64u;
+    uint workgroup = gl_WorkGroupID.x
+        + gl_NumWorkGroups.x * (gl_WorkGroupID.y + gl_NumWorkGroups.y * gl_WorkGroupID.z);
+    if (workgroup >= groups) {
+        return;
+    }
+    uint row_index = workgroup * 64u + gl_LocalInvocationID.x;
+    // Partial final workgroup: every lane past the last row returns before it
+    // reads Q, K, V or the masks, and writes nothing.
+    if (row_index >= total_rows) {
+        return;
+    }
+    // Same row order as the generic [query, head, batch] dispatch.
+    uint query = row_index % query_seq;
+    uint head = (row_index / query_seq) % pc.num_heads;
+    uint batch = row_index / (query_seq * pc.num_heads);
+
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint kv_head = head / queries_per_kv;
+
+    uint row = batch * query_seq + query;
+    uint out_base = row * output_hidden_size + head * value_head_dim;
+    if (pc.causal != 2u && query_mask[row] <= 0.0) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    uint q_base = row * pc.query_hidden_size + head * qk_head_dim;
+    uint key_row_base = batch * pc.key_value_seq_len;
+    uint k_head = key_row_base * key_hidden_size + kv_head * qk_head_dim;
+    uint last_key = pc.causal != 0u
+        ? min(pc.query_position_offset + query, pc.key_value_seq_len - 1u)
+        : pc.key_value_seq_len - 1u;
+
+    float scores[MAX_PACKED_SEQ];
+    bool visible[MAX_PACKED_SEQ];
+    bool found = false;
+    float max_score = -3.402823466e+38;
+    for (uint key = 0u; key <= last_key; ++key) {
+        bool key_visible = key_mask[key_row_base + key] > 0.0;
+        visible[key] = key_visible;
+        if (!key_visible) {
+            continue;
+        }
+        float score = plain_score(q_base, k_head + key * key_hidden_size, qk_head_dim);
+        scores[key] = score;
+        max_score = found ? max(max_score, score) : score;
+        found = true;
+    }
+    if (!found) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    float exp_sum = 0.0;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!visible[key]) {
+            continue;
+        }
+        float e = attention_exp(scores[key] - max_score);
+        scores[key] = e;
+        exp_sum += e;
+    }
+    float inv_sum = deterministic_attention_divider() ? fp32_div(1.0, exp_sum) : (1.0 / exp_sum);
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!visible[key]) {
+            continue;
+        }
+        float probability = scores[key] * inv_sum;
+        probability *= 1.0;
+        scores[key] = probability;
+    }
+
+    for (uint d = 0u; d < value_head_dim; ++d) {
+        float value = 0.0;
+        if (separately_rounded_value()) {
+            precise float unfused_value = 0.0;
+            for (uint key = 0u; key <= last_key; ++key) {
+                if (!visible[key]) {
+                    continue;
+                }
+                uint v_index = (key_row_base + key) * pc.value_hidden_size
+                    + kv_head * value_head_dim + d;
+                precise float scaled_value = v_values[v_index] * pc.value_scale;
+                precise float product = scores[key] * scaled_value;
+                unfused_value += product;
+            }
+            value = unfused_value;
+        } else {
+            for (uint key = 0u; key <= last_key; ++key) {
+                if (!visible[key]) {
+                    continue;
+                }
+                uint v_index = (key_row_base + key) * pc.value_hidden_size
+                    + kv_head * value_head_dim + d;
+                value = fma(scores[key], v_values[v_index] * pc.value_scale, value);
+            }
+        }
+        output_values[out_base + d] = value;
+    }
+}

@@ -1,0 +1,14 @@
+phase_xiii_status=GO (LoRA production path; full-parameter numerics unqualified at lr 1e-2)
+head=560809eead186f832344c15d1a9b70795da3b75d
+full_diff_sha256=3a671c752ccf8bb7ad714781fae3f11e6264cd6085001da9caf9896c7244853f (unchanged)
+binary_only_diff_sha256=cfa0d1c059d1dab6500f23ec981e2e4fdfc6c47bd43c1d86957ee686f8d7319a (unchanged)
+tracked_files_changed_by_phase=0
+mixed_gates=37 failed=0
+dispatch_per_step lora={'forward': 15, 'weight_grad': 0, 'input_grad': 15} full={'forward': 15, 'weight_grad': 15, 'input_grad': 15} fallbacks={'lora': 0, 'full': 0}
+phase_xii_harness: median=28.480525->23.00105 ms ratio=0.807402 ci95=[0.805916, 0.810092] speedup=1.2385 rounds=5/5 verdict=PASS
+stability_harness: median=28.31295->23.096575 ms ratio=0.813787 ci95=[0.800196, 0.822215] speedup=1.2288 rounds=5/5 verdict=PASS
+full_parameter_harness: median=37.564175->29.360425 ms ratio=0.781712 ci95=[0.7799, 0.783777] speedup=1.2792 rounds=5/5 verdict=PASS
+attribution_gpu_ms_per_step off=35.490007 mixed=29.622787 delta=-5.86722
+lora_loss max_abs=0.004018700000000486 rms=0.0013710514779440497 within=True
+lora_adapter_worst max_abs=0.025952832773327827 within=False
+full_lr1e4_loss max_abs=6.799999999973494e-05 all_masters_within=True

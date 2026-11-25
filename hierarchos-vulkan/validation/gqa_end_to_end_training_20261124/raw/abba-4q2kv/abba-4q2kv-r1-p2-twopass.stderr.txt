@@ -1,0 +1,4 @@
+QUAL_CONFIG mode=lora precision=off two_pass=true batch=2 seq=64 steps=29 start_step=0 lr=0.01 seed=7 device=AMD Radeon Graphics
+two-pass backward scratch: layer=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 elements=32768 bytes=262144
+two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=32768 scratch_bytes=262144
+two-pass backward scratch: layer=0 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 elements=32768 bytes=262144

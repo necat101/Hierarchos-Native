@@ -1,0 +1,111 @@
+{
+  "missing": [],
+  "rounds": [
+    {
+      "counters": {
+        "generic": {
+          "forward_generic": 58,
+          "forward_row_packed": 0
+        },
+        "production": {
+          "forward_generic": 0,
+          "forward_row_packed": 58
+        }
+      },
+      "generic_median_ms": 53.1242,
+      "generic_samples": 52,
+      "production_median_ms": 43.3854,
+      "production_samples": 52,
+      "ratio": 1.224472,
+      "round": 0
+    },
+    {
+      "counters": {
+        "generic": {
+          "forward_generic": 58,
+          "forward_row_packed": 0
+        },
+        "production": {
+          "forward_generic": 0,
+          "forward_row_packed": 58
+        }
+      },
+      "generic_median_ms": 53.13835,
+      "generic_samples": 52,
+      "production_median_ms": 43.45105,
+      "production_samples": 52,
+      "ratio": 1.222947,
+      "round": 1
+    },
+    {
+      "counters": {
+        "generic": {
+          "forward_generic": 58,
+          "forward_row_packed": 0
+        },
+        "production": {
+          "forward_generic": 0,
+          "forward_row_packed": 58
+        }
+      },
+      "generic_median_ms": 53.21525,
+      "generic_samples": 52,
+      "production_median_ms": 43.45275,
+      "production_samples": 52,
+      "ratio": 1.224669,
+      "round": 2
+    },
+    {
+      "counters": {
+        "generic": {
+          "forward_generic": 58,
+          "forward_row_packed": 0
+        },
+        "production": {
+          "forward_generic": 0,
+          "forward_row_packed": 58
+        }
+      },
+      "generic_median_ms": 53.173,
+      "generic_samples": 52,
+      "production_median_ms": 43.4566,
+      "production_samples": 52,
+      "ratio": 1.223589,
+      "round": 3
+    }
+  ],
+  "status": "PASS",
+  "summary": {
+    "generic": {
+      "max_ms": 55.5915,
+      "mean_ms": 53.270775,
+      "median_ms": 53.1742,
+      "min_ms": 52.4898,
+      "p25_ms": 53.006,
+      "p95_ms": 54.024,
+      "samples": 208,
+      "stdev_ms": 0.444779
+    },
+    "paired_ratio_ci95": [
+      1.222646,
+      1.225193
+    ],
+    "paired_ratio_max": 1.224669,
+    "paired_ratio_mean": 1.223919,
+    "paired_ratio_median": 1.22403,
+    "paired_ratio_min": 1.222947,
+    "paired_ratio_stdev": 0.0008,
+    "production": {
+      "max_ms": 45.6665,
+      "mean_ms": 43.506983,
+      "median_ms": 43.44475,
+      "min_ms": 42.9468,
+      "p25_ms": 43.3019,
+      "p95_ms": 44.2321,
+      "samples": 208,
+      "stdev_ms": 0.353833
+    },
+    "ratio_of_pooled_medians": 1.22395,
+    "student_t_df": 3
+  }
+}

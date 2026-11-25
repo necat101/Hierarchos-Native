@@ -1,0 +1,76 @@
+{
+  "kernel-timing-profiled.log:4q-2kv/combined": {
+    "max_gpu_ms": 6.68988,
+    "median_gpu_ms": 6.6589,
+    "min_gpu_ms": 6.6464,
+    "samples": 10,
+    "shader_labels": [
+      "transformer_attention_backward_query_rdna3",
+      "unknown"
+    ]
+  },
+  "kernel-timing-profiled.log:4q-2kv/key": {
+    "max_gpu_ms": 3.75972,
+    "median_gpu_ms": 3.74496,
+    "min_gpu_ms": 3.74368,
+    "samples": 10,
+    "shader_labels": [
+      "unknown"
+    ]
+  },
+  "kernel-timing-profiled.log:4q-2kv/query": {
+    "max_gpu_ms": 2.96928,
+    "median_gpu_ms": 2.95902,
+    "min_gpu_ms": 2.94876,
+    "samples": 10,
+    "shader_labels": [
+      "transformer_attention_backward_query_rdna3"
+    ]
+  },
+  "kernel-timing-profiled.log:4q-2kv/scalar": {
+    "max_gpu_ms": 254.7674,
+    "median_gpu_ms": 253.52758,
+    "min_gpu_ms": 253.4186,
+    "samples": 10,
+    "shader_labels": [
+      "transformer_attention_backward"
+    ]
+  },
+  "kernel-timing-profiled.log:8q-2kv/combined": {
+    "max_gpu_ms": 12.10472,
+    "median_gpu_ms": 10.6795,
+    "min_gpu_ms": 10.61964,
+    "samples": 10,
+    "shader_labels": [
+      "transformer_attention_backward_query_rdna3",
+      "unknown"
+    ]
+  },
+  "kernel-timing-profiled.log:8q-2kv/key": {
+    "max_gpu_ms": 7.47488,
+    "median_gpu_ms": 7.44142,
+    "min_gpu_ms": 7.42292,
+    "samples": 10,
+    "shader_labels": [
+      "unknown"
+    ]
+  },
+  "kernel-timing-profiled.log:8q-2kv/query": {
+    "max_gpu_ms": 3.60476,
+    "median_gpu_ms": 3.14864,
+    "min_gpu_ms": 3.14216,
+    "samples": 10,
+    "shader_labels": [
+      "transformer_attention_backward_query_rdna3"
+    ]
+  },
+  "kernel-timing-profiled.log:8q-2kv/scalar": {
+    "max_gpu_ms": 509.72884,
+    "median_gpu_ms": 506.78518,
+    "min_gpu_ms": 501.07572,
+    "samples": 10,
+    "shader_labels": [
+      "transformer_attention_backward"
+    ]
+  }
+}

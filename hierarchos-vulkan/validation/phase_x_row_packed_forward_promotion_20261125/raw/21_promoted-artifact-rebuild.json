@@ -1,0 +1,26 @@
+{
+  "artifact": "transformer_attention_forward_rowpacked64_cached_rdna3.spv",
+  "committed_sha256": "c053503e267ede432cd174e887d800640ce854aad186f8b71390e8c4543764fd",
+  "compile_exit": 0,
+  "compiler": "glslc",
+  "compiler_banner": "shaderc v2023.8 v2025.3\nspirv-tools v2025.3 v2022.4-833-g33e02568\nglslang 11.1.0-1253-gefd24d75\n\nTarget: SPIR-V 1.0",
+  "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslc.EXE",
+  "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.2",
+    "--target-spv=spv1.4",
+    "-O",
+    "-Ishaders"
+  ],
+  "identical_to_phase_ix": true,
+  "phase_ix_sha256": "c053503e267ede432cd174e887d800640ce854aad186f8b71390e8c4543764fd",
+  "rebuilt_sha256": "c053503e267ede432cd174e887d800640ce854aad186f8b71390e8c4543764fd",
+  "recorded_version": "2023.8",
+  "reproduces_byte_for_byte": true,
+  "source": "transformer_attention_forward_rowpacked64_cached_rdna3.comp",
+  "source_sha256": "8f7bf06f65291793b12c81a9b0bd733a5ce656ffbd4a3689fea5fabf3439e6ed",
+  "spirv_val_exit": 0,
+  "spirv_val_output": "",
+  "status": "PASS",
+  "target_env": "vulkan1.2"
+}

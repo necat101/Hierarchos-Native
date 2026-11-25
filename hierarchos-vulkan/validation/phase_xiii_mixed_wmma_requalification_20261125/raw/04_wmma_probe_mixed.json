@@ -1,0 +1,20 @@
+{
+  "device": "AMD Radeon Graphics",
+  "physical_device_index": 0,
+  "mode": "mixed",
+  "rdna3_or_newer": true,
+  "probed": true,
+  "extension_exposed": true,
+  "feature_supported": true,
+  "memory_model_supported": true,
+  "subgroup_size_control_supported": true,
+  "storage_16bit": true,
+  "shader_float16": true,
+  "driver_subgroup_size": 64,
+  "enabled": true,
+  "configuration_count": 11,
+  "mixed_tile": {"m":16,"n":16,"k":16,"a":"f16","b":"f16","c":"f32","subgroup_scope":true,"saturating":false},
+  "full_fp16_tile": {"m":16,"n":16,"k":16,"a":"f16","b":"f16","c":"f16","subgroup_scope":true,"saturating":false},
+  "mixed_supported": true,
+  "full_fp16_supported": true
+}

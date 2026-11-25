@@ -1,0 +1,59 @@
+
+### 8q-2kv — GPU ms per key dispatch (mode 9)
+
+| arm | blocks | lanes | workgroups | order 1 | order 2 | steady | vs production |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `key_production` | — | 64 | 4 | 8.0931 | 7.5965 | 7.5965 | 1.000× |
+| `key_blocks1_lanes64` | 1 | 64 | 4 | 7.6136 | 7.6036 | 7.6036 | 0.999× |
+| `key_blocks1_lanes32` | 1 | 32 | 8 | 7.5062 | 7.4637 | 7.4637 | 1.018× |
+| `key_blocks1_lanes16` | 1 | 16 | 16 | 7.4991 | 7.4826 | 7.4826 | 1.015× |
+| `key_blocks1_lanes8` | 1 | 8 | 32 | 7.7909 | 7.7759 | 7.7759 | 0.977× |
+| `key_blocks2_lanes64` | 2 | 64 | 4 | 11.5568 | 11.5575 | 11.5575 | 0.657× |
+| `key_blocks2_lanes32` | 2 | 32 | 8 | 11.5164 | 11.5306 | 11.5306 | 0.659× |
+| `key_blocks4_lanes64` | 4 | 64 | 4 | 19.4190 | 19.3798 | 19.3798 | 0.392× |
+| `key_blocks4_lanes16` | 4 | 16 | 16 | 19.5410 | 19.4908 | 19.4908 | 0.390× |
+| `key_blocks8_lanes64` | 8 | 64 | 8 | 34.7058 | 34.6848 | 34.6848 | 0.219× |
+| `key_blocks8_lanes8` | 8 | 8 | 32 | 35.4092 | 35.3637 | 35.3637 | 0.215× |
+| `query_reference` | — | — | 16 | 3.6066 | 3.6101 | 3.6101 | 2.104× |
+| `combined_production` | — | 64 | 4 | 11.2372 | 11.2691 | 11.2691 | 0.674× |
+| `combined_blocks1_lanes64` | 1 | 64 | 4 | 11.2912 | 11.2620 | 11.2620 | 0.674× |
+| `combined_blocks4_lanes64` | 4 | 64 | 4 | 22.9016 | 22.9206 | 22.9206 | 0.331× |
+
+### 4q-2kv — GPU ms per key dispatch (mode 9)
+
+| arm | blocks | lanes | workgroups | order 1 | order 2 | steady | vs production |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `key_production` | — | 64 | 4 | 4.0703 | 3.8079 | 3.8079 | 1.000× |
+| `key_blocks1_lanes64` | 1 | 64 | 4 | 3.8367 | 3.8363 | 3.8363 | 0.993× |
+| `key_blocks1_lanes32` | 1 | 32 | 8 | 3.7782 | 3.7680 | 3.7680 | 1.011× |
+| `key_blocks1_lanes16` | 1 | 16 | 16 | 3.7823 | 3.7772 | 3.7772 | 1.008× |
+| `key_blocks1_lanes8` | 1 | 8 | 32 | 3.9644 | 3.9622 | 3.9622 | 0.961× |
+| `key_blocks2_lanes64` | 2 | 64 | 4 | 5.8275 | 5.8442 | 5.8442 | 0.652× |
+| `key_blocks2_lanes32` | 2 | 32 | 8 | 5.8183 | 5.8003 | 5.8003 | 0.656× |
+| `key_blocks4_lanes64` | 4 | 64 | 4 | 9.7746 | 9.7471 | 9.7471 | 0.391× |
+| `key_blocks4_lanes16` | 4 | 16 | 16 | 9.9756 | 9.9334 | 9.9334 | 0.383× |
+| `key_blocks8_lanes64` | 8 | 64 | 8 | 17.3812 | 17.3456 | 17.3456 | 0.220× |
+| `key_blocks8_lanes8` | 8 | 8 | 32 | 18.1648 | 18.1235 | 18.1235 | 0.210× |
+| `query_reference` | — | — | 8 | 3.2952 | 3.2951 | 3.2951 | 1.156× |
+| `combined_production` | — | 64 | 4 | 7.0775 | 7.0894 | 7.0894 | 0.537× |
+| `combined_blocks1_lanes64` | 1 | 64 | 4 | 7.0674 | 7.0669 | 7.0669 | 0.539× |
+| `combined_blocks4_lanes64` | 4 | 64 | 4 | 12.9788 | 12.9774 | 12.9774 | 0.293× |
+
+### per-lane work scaling
+
+{
+  "4q-2kv": {
+    "heads_per_kv_head": 2,
+    "queries_per_lane": 128,
+    "steady_median_gpu_ms": 3.83632,
+    "workgroups": 4
+  },
+  "8q-2kv": {
+    "heads_per_kv_head": 4,
+    "queries_per_lane": 256,
+    "steady_median_gpu_ms": 7.60364,
+    "workgroups": 4
+  },
+  "ratio_8q_over_4q": 1.982,
+  "ratio_queries_per_lane": 2.0
+}

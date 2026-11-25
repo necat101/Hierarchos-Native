@@ -1,0 +1,119 @@
+{
+  "checkpoint_digests": {
+    "adapter_config.json": {
+      "generic": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "production": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696"
+    },
+    "adapter_model.safetensors": {
+      "generic": "90d9899ec7b3c04a781741d7d7620b89351ca29937ba04c6b9170f64ef67bfb0",
+      "production": "90d9899ec7b3c04a781741d7d7620b89351ca29937ba04c6b9170f64ef67bfb0"
+    },
+    "hierarchos_adapter_optimizer.safetensors": {
+      "generic": "90a9c85c2cefdb3c8515104d5db04861df40a45bdbb07d83d3229073af7a8391",
+      "production": "90a9c85c2cefdb3c8515104d5db04861df40a45bdbb07d83d3229073af7a8391"
+    }
+  },
+  "checkpoint_file_mismatches": [],
+  "checkpoint_files_compared": 3,
+  "dataset_sequences": 32,
+  "dispatch_counters_generic": {
+    "backward_key": 12,
+    "backward_query": 12,
+    "backward_scalar": 0,
+    "forward_generic": 12,
+    "forward_row_packed": 0,
+    "forward_short": 0,
+    "forward_total": 12
+  },
+  "dispatch_counters_production": {
+    "backward_key": 12,
+    "backward_query": 12,
+    "backward_scalar": 0,
+    "forward_generic": 0,
+    "forward_row_packed": 12,
+    "forward_short": 0,
+    "forward_total": 12
+  },
+  "fixture": "target/gqa-e2e/fixture-8q2kv",
+  "gradient_bits_compared": 6291456,
+  "gradient_digest_mismatches": 0,
+  "gradient_elements_per_step": 32768,
+  "loss_bits_mismatches": 0,
+  "parameter_digest_mismatches": 0,
+  "parameter_end_digest_equal": true,
+  "parameter_end_digest_generic": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+  "parameter_end_digest_production": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+  "parameter_start_digest_generic": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+  "parameter_start_digest_production": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+  "per_step": [
+    {
+      "grad_digest_equal": true,
+      "grad_digest_generic": "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+      "grad_digest_production": "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+      "grad_elements": 32768,
+      "loss_bits_equal": true,
+      "loss_bits_generic": "40e44309",
+      "loss_bits_production": "40e44309",
+      "param_digest_equal": true,
+      "step": 0
+    },
+    {
+      "grad_digest_equal": true,
+      "grad_digest_generic": "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e",
+      "grad_digest_production": "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e",
+      "grad_elements": 32768,
+      "loss_bits_equal": true,
+      "loss_bits_generic": "40e43f10",
+      "loss_bits_production": "40e43f10",
+      "param_digest_equal": true,
+      "step": 1
+    },
+    {
+      "grad_digest_equal": true,
+      "grad_digest_generic": "b98e676b3f0bd1439510ed75d97faa669d539fe3573d1e56f1fdf386f58c2d33",
+      "grad_digest_production": "b98e676b3f0bd1439510ed75d97faa669d539fe3573d1e56f1fdf386f58c2d33",
+      "grad_elements": 32768,
+      "loss_bits_equal": true,
+      "loss_bits_generic": "40e30547",
+      "loss_bits_production": "40e30547",
+      "param_digest_equal": true,
+      "step": 2
+    },
+    {
+      "grad_digest_equal": true,
+      "grad_digest_generic": "46be27928974f7dbe4040bdf2ab22056934e94c91c982b283979fafb2c86fe03",
+      "grad_digest_production": "46be27928974f7dbe4040bdf2ab22056934e94c91c982b283979fafb2c86fe03",
+      "grad_elements": 32768,
+      "loss_bits_equal": true,
+      "loss_bits_generic": "40e757ac",
+      "loss_bits_production": "40e757ac",
+      "param_digest_equal": true,
+      "step": 3
+    },
+    {
+      "grad_digest_equal": true,
+      "grad_digest_generic": "7d5b7c17b3cfb0254a7c92452133d3edace3bb67c1ca15b5be032e4e5315afb3",
+      "grad_digest_production": "7d5b7c17b3cfb0254a7c92452133d3edace3bb67c1ca15b5be032e4e5315afb3",
+      "grad_elements": 32768,
+      "loss_bits_equal": true,
+      "loss_bits_generic": "40e5465d",
+      "loss_bits_production": "40e5465d",
+      "param_digest_equal": true,
+      "step": 4
+    },
+    {
+      "grad_digest_equal": true,
+      "grad_digest_generic": "cea83f239a9dda5fa21bb1c31278da45e2811b809af3442b9ea53b61f1e450ca",
+      "grad_digest_production": "cea83f239a9dda5fa21bb1c31278da45e2811b809af3442b9ea53b61f1e450ca",
+      "grad_elements": 32768,
+      "loss_bits_equal": true,
+      "loss_bits_generic": "40e437d3",
+      "loss_bits_production": "40e437d3",
+      "param_digest_equal": true,
+      "step": 5
+    }
+  ],
+  "routes_distinct": true,
+  "status": "PASS",
+  "steps_compared": 6
+}

@@ -1,0 +1,1608 @@
+{
+  "base_commit": "560809eead186f832344c15d1a9b70795da3b75d",
+  "complete_step_abba": {
+    "arm_a": {
+      "max_ms": 55.7997,
+      "mean_ms": 53.3955,
+      "median_ms": 53.2592,
+      "min_ms": 52.6498,
+      "p25_ms": 53.0698,
+      "p95_ms": 54.3214,
+      "samples": 260,
+      "stdev_ms": 0.4791
+    },
+    "arm_b": {
+      "max_ms": 46.7561,
+      "mean_ms": 43.6288,
+      "median_ms": 43.5271,
+      "min_ms": 42.9578,
+      "p25_ms": 43.3893,
+      "p95_ms": 44.381,
+      "samples": 260,
+      "stdev_ms": 0.4138
+    },
+    "ci95": {
+      "df": 4,
+      "high": 1.2251,
+      "low": 1.2222,
+      "t_critical": 2.776
+    },
+    "geomean_paired_ratio": 1.2236,
+    "harness": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target\\release\\deps\\hierarchos_vulkan-70a92090d59c92cf.exe",
+    "mean_paired_ratio": 1.2236,
+    "paired_ratios": [
+      1.22355,
+      1.22479,
+      1.2239,
+      1.22422,
+      1.22167
+    ],
+    "per_round": [
+      {
+        "a_median_ms": 53.1882,
+        "b_median_ms": 43.4703,
+        "ratio": 1.22355,
+        "round": 0
+      },
+      {
+        "a_median_ms": 53.27,
+        "b_median_ms": 43.4933,
+        "ratio": 1.22479,
+        "round": 1
+      },
+      {
+        "a_median_ms": 53.3012,
+        "b_median_ms": 43.5503,
+        "ratio": 1.2239,
+        "round": 2
+      },
+      {
+        "a_median_ms": 53.3201,
+        "b_median_ms": 43.5543,
+        "ratio": 1.22422,
+        "round": 3
+      },
+      {
+        "a_median_ms": 53.2109,
+        "b_median_ms": 43.5558,
+        "ratio": 1.22167,
+        "round": 4
+      }
+    ],
+    "protocol": {
+      "arm_a": "generic attention forward + production two-pass GQA backward",
+      "arm_b": "row-packed attention forward + production two-pass GQA backward",
+      "measured_per_process": 26,
+      "order": [
+        "A",
+        "B",
+        "B",
+        "A"
+      ],
+      "processes": "one arm per process, strictly serial",
+      "rounds": 5,
+      "sample_file": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\phase_ix_row_packed_forward_20261124\\raw\\abba-samples.jsonl",
+      "steps_per_process": 29,
+      "warmup_per_process": 3,
+      "wmma_mode": "off"
+    },
+    "ratio_of_medians": 1.2236
+  },
+  "complete_step_abba_debug": {
+    "arm_a": {
+      "max_ms": 58.231,
+      "mean_ms": 55.68,
+      "median_ms": 55.4977,
+      "min_ms": 54.222,
+      "p25_ms": 55.2286,
+      "p95_ms": 57.2266,
+      "samples": 260,
+      "stdev_ms": 0.7477
+    },
+    "arm_b": {
+      "max_ms": 48.6275,
+      "mean_ms": 45.9608,
+      "median_ms": 45.7888,
+      "min_ms": 44.4274,
+      "p25_ms": 45.551,
+      "p95_ms": 47.5092,
+      "samples": 260,
+      "stdev_ms": 0.6881
+    },
+    "ci95": {
+      "df": 4,
+      "high": 1.2177,
+      "low": 1.2087,
+      "t_critical": 2.776
+    },
+    "geomean_paired_ratio": 1.2132,
+    "harness": "target/debug/deps/hierarchos_vulkan-2e2e303e5aa3d5d6.exe",
+    "mean_paired_ratio": 1.2132,
+    "paired_ratios": [
+      1.21827,
+      1.21502,
+      1.21254,
+      1.2089,
+      1.2112
+    ],
+    "per_round": [
+      {
+        "a_median_ms": 55.6055,
+        "b_median_ms": 45.6431,
+        "ratio": 1.21827,
+        "round": 0
+      },
+      {
+        "a_median_ms": 55.5151,
+        "b_median_ms": 45.6908,
+        "ratio": 1.21502,
+        "round": 1
+      },
+      {
+        "a_median_ms": 55.4773,
+        "b_median_ms": 45.7528,
+        "ratio": 1.21254,
+        "round": 2
+      },
+      {
+        "a_median_ms": 55.4245,
+        "b_median_ms": 45.8472,
+        "ratio": 1.2089,
+        "round": 3
+      },
+      {
+        "a_median_ms": 55.5229,
+        "b_median_ms": 45.8413,
+        "ratio": 1.2112,
+        "round": 4
+      }
+    ],
+    "protocol": {
+      "arm_a": "generic attention forward + production two-pass GQA backward",
+      "arm_b": "row-packed attention forward + production two-pass GQA backward",
+      "measured_per_process": 26,
+      "order": [
+        "A",
+        "B",
+        "B",
+        "A"
+      ],
+      "processes": "one arm per process, strictly serial",
+      "rounds": 5,
+      "steps_per_process": 29,
+      "warmup_per_process": 3,
+      "wmma_mode": "off"
+    },
+    "provenance": "Transcribed from the 06:44 console output of run_abba.py on the debug harness; its per-process logs were superseded by the 06:55 release rerun in the same directory.",
+    "ratio_of_medians": 1.212
+  },
+  "complete_step_attribution": {
+    "generic": {
+      "dispatches_per_step": 98.0,
+      "gpu_ms_per_step": {
+        "adamw": 0.0087,
+        "embedding_forward": 0.0195,
+        "falcon_h1_cross_entropy_lanes16": 1.2776,
+        "linear_forward": 7.8592,
+        "linear_forward_lane4": 0.1979,
+        "linear_input_grad": 6.6192,
+        "linear_input_grad_group4_muladd": 0.1283,
+        "linear_weight_grad": 0.0555,
+        "ordered_f32_sum": 0.0029,
+        "silu_backward": 0.0284,
+        "silu_forward": 0.0415,
+        "transformer_attention_backward_key_rdna3": 16.2862,
+        "transformer_attention_backward_query_rdna3": 7.8748,
+        "transformer_attention_forward": 16.491,
+        "transformer_elementwise_mul_backward": 0.0493,
+        "transformer_elementwise_mul_forward": 0.0313,
+        "transformer_lora_scaled_add": 0.0384,
+        "transformer_rms_norm_forward": 1.8158,
+        "transformer_rms_norm_input_grad": 1.5453,
+        "transformer_rope_backward": 0.0342,
+        "transformer_rope_forward": 0.0428,
+        "transformer_scale_copy": 0.0149,
+        "vector_add": 0.2749
+      },
+      "gpu_ms_per_step_total": 60.7373,
+      "steps": 9
+    },
+    "rowpacked-cached": {
+      "dispatches_per_step": 98.0,
+      "gpu_ms_per_step": {
+        "adamw": 0.0085,
+        "embedding_forward": 0.0199,
+        "falcon_h1_cross_entropy_lanes16": 1.4375,
+        "linear_forward": 7.8774,
+        "linear_forward_lane4": 0.2039,
+        "linear_input_grad": 6.9032,
+        "linear_input_grad_group4_muladd": 0.1683,
+        "linear_weight_grad": 0.0549,
+        "ordered_f32_sum": 0.0028,
+        "silu_backward": 0.0269,
+        "silu_forward": 0.0437,
+        "transformer_attention_backward_key_rdna3": 16.9764,
+        "transformer_attention_backward_query_rdna3": 8.2397,
+        "transformer_elementwise_mul_backward": 0.0467,
+        "transformer_elementwise_mul_forward": 0.0271,
+        "transformer_lora_scaled_add": 0.0363,
+        "transformer_rms_norm_forward": 1.8825,
+        "transformer_rms_norm_input_grad": 1.601,
+        "transformer_rope_backward": 0.0351,
+        "transformer_rope_forward": 0.0436,
+        "transformer_scale_copy": 0.0148,
+        "unknown": 4.4261,
+        "vector_add": 0.2123
+      },
+      "gpu_ms_per_step_total": 50.2888,
+      "steps": 9
+    }
+  },
+  "complete_step_digest_parity": {
+    "dataset_sequences": 32,
+    "fixture": "target/gqa-e2e/fixture-8q2kv",
+    "gradient_bits_compared": 6291456,
+    "gradient_digest_mismatches": 0,
+    "gradient_elements_per_step": 32768,
+    "loss_bits_mismatches": 0,
+    "parameter_digest_mismatches": 0,
+    "parameter_end_digest_generic": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+    "parameter_end_digest_rowpacked": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+    "per_step": [
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+        "grad_digest_rowpacked": "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e44309",
+        "loss_bits_rowpacked": "40e44309",
+        "param_digest_equal": true,
+        "step": 0
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e",
+        "grad_digest_rowpacked": "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e43f10",
+        "loss_bits_rowpacked": "40e43f10",
+        "param_digest_equal": true,
+        "step": 1
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "b98e676b3f0bd1439510ed75d97faa669d539fe3573d1e56f1fdf386f58c2d33",
+        "grad_digest_rowpacked": "b98e676b3f0bd1439510ed75d97faa669d539fe3573d1e56f1fdf386f58c2d33",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e30547",
+        "loss_bits_rowpacked": "40e30547",
+        "param_digest_equal": true,
+        "step": 2
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "46be27928974f7dbe4040bdf2ab22056934e94c91c982b283979fafb2c86fe03",
+        "grad_digest_rowpacked": "46be27928974f7dbe4040bdf2ab22056934e94c91c982b283979fafb2c86fe03",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e757ac",
+        "loss_bits_rowpacked": "40e757ac",
+        "param_digest_equal": true,
+        "step": 3
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "7d5b7c17b3cfb0254a7c92452133d3edace3bb67c1ca15b5be032e4e5315afb3",
+        "grad_digest_rowpacked": "7d5b7c17b3cfb0254a7c92452133d3edace3bb67c1ca15b5be032e4e5315afb3",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e5465d",
+        "loss_bits_rowpacked": "40e5465d",
+        "param_digest_equal": true,
+        "step": 4
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "cea83f239a9dda5fa21bb1c31278da45e2811b809af3442b9ea53b61f1e450ca",
+        "grad_digest_rowpacked": "cea83f239a9dda5fa21bb1c31278da45e2811b809af3442b9ea53b61f1e450ca",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e437d3",
+        "loss_bits_rowpacked": "40e437d3",
+        "param_digest_equal": true,
+        "step": 5
+      }
+    ],
+    "status": "PASS",
+    "steps_compared": 6
+  },
+  "complete_step_digest_parity_release": {
+    "dataset_sequences": 32,
+    "fixture": "target/gqa-e2e/fixture-8q2kv",
+    "gradient_bits_compared": 6291456,
+    "gradient_digest_mismatches": 0,
+    "gradient_elements_per_step": 32768,
+    "loss_bits_mismatches": 0,
+    "parameter_digest_mismatches": 0,
+    "parameter_end_digest_generic": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+    "parameter_end_digest_rowpacked": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+    "per_step": [
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+        "grad_digest_rowpacked": "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e44309",
+        "loss_bits_rowpacked": "40e44309",
+        "param_digest_equal": true,
+        "step": 0
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e",
+        "grad_digest_rowpacked": "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e43f10",
+        "loss_bits_rowpacked": "40e43f10",
+        "param_digest_equal": true,
+        "step": 1
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "b98e676b3f0bd1439510ed75d97faa669d539fe3573d1e56f1fdf386f58c2d33",
+        "grad_digest_rowpacked": "b98e676b3f0bd1439510ed75d97faa669d539fe3573d1e56f1fdf386f58c2d33",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e30547",
+        "loss_bits_rowpacked": "40e30547",
+        "param_digest_equal": true,
+        "step": 2
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "46be27928974f7dbe4040bdf2ab22056934e94c91c982b283979fafb2c86fe03",
+        "grad_digest_rowpacked": "46be27928974f7dbe4040bdf2ab22056934e94c91c982b283979fafb2c86fe03",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e757ac",
+        "loss_bits_rowpacked": "40e757ac",
+        "param_digest_equal": true,
+        "step": 3
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "7d5b7c17b3cfb0254a7c92452133d3edace3bb67c1ca15b5be032e4e5315afb3",
+        "grad_digest_rowpacked": "7d5b7c17b3cfb0254a7c92452133d3edace3bb67c1ca15b5be032e4e5315afb3",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e5465d",
+        "loss_bits_rowpacked": "40e5465d",
+        "param_digest_equal": true,
+        "step": 4
+      },
+      {
+        "grad_digest_equal": true,
+        "grad_digest_generic": "cea83f239a9dda5fa21bb1c31278da45e2811b809af3442b9ea53b61f1e450ca",
+        "grad_digest_rowpacked": "cea83f239a9dda5fa21bb1c31278da45e2811b809af3442b9ea53b61f1e450ca",
+        "grad_elements": 32768,
+        "loss_bits_equal": true,
+        "loss_bits_generic": "40e437d3",
+        "loss_bits_rowpacked": "40e437d3",
+        "param_digest_equal": true,
+        "step": 5
+      }
+    ],
+    "status": "PASS",
+    "steps_compared": 6
+  },
+  "date": "2026-11-24",
+  "dispatch": [
+    "[phase-ix-dispatch] label=gqa-8q-2kv-primary-mode9 implementation=generic grid=[64, 8, 2] workgroups=1024 lanes_per_workgroup=1 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-primary-mode9 implementation=row-packed-64-cached grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-primary-mode0 implementation=generic grid=[64, 8, 2] workgroups=1024 lanes_per_workgroup=1 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-primary-mode0 implementation=row-packed-64-stream grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-primary-mode0 implementation=row-packed-64-cached grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-primary-mode1 implementation=generic grid=[64, 8, 2] workgroups=1024 lanes_per_workgroup=1 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-primary-mode1 implementation=row-packed-64-cached grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=mha-8q-8kv-control implementation=generic grid=[64, 8, 2] workgroups=1024 lanes_per_workgroup=1 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=mha-8q-8kv-control implementation=row-packed-64-cached grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-noncausal implementation=generic grid=[64, 8, 2] workgroups=1024 lanes_per_workgroup=1 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-noncausal implementation=row-packed-64-cached grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-masked implementation=generic grid=[64, 8, 2] workgroups=1024 lanes_per_workgroup=1 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=gqa-8q-2kv-masked implementation=row-packed-64-cached grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=mha-8q-8kv-masked implementation=generic grid=[64, 8, 2] workgroups=1024 lanes_per_workgroup=1 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=mha-8q-8kv-masked implementation=row-packed-64-cached grid=[16, 1, 1] workgroups=16 lanes_per_workgroup=64 lane_slots=1024 useful_rows=1024 wasted_lanes=0",
+    "[phase-ix-dispatch] label=boundary-42rows implementation=generic grid=[7, 3, 2] workgroups=42 lanes_per_workgroup=1 lane_slots=42 useful_rows=42 wasted_lanes=0",
+    "[phase-ix-dispatch] label=boundary-42rows implementation=row-packed-64-cached grid=[1, 1, 1] workgroups=1 lanes_per_workgroup=64 lane_slots=64 useful_rows=42 wasted_lanes=22",
+    "[phase-ix-dispatch] label=boundary-130rows implementation=generic grid=[13, 5, 2] workgroups=130 lanes_per_workgroup=1 lane_slots=130 useful_rows=130 wasted_lanes=0",
+    "[phase-ix-dispatch] label=boundary-130rows implementation=row-packed-64-cached grid=[3, 1, 1] workgroups=3 lanes_per_workgroup=64 lane_slots=192 useful_rows=130 wasted_lanes=62",
+    "[phase-ix-dispatch] label=boundary-162rows-gqa implementation=generic grid=[9, 6, 3] workgroups=162 lanes_per_workgroup=1 lane_slots=162 useful_rows=162 wasted_lanes=0",
+    "[phase-ix-dispatch] label=boundary-162rows-gqa implementation=row-packed-64-cached grid=[3, 1, 1] workgroups=3 lanes_per_workgroup=64 lane_slots=192 useful_rows=162 wasted_lanes=30"
+  ],
+  "kernel_timing": {
+    "arms": {
+      "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 6.37388,
+        "mean_gpu_ms": 6.230528,
+        "median_gpu_ms": 6.23296,
+        "median_host_ms": 7.0865,
+        "min_gpu_ms": 6.16876,
+        "p25_gpu_ms": 6.20892,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.038014,
+        "workgroups": 1024
+      },
+      "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.67988,
+        "mean_gpu_ms": 1.650958,
+        "median_gpu_ms": 1.65072,
+        "median_host_ms": 2.4631,
+        "min_gpu_ms": 1.62944,
+        "p25_gpu_ms": 1.64116,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.012357,
+        "workgroups": 16
+      },
+      "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.71688,
+        "mean_gpu_ms": 1.690861,
+        "median_gpu_ms": 1.68692,
+        "median_host_ms": 2.4538,
+        "min_gpu_ms": 1.67532,
+        "p25_gpu_ms": 1.68296,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.011057,
+        "workgroups": 1024
+      },
+      "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+        "lanes": 64,
+        "max_gpu_ms": 44.73468,
+        "mean_gpu_ms": 43.695688,
+        "median_gpu_ms": 43.65048,
+        "median_host_ms": 44.9542,
+        "min_gpu_ms": 43.38312,
+        "p25_gpu_ms": 43.56264,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.273125,
+        "workgroups": 16
+      },
+      "timing-run0-order0.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 14.61736,
+        "mean_gpu_ms": 8.133517,
+        "median_gpu_ms": 7.07316,
+        "median_host_ms": 8.0447,
+        "min_gpu_ms": 6.5984,
+        "p25_gpu_ms": 6.6242,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 2.163528,
+        "workgroups": 1024
+      },
+      "timing-run0-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.74136,
+        "mean_gpu_ms": 1.734162,
+        "median_gpu_ms": 1.73544,
+        "median_host_ms": 2.4715,
+        "min_gpu_ms": 1.72632,
+        "p25_gpu_ms": 1.73116,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.004254,
+        "workgroups": 16
+      },
+      "timing-run0-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.74232,
+        "mean_gpu_ms": 1.73535,
+        "median_gpu_ms": 1.73572,
+        "median_host_ms": 2.448,
+        "min_gpu_ms": 1.7294,
+        "p25_gpu_ms": 1.73272,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.003449,
+        "workgroups": 1024
+      },
+      "timing-run0-order0.log|mha-8q-8kv-control|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 7.93396,
+        "mean_gpu_ms": 6.971147,
+        "median_gpu_ms": 6.85168,
+        "median_host_ms": 8.0944,
+        "min_gpu_ms": 6.77952,
+        "p25_gpu_ms": 6.8192,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.306428,
+        "workgroups": 1024
+      },
+      "timing-run0-order0.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 2.01188,
+        "mean_gpu_ms": 1.98504,
+        "median_gpu_ms": 1.98276,
+        "median_host_ms": 2.8008,
+        "min_gpu_ms": 1.97464,
+        "p25_gpu_ms": 1.97792,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.009583,
+        "workgroups": 16
+      },
+      "timing-run0-order0.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 2.00576,
+        "mean_gpu_ms": 1.987666,
+        "median_gpu_ms": 1.98708,
+        "median_host_ms": 2.8548,
+        "min_gpu_ms": 1.97964,
+        "p25_gpu_ms": 1.98228,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.00676,
+        "workgroups": 1024
+      },
+      "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 6.27552,
+        "mean_gpu_ms": 6.233445,
+        "median_gpu_ms": 6.23228,
+        "median_host_ms": 7.2122,
+        "min_gpu_ms": 6.1962,
+        "p25_gpu_ms": 6.22008,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.019905,
+        "workgroups": 1024
+      },
+      "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.75572,
+        "mean_gpu_ms": 1.735611,
+        "median_gpu_ms": 1.73612,
+        "median_host_ms": 2.4878,
+        "min_gpu_ms": 1.7082,
+        "p25_gpu_ms": 1.7306,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.012669,
+        "workgroups": 16
+      },
+      "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.74808,
+        "mean_gpu_ms": 1.727912,
+        "median_gpu_ms": 1.7282,
+        "median_host_ms": 2.533,
+        "min_gpu_ms": 1.70628,
+        "p25_gpu_ms": 1.72124,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.010187,
+        "workgroups": 1024
+      },
+      "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+        "lanes": 64,
+        "max_gpu_ms": 44.13812,
+        "mean_gpu_ms": 43.624936,
+        "median_gpu_ms": 43.69948,
+        "median_host_ms": 45.0101,
+        "min_gpu_ms": 42.68296,
+        "p25_gpu_ms": 43.51352,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.299783,
+        "workgroups": 16
+      },
+      "timing-run1-order1.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 8.2634,
+        "mean_gpu_ms": 6.839429,
+        "median_gpu_ms": 6.61428,
+        "median_host_ms": 7.5893,
+        "min_gpu_ms": 6.58144,
+        "p25_gpu_ms": 6.60908,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.464783,
+        "workgroups": 1024
+      },
+      "timing-run1-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 2.99852,
+        "mean_gpu_ms": 2.67753,
+        "median_gpu_ms": 2.663,
+        "median_host_ms": 3.5311,
+        "min_gpu_ms": 2.44024,
+        "p25_gpu_ms": 2.54292,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.169638,
+        "workgroups": 16
+      },
+      "timing-run1-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 5.7708,
+        "mean_gpu_ms": 4.277502,
+        "median_gpu_ms": 3.98888,
+        "median_host_ms": 4.8954,
+        "min_gpu_ms": 3.1192,
+        "p25_gpu_ms": 3.44132,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.971632,
+        "workgroups": 1024
+      },
+      "timing-run1-order1.log|mha-8q-8kv-control|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 6.87696,
+        "mean_gpu_ms": 6.83284,
+        "median_gpu_ms": 6.8346,
+        "median_host_ms": 7.8801,
+        "min_gpu_ms": 6.77532,
+        "p25_gpu_ms": 6.8232,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.025227,
+        "workgroups": 1024
+      },
+      "timing-run1-order1.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 2.16004,
+        "mean_gpu_ms": 2.125958,
+        "median_gpu_ms": 2.12908,
+        "median_host_ms": 3.0231,
+        "min_gpu_ms": 2.08564,
+        "p25_gpu_ms": 2.112,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.022017,
+        "workgroups": 16
+      },
+      "timing-run1-order1.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 2.21776,
+        "mean_gpu_ms": 2.195141,
+        "median_gpu_ms": 2.19748,
+        "median_host_ms": 3.0937,
+        "min_gpu_ms": 2.16332,
+        "p25_gpu_ms": 2.1774,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.019373,
+        "workgroups": 1024
+      },
+      "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 6.43084,
+        "mean_gpu_ms": 6.240755,
+        "median_gpu_ms": 6.2344,
+        "median_host_ms": 7.1365,
+        "min_gpu_ms": 6.1848,
+        "p25_gpu_ms": 6.21964,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.047468,
+        "workgroups": 1024
+      },
+      "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.65784,
+        "mean_gpu_ms": 1.634461,
+        "median_gpu_ms": 1.63476,
+        "median_host_ms": 2.4618,
+        "min_gpu_ms": 1.6214,
+        "p25_gpu_ms": 1.62736,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.009765,
+        "workgroups": 16
+      },
+      "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.67716,
+        "mean_gpu_ms": 1.666651,
+        "median_gpu_ms": 1.66684,
+        "median_host_ms": 2.4805,
+        "min_gpu_ms": 1.65728,
+        "p25_gpu_ms": 1.66128,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.006416,
+        "workgroups": 1024
+      },
+      "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+        "lanes": 64,
+        "max_gpu_ms": 44.4544,
+        "mean_gpu_ms": 43.600704,
+        "median_gpu_ms": 43.6226,
+        "median_host_ms": 44.8302,
+        "min_gpu_ms": 43.18036,
+        "p25_gpu_ms": 43.45916,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.249734,
+        "workgroups": 16
+      },
+      "timing-run2-order0.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 14.32928,
+        "mean_gpu_ms": 8.062259,
+        "median_gpu_ms": 6.89624,
+        "median_host_ms": 7.6574,
+        "min_gpu_ms": 6.595,
+        "p25_gpu_ms": 6.64008,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 2.120166,
+        "workgroups": 1024
+      },
+      "timing-run2-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.75124,
+        "mean_gpu_ms": 1.735016,
+        "median_gpu_ms": 1.73308,
+        "median_host_ms": 2.5813,
+        "min_gpu_ms": 1.72472,
+        "p25_gpu_ms": 1.73132,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.007172,
+        "workgroups": 16
+      },
+      "timing-run2-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.76848,
+        "mean_gpu_ms": 1.753074,
+        "median_gpu_ms": 1.75612,
+        "median_host_ms": 2.5335,
+        "min_gpu_ms": 1.73036,
+        "p25_gpu_ms": 1.7474,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.010299,
+        "workgroups": 1024
+      },
+      "timing-run2-order0.log|mha-8q-8kv-control|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 7.7654,
+        "mean_gpu_ms": 6.928346,
+        "median_gpu_ms": 6.83856,
+        "median_host_ms": 7.8132,
+        "min_gpu_ms": 6.80896,
+        "p25_gpu_ms": 6.82184,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.240187,
+        "workgroups": 1024
+      },
+      "timing-run2-order0.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.98756,
+        "mean_gpu_ms": 1.980387,
+        "median_gpu_ms": 1.98024,
+        "median_host_ms": 2.8074,
+        "min_gpu_ms": 1.97528,
+        "p25_gpu_ms": 1.97884,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.002735,
+        "workgroups": 16
+      },
+      "timing-run2-order0.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.98228,
+        "mean_gpu_ms": 1.978898,
+        "median_gpu_ms": 1.97936,
+        "median_host_ms": 2.8005,
+        "min_gpu_ms": 1.97304,
+        "p25_gpu_ms": 1.9784,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.002209,
+        "workgroups": 1024
+      },
+      "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 6.42212,
+        "mean_gpu_ms": 6.237738,
+        "median_gpu_ms": 6.2356,
+        "median_host_ms": 7.1492,
+        "min_gpu_ms": 6.19748,
+        "p25_gpu_ms": 6.21168,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.043308,
+        "workgroups": 1024
+      },
+      "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.7658,
+        "mean_gpu_ms": 1.752394,
+        "median_gpu_ms": 1.75384,
+        "median_host_ms": 2.5827,
+        "min_gpu_ms": 1.68816,
+        "p25_gpu_ms": 1.75244,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.014529,
+        "workgroups": 16
+      },
+      "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.76392,
+        "mean_gpu_ms": 1.748339,
+        "median_gpu_ms": 1.75132,
+        "median_host_ms": 2.5643,
+        "min_gpu_ms": 1.70904,
+        "p25_gpu_ms": 1.74768,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.012915,
+        "workgroups": 1024
+      },
+      "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+        "lanes": 64,
+        "max_gpu_ms": 43.87484,
+        "mean_gpu_ms": 43.645381,
+        "median_gpu_ms": 43.6922,
+        "median_host_ms": 45.0044,
+        "min_gpu_ms": 43.27992,
+        "p25_gpu_ms": 43.54276,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.139417,
+        "workgroups": 16
+      },
+      "timing-run3-order1.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 8.4974,
+        "mean_gpu_ms": 6.895954,
+        "median_gpu_ms": 6.63408,
+        "median_host_ms": 7.5751,
+        "min_gpu_ms": 6.57284,
+        "p25_gpu_ms": 6.61152,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.538909,
+        "workgroups": 1024
+      },
+      "timing-run3-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 3.06164,
+        "mean_gpu_ms": 2.769006,
+        "median_gpu_ms": 2.74396,
+        "median_host_ms": 3.6779,
+        "min_gpu_ms": 2.52768,
+        "p25_gpu_ms": 2.63164,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.161609,
+        "workgroups": 16
+      },
+      "timing-run3-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 5.78296,
+        "mean_gpu_ms": 4.352142,
+        "median_gpu_ms": 4.0648,
+        "median_host_ms": 5.1777,
+        "min_gpu_ms": 3.18984,
+        "p25_gpu_ms": 3.52224,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.951734,
+        "workgroups": 1024
+      },
+      "timing-run3-order1.log|mha-8q-8kv-control|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 6.8936,
+        "mean_gpu_ms": 6.827619,
+        "median_gpu_ms": 6.82596,
+        "median_host_ms": 7.7861,
+        "min_gpu_ms": 6.79072,
+        "p25_gpu_ms": 6.81676,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.023384,
+        "workgroups": 1024
+      },
+      "timing-run3-order1.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 2.13436,
+        "mean_gpu_ms": 2.082771,
+        "median_gpu_ms": 2.08452,
+        "median_host_ms": 2.8634,
+        "min_gpu_ms": 2.02068,
+        "p25_gpu_ms": 2.05144,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.035848,
+        "workgroups": 16
+      },
+      "timing-run3-order1.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 2.20968,
+        "mean_gpu_ms": 2.176432,
+        "median_gpu_ms": 2.1732,
+        "median_host_ms": 3.0063,
+        "min_gpu_ms": 2.1444,
+        "p25_gpu_ms": 2.15636,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.020982,
+        "workgroups": 1024
+      },
+      "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 6.41832,
+        "mean_gpu_ms": 6.242829,
+        "median_gpu_ms": 6.23428,
+        "median_host_ms": 7.124,
+        "min_gpu_ms": 6.18988,
+        "p25_gpu_ms": 6.21804,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.044715,
+        "workgroups": 1024
+      },
+      "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.64304,
+        "mean_gpu_ms": 1.63147,
+        "median_gpu_ms": 1.6314,
+        "median_host_ms": 2.3606,
+        "min_gpu_ms": 1.62224,
+        "p25_gpu_ms": 1.62588,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.006017,
+        "workgroups": 16
+      },
+      "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.64344,
+        "mean_gpu_ms": 1.634642,
+        "median_gpu_ms": 1.6348,
+        "median_host_ms": 2.3997,
+        "min_gpu_ms": 1.62692,
+        "p25_gpu_ms": 1.63128,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.005078,
+        "workgroups": 1024
+      },
+      "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+        "lanes": 64,
+        "max_gpu_ms": 43.79896,
+        "mean_gpu_ms": 43.580717,
+        "median_gpu_ms": 43.6216,
+        "median_host_ms": 44.823,
+        "min_gpu_ms": 43.25032,
+        "p25_gpu_ms": 43.46764,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.149718,
+        "workgroups": 16
+      },
+      "timing-run4-order0.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 14.30992,
+        "mean_gpu_ms": 8.142138,
+        "median_gpu_ms": 7.13076,
+        "median_host_ms": 8.3487,
+        "min_gpu_ms": 6.58004,
+        "p25_gpu_ms": 6.61444,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 2.121022,
+        "workgroups": 1024
+      },
+      "timing-run4-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.73948,
+        "mean_gpu_ms": 1.731443,
+        "median_gpu_ms": 1.73208,
+        "median_host_ms": 2.4448,
+        "min_gpu_ms": 1.72352,
+        "p25_gpu_ms": 1.72672,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.0049,
+        "workgroups": 16
+      },
+      "timing-run4-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 1.73752,
+        "mean_gpu_ms": 1.729432,
+        "median_gpu_ms": 1.73064,
+        "median_host_ms": 2.4909,
+        "min_gpu_ms": 1.71992,
+        "p25_gpu_ms": 1.72652,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.004049,
+        "workgroups": 1024
+      },
+      "timing-run4-order0.log|mha-8q-8kv-control|forward_generic": {
+        "lanes": 1,
+        "max_gpu_ms": 7.45692,
+        "mean_gpu_ms": 6.919786,
+        "median_gpu_ms": 6.83076,
+        "median_host_ms": 7.9434,
+        "min_gpu_ms": 6.75416,
+        "p25_gpu_ms": 6.81576,
+        "samples": 25,
+        "shader_labels": [
+          "transformer_attention_forward"
+        ],
+        "stdev_gpu_ms": 0.196904,
+        "workgroups": 1024
+      },
+      "timing-run4-order0.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+        "lanes": 64,
+        "max_gpu_ms": 1.98796,
+        "mean_gpu_ms": 1.984486,
+        "median_gpu_ms": 1.98428,
+        "median_host_ms": 2.8493,
+        "min_gpu_ms": 1.9786,
+        "p25_gpu_ms": 1.98308,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.002203,
+        "workgroups": 16
+      },
+      "timing-run4-order0.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+        "lanes": 64,
+        "max_gpu_ms": 2.86484,
+        "mean_gpu_ms": 2.054398,
+        "median_gpu_ms": 1.9822,
+        "median_host_ms": 2.8425,
+        "min_gpu_ms": 1.97588,
+        "p25_gpu_ms": 1.98072,
+        "samples": 25,
+        "shader_labels": [
+          "unknown"
+        ],
+        "stdev_gpu_ms": 0.24174,
+        "workgroups": 1024
+      }
+    },
+    "comparisons": {
+      "mha_mode9_packed_vs_generic": {
+        "baseline_arm": "forward_generic",
+        "candidate_arm": "forward_rowpacked64cached",
+        "ci95": {
+          "df": 4,
+          "high": 3.5117,
+          "low": 3.2228,
+          "t_critical": 2.776
+        },
+        "geomean_paired_ratio": 3.3656,
+        "geometry": "mha-8q-8kv-control",
+        "mean_paired_ratio": 3.3672,
+        "paired_ratios": [
+          3.4556,
+          3.2101,
+          3.4534,
+          3.2746,
+          3.4424
+        ],
+        "per_run": [
+          {
+            "baseline_median_gpu_ms": 6.85168,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.98276,
+            "candidate_samples": 25,
+            "ratio": 3.4556,
+            "run": "timing-run0-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.8346,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 2.12908,
+            "candidate_samples": 25,
+            "ratio": 3.2101,
+            "run": "timing-run1-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.83856,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.98024,
+            "candidate_samples": 25,
+            "ratio": 3.4534,
+            "run": "timing-run2-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.82596,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 2.08452,
+            "candidate_samples": 25,
+            "ratio": 3.2746,
+            "run": "timing-run3-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.83076,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.98428,
+            "candidate_samples": 25,
+            "ratio": 3.4424,
+            "run": "timing-run4-order0.log"
+          }
+        ],
+        "runs": 5,
+        "samples_per_arm_per_run": 25
+      },
+      "primary_mode0_packed_vs_generic": {
+        "baseline_arm": "forward_generic",
+        "candidate_arm": "forward_rowpacked64cached",
+        "ci95": {
+          "df": 4,
+          "high": 3.8705,
+          "low": 3.5519,
+          "t_critical": 2.776
+        },
+        "geomean_paired_ratio": 3.7094,
+        "geometry": "gqa-8q-2kv-primary-mode0",
+        "mean_paired_ratio": 3.7112,
+        "paired_ratios": [
+          3.7759,
+          3.5898,
+          3.8136,
+          3.5554,
+          3.8214
+        ],
+        "per_run": [
+          {
+            "baseline_median_gpu_ms": 6.23296,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.65072,
+            "candidate_samples": 25,
+            "ratio": 3.7759,
+            "run": "timing-run0-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.23228,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.73612,
+            "candidate_samples": 25,
+            "ratio": 3.5898,
+            "run": "timing-run1-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.2344,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.63476,
+            "candidate_samples": 25,
+            "ratio": 3.8136,
+            "run": "timing-run2-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.2356,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.75384,
+            "candidate_samples": 25,
+            "ratio": 3.5554,
+            "run": "timing-run3-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.23428,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.6314,
+            "candidate_samples": 25,
+            "ratio": 3.8214,
+            "run": "timing-run4-order0.log"
+          }
+        ],
+        "runs": 5,
+        "samples_per_arm_per_run": 25
+      },
+      "primary_mode0_stream_vs_generic": {
+        "baseline_arm": "forward_generic",
+        "candidate_arm": "forward_rowpacked64stream",
+        "ci95": {
+          "df": 4,
+          "high": 0.143,
+          "low": 0.1426,
+          "t_critical": 2.776
+        },
+        "geomean_paired_ratio": 0.1428,
+        "geometry": "gqa-8q-2kv-primary-mode0",
+        "mean_paired_ratio": 0.1428,
+        "paired_ratios": [
+          0.1428,
+          0.1426,
+          0.1429,
+          0.1427,
+          0.1429
+        ],
+        "per_run": [
+          {
+            "baseline_median_gpu_ms": 6.23296,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 43.65048,
+            "candidate_samples": 25,
+            "ratio": 0.1428,
+            "run": "timing-run0-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.23228,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 43.69948,
+            "candidate_samples": 25,
+            "ratio": 0.1426,
+            "run": "timing-run1-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.2344,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 43.6226,
+            "candidate_samples": 25,
+            "ratio": 0.1429,
+            "run": "timing-run2-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.2356,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 43.6922,
+            "candidate_samples": 25,
+            "ratio": 0.1427,
+            "run": "timing-run3-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.23428,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 43.6216,
+            "candidate_samples": 25,
+            "ratio": 0.1429,
+            "run": "timing-run4-order0.log"
+          }
+        ],
+        "runs": 5,
+        "samples_per_arm_per_run": 25
+      },
+      "primary_mode9_packed_vs_generic": {
+        "baseline_arm": "forward_generic",
+        "candidate_arm": "forward_rowpacked64cached",
+        "ci95": {
+          "df": 4,
+          "high": 4.5092,
+          "low": 2.3201,
+          "t_critical": 2.776
+        },
+        "geomean_paired_ratio": 3.316,
+        "geometry": "gqa-8q-2kv-primary-mode9",
+        "mean_paired_ratio": 3.4146,
+        "paired_ratios": [
+          4.0757,
+          2.4838,
+          3.9792,
+          2.4177,
+          4.1169
+        ],
+        "per_run": [
+          {
+            "baseline_median_gpu_ms": 7.07316,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.73544,
+            "candidate_samples": 25,
+            "ratio": 4.0757,
+            "run": "timing-run0-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.61428,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 2.663,
+            "candidate_samples": 25,
+            "ratio": 2.4838,
+            "run": "timing-run1-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.89624,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.73308,
+            "candidate_samples": 25,
+            "ratio": 3.9792,
+            "run": "timing-run2-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.63408,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 2.74396,
+            "candidate_samples": 25,
+            "ratio": 2.4177,
+            "run": "timing-run3-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 7.13076,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.73208,
+            "candidate_samples": 25,
+            "ratio": 4.1169,
+            "run": "timing-run4-order0.log"
+          }
+        ],
+        "runs": 5,
+        "samples_per_arm_per_run": 25
+      },
+      "primary_mode9_productiongrid_vs_generic": {
+        "baseline_arm": "forward_generic",
+        "candidate_arm": "forward_rowpacked64cached_productiongrid",
+        "ci95": {
+          "df": 4,
+          "high": 4.714,
+          "low": 1.4511,
+          "t_critical": 2.776
+        },
+        "geomean_paired_ratio": 2.8203,
+        "geometry": "gqa-8q-2kv-primary-mode9",
+        "mean_paired_ratio": 3.0825,
+        "paired_ratios": [
+          4.0751,
+          1.6582,
+          3.927,
+          1.6321,
+          4.1203
+        ],
+        "per_run": [
+          {
+            "baseline_median_gpu_ms": 7.07316,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.73572,
+            "candidate_samples": 25,
+            "ratio": 4.0751,
+            "run": "timing-run0-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.61428,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 3.98888,
+            "candidate_samples": 25,
+            "ratio": 1.6582,
+            "run": "timing-run1-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.89624,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.75612,
+            "candidate_samples": 25,
+            "ratio": 3.927,
+            "run": "timing-run2-order0.log"
+          },
+          {
+            "baseline_median_gpu_ms": 6.63408,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 4.0648,
+            "candidate_samples": 25,
+            "ratio": 1.6321,
+            "run": "timing-run3-order1.log"
+          },
+          {
+            "baseline_median_gpu_ms": 7.13076,
+            "baseline_samples": 25,
+            "candidate_median_gpu_ms": 1.73064,
+            "candidate_samples": 25,
+            "ratio": 4.1203,
+            "run": "timing-run4-order0.log"
+          }
+        ],
+        "runs": 5,
+        "samples_per_arm_per_run": 25
+      }
+    },
+    "runs": [
+      "timing-run0-order0.log",
+      "timing-run1-order1.log",
+      "timing-run2-order0.log",
+      "timing-run3-order1.log",
+      "timing-run4-order0.log"
+    ]
+  },
+  "parity": {
+    "forward": "[phase-ix-parity-summary] status=PASS cases=21 elements=1976768 bitwise_equal=1976768 failures=0",
+    "forward_cases": [
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode9 implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode9 implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode9 implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode0 implementation=row-packed-64-stream elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode0 implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode0 implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode1 implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode1 implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode1 implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-control implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] mha-8q-8kv-control implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-control implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-noncausal implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-noncausal implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-noncausal implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-masked implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-masked implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-masked implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-masked implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] mha-8q-8kv-masked implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-masked implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-42rows implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] boundary-42rows implementation=row-packed-64-cached elements=672 bitwise=672 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-42rows implementation=row-packed-64-cached/production-grid elements=672 bitwise=672 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-130rows implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] boundary-130rows implementation=row-packed-64-cached elements=2080 bitwise=2080 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-130rows implementation=row-packed-64-cached/production-grid elements=2080 bitwise=2080 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-162rows-gqa implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] boundary-162rows-gqa implementation=row-packed-64-cached elements=2592 bitwise=2592 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-162rows-gqa implementation=row-packed-64-cached/production-grid elements=2592 bitwise=2592 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS"
+    ],
+    "gradients": "[phase-ix-gradient-summary] status=PASS cases=9 elements=2832196 bitwise_equal=2832196 failures=0",
+    "per_geometry": [
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode9 implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode9 implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode9 implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode0 implementation=row-packed-64-stream elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode0 implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode0 implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode1 implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode1 implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-primary-mode1 implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-control implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] mha-8q-8kv-control implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-control implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-noncausal implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-noncausal implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-noncausal implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-masked implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] gqa-8q-2kv-masked implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] gqa-8q-2kv-masked implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-masked implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] mha-8q-8kv-masked implementation=row-packed-64-cached elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] mha-8q-8kv-masked implementation=row-packed-64-cached/production-grid elements=131072 bitwise=131072 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-42rows implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] boundary-42rows implementation=row-packed-64-cached elements=672 bitwise=672 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-42rows implementation=row-packed-64-cached/production-grid elements=672 bitwise=672 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-130rows implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] boundary-130rows implementation=row-packed-64-cached elements=2080 bitwise=2080 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-130rows implementation=row-packed-64-cached/production-grid elements=2080 bitwise=2080 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-162rows-gqa implementation=row-packed-64-stream verdict=OUT_OF_SCOPE reason=arithmetic_mode_not_reproduced_by_candidate",
+      "[phase-ix-parity] boundary-162rows-gqa implementation=row-packed-64-cached elements=2592 bitwise=2592 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS",
+      "[phase-ix-parity] boundary-162rows-gqa implementation=row-packed-64-cached/production-grid elements=2592 bitwise=2592 max_abs=0.000000000e0 max_ulp=0 unwritten=0 first_divergence=none verdict=PASS"
+    ]
+  },
+  "phase": "IX",
+  "production_unchanged": true,
+  "shaders": {
+    "candidate": {
+      "transformer_attention_forward_rowpacked64_cached_rdna3.comp": "8f7bf06f65291793b12c81a9b0bd733a5ce656ffbd4a3689fea5fabf3439e6ed",
+      "transformer_attention_forward_rowpacked64_cached_rdna3.spv": "c053503e267ede432cd174e887d800640ce854aad186f8b71390e8c4543764fd",
+      "transformer_attention_forward_rowpacked64_stream_rdna3.comp": "03cc3c0e5681d4479b7fdc423ce7d6e570c7c28968c847bc219020bed38ddd67",
+      "transformer_attention_forward_rowpacked64_stream_rdna3.spv": "24bc8a6fc69f4a8b60b09c297d2912e5206b72c12655402d03a4c7035eeab55e"
+    },
+    "production": {
+      "transformer_attention_backward.comp": "3c8e6267e320c1f187175209e8a42e6a2658494c6bb3762b1e009cb8b7810a34",
+      "transformer_attention_backward.spv": "e78cb2920e3253d7187c479c23bee40d4b4ab677fedeaa97f3109bf6a00dc5a8",
+      "transformer_attention_backward_key_rdna3.comp": "e417935459e49dee1bc56db400f321496a2c04ad05392e8b14aef40d6c92ff78",
+      "transformer_attention_backward_key_rdna3.spv": "ccf609843be2a37d33bb6df3b1ab490b7b3fa6a52e5816975c21524af71cd925",
+      "transformer_attention_backward_query_rdna3.comp": "2e3f5720da27ca6d31567f4734b140e8b9c768afa2e287333f617817fad7eb56",
+      "transformer_attention_backward_query_rdna3.spv": "f9652f525cbc9256188d9c998fc602ad1eff43c68bbbc6b88650697584104256",
+      "transformer_attention_forward.comp": "79b3fcd5ab16c11af8b9c6d52992672bce1c7517e1813c132446f7ab558d4cc3",
+      "transformer_attention_forward.spv": "02cbbd03d82b9097dc25fdb066b69001b0abf3295624e1a966c9a61c870d15ec",
+      "transformer_attention_short_amd_rdna3.comp": "3e79717824913102d002430acedb5de33a9fc7baa2d4cf1cd9a9e385852fd4f4",
+      "transformer_attention_short_amd_rdna3.spv": "34f3ecf8c11f398832db7c4ecb80ff42bd5baf282d5512e1e63d0af204fb8fd4"
+    }
+  },
+  "title": "RDNA3 wave64 row-packed Transformer attention forward",
+  "verdict": {
+    "candidate": "rowpacked64-cached",
+    "hypothesis": "GO",
+    "production_promotion": "GO, deferred to a separate change; nothing promoted here",
+    "promotion_criteria_met": "10/10",
+    "reason": "Bit-exact for forward output, for backward scratch, for dQ/dK/dV through the production two-pass backward and for six complete training steps in both the debug and the release harness (identical parameter digest). 3.98x at the attention-forward kernel (worst paired run 2.42x) and 1.2236x per complete step (release harness, CI [1.2222, 1.2251], five ABBA rounds). Not promoted because the brief reserves production changes for a separate step and because the 64-key bound needs a new eligibility predicate and a longer-sequence fallback."
+  }
+}

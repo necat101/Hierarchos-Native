@@ -1,0 +1,14 @@
+ RDNA3_WMMA.md                                      |   37 +-
+ .../transformer_attention_backward_key_rdna3.comp  |  170 +-
+ .../transformer_attention_backward_key_rdna3.spv   |  Bin 8560 -> 10724 bytes
+ ...transformer_attention_backward_query_rdna3.comp |    7 +-
+ .../transformer_attention_backward_query_rdna3.spv |  Bin 48468 -> 48492 bytes
+ hierarchos-vulkan/src/bin/held_out_eval.rs         |    4 +-
+ .../hierarchos-vulkan-training-qualification.rs    |    4 +-
+ hierarchos-vulkan/src/bin/training-stability.rs    |    4 +-
+ hierarchos-vulkan/src/bin/transformer_train.rs     |   14 +
+ hierarchos-vulkan/src/bin/wmma_drift.rs            |    4 +-
+ hierarchos-vulkan/src/lib.rs                       |    4 +
+ hierarchos-vulkan/src/transformer.rs               | 2756 ++++++++++++++++++--
+ hierarchos-vulkan/src/vulkan.rs                    |   15 +
+ 13 files changed, 2817 insertions(+), 202 deletions(-)

@@ -55,6 +55,11 @@ mod token_frontend;
 mod training_numerics;
 mod transformer;
 pub mod precision_policy;
+pub use transformer::{
+    attention_backward_dispatch_counts, attention_backward_two_pass_enabled,
+    attention_backward_two_pass_explicitly_requested, attention_forward_dispatch_counts,
+    AttentionBackwardDispatchCounts, AttentionForwardDispatchCounts,
+};
 pub use transformer::deepseek_v41_vision::{
     DeepseekV41VisionConfig, DeepseekV41VisionTensor, VulkanDeepseekV41Image,
     VulkanDeepseekV41Vision,

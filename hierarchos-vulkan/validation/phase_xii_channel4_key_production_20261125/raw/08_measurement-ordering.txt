@@ -1,0 +1,14 @@
+# Measurement ordering
+2026-11-25 02:38:03.992558600 -0500  src/transformer.rs
+2026-11-25 02:27:14.172027100 -0500  shaders/transformer_attention_backward_key_channel4_rdna3.comp
+2026-11-25 03:08:00.235208500 -0500  shaders/transformer_attention_backward_key_channel4_rdna3.spv
+2026-11-25 02:55:03.226931100 -0500  src/phase_xii_channel4_key_production_tests.rs
+2026-11-25 03:06:15.214245900 -0500  target/release/deps/hierarchos_vulkan-70a92090d59c92cf.exe
+2026-11-25 02:53:19.752514900 -0500  validation/phase_xii_channel4_key_production_20261125/raw/abba-r0-p0-A.log
+2026-11-25 02:54:27.057221400 -0500  validation/phase_xii_channel4_key_production_20261125/raw/40_profile-original.log
+
+# Content hashes at receipt time (the shader mtime moved at 03:08 when a
+# reproduction attempt rewrote identical bytes; the digest did not change)
+f5480ccedce8c2752f7b94b2fe478d9c9e4f496f284344c2140abc3367f7b2c8 *shaders/transformer_attention_backward_key_channel4_rdna3.spv
+e1373db7ea1e7e0a1ac700ec7a9d464571f8b24f6065dbcc23c7d6df286e78f9 *shaders/transformer_attention_backward_key_channel4_rdna3.comp
+770fb20ce9a8b2c1370c08995f447ce1152e1187500b14179f4661a3dc72c183 *src/transformer.rs

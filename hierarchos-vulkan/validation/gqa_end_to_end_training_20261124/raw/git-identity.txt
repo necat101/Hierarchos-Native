@@ -1,0 +1,9 @@
+branch: main
+head: 560809eead186f832344c15d1a9b70795da3b75d
+stash: stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+stash-commit: 831f892774619603c2dd68d0dd654d315f1a8f7e
+status-count: 17
+tracked-modified: 13
+untracked: 4
+diff-sha256: 383296d7b58b0664563eda3b3b7ac1fa862beb9d7e804fb2715603a558243d77
+cached-diff-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

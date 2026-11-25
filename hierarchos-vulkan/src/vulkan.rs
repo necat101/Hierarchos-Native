@@ -2324,6 +2324,15 @@ impl VulkanDevice {
         self.inner.device_group_physical_device_count
     }
 
+    /// Whether this device has reported `VK_ERROR_DEVICE_LOST`.
+    ///
+    /// The flag is sticky: once Vulkan reports it, no later submission can be
+    /// trusted. Callers that would otherwise degrade gracefully must treat it
+    /// as fatal rather than as a recoverable optimisation failure.
+    pub(crate) fn is_device_lost(&self) -> bool {
+        self.inner.device_lost.load(std::sync::atomic::Ordering::Acquire)
+    }
+
     pub fn is_multi_physical_device_logical_device(&self) -> bool {
         self.inner.device_group_physical_device_count > 1
     }
@@ -7441,6 +7450,12 @@ impl ComputeBatch {
 
     pub(crate) fn dispatch_count(&self) -> usize {
         self.dispatch_count
+    }
+
+    /// The device this batch records against, so a caller that must size or
+    /// allocate a buffer at record time does not need a separate handle.
+    pub(crate) fn device(&self) -> &VulkanDevice {
+        &self.device
     }
 
     pub(crate) fn shader_barrier_count(&self) -> usize {

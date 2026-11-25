@@ -1,0 +1,265 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+
+// EXPERIMENTAL (Phase V). Not reachable from production dispatch.
+//
+// Two-pass scaled-dot-product attention backward, pass 2 for a grouped-query
+// geometry: one lane owns one (batch, KV head, key) and reproduces the generic
+// kernel's per-key adjoint when more than one query head maps to the same KV
+// head.
+//
+// Candidate derived from the MHA-qualified `transformer_attention_backward_key_rdna3.comp`,
+// which is preserved byte for byte. The only behavioural difference is the
+// SCOPE of the dK/dV accumulator, which the two admitted arithmetic modes do
+// not share:
+//
+//   unfused_qk == 0   The generic kernel's primary pass accumulates grad_k/grad_v
+//                     directly in the output buffer, which it zeroed once over
+//                     the whole key range. For one key element the operand
+//                     sequence is therefore a single continuous chain across
+//                     the mapped query heads (head ascending) and, inside each
+//                     head, the query positions (ascending):
+//
+//                         ((((0 + t_h0q0) + t_h0q1) + ... ) + t_h1q0) + ...
+//
+//                     One accumulator spanning the whole group reproduces it.
+//
+//   unfused_qk == 9   The generic strict adjoint reduces each repeated head
+//                     from zero and only then combines the completed heads
+//                     through shared_k/shared_v:
+//
+//                         ((0 + t_h0q0) + ...) + ((0 + t_h1q0) + ...) + ...
+//
+//                     A per-head accumulator combined in head order reproduces
+//                     it.
+//
+// For MHA (queries_per_kv == 1) the two trees coincide, because the only
+// cross-head step is `0 + s_h0`, which is exact. For GQA they do not, so one
+// nesting cannot serve both modes: mode 0 is a flat reduction and mode 9 is a
+// two-stage reduction. Both are reproduced here separately. Merging them, or
+// replacing either with a reassociated tree, would change FP32 output.
+//
+// The probability and the adjoint's dS come from pass 1. Both are exact FP32
+// values the generic kernel would have recomputed on the fly, so carrying them
+// through memory changes no bits provided the operand sequence is unchanged --
+// which is why every mode-9 accumulation below is `precise`.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+const uint MAX_HEAD_DIM = 128u;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ProbabilityBuffer { float scratch_probability[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DsBuffer { float scratch_ds[]; };
+layout(set = 0, binding = 4, std430) buffer GradKBuffer { float grad_k[]; };
+layout(set = 0, binding = 5, std430) buffer GradVBuffer { float grad_v[]; };
+layout(set = 0, binding = 6, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 7, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+// The generic row's key range reaches this key, and the row was not masked out.
+// Causal local attention bounds the row at the query position; the gate admits
+// window == 0 and an all-ones key mask for this experiment, so the key-side
+// reachability is exactly this condition, as in the qualified MHA pass 2.
+bool query_contributes(uint query_row, uint key, uint absolute_query) {
+    if (query_mask[query_row] <= 0.0) return false;
+    if (pc.causal != 0u && key > absolute_query) return false;
+    return true;
+}
+
+void main() {
+    uint rows = pc.batch_size * pc.num_key_value_heads * pc.key_value_seq_len;
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= rows) return;
+
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    if (qk_head_dim > MAX_HEAD_DIM || value_head_dim > MAX_HEAD_DIM) return;
+
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+
+    uint key = row % pc.key_value_seq_len;
+    uint rest = row / pc.key_value_seq_len;
+    uint kv_head = rest % pc.num_key_value_heads;
+    uint b = rest / pc.num_key_value_heads;
+
+    uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+    uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+        + kv_head * value_head_dim;
+
+    // The generic kernel leaves an invisible key zeroed and contributes nothing
+    // to it, so it is written as zero here rather than left stale.
+    if (key_mask[b * pc.key_value_seq_len + key] <= 0.0) {
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            grad_k[k_base + d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            grad_v[v_base + d] = 0.0;
+        }
+        return;
+    }
+
+    uint first_head = kv_head * queries_per_kv;
+
+    if (pc.unfused_qk != 9u) {
+        // Mode 0. The generic primary pass owns one continuous accumulator per
+        // (key, element), zeroed once before the head loop and then extended by
+        // every (head, query) pair in order. Reproduce exactly that: one
+        // accumulator for the whole group, not one per head.
+        float dk[MAX_HEAD_DIM];
+        float dv[MAX_HEAD_DIM];
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            dk[d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            dv[d] = 0.0;
+        }
+
+        for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+            for (uint query = 0u; query < pc.query_seq_len; ++query) {
+                uint query_row = b * pc.query_seq_len + query;
+                uint absolute_query = pc.query_position_offset + query;
+                if (!query_contributes(query_row, key, absolute_query)) continue;
+                uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                    + query * pc.key_value_seq_len + key;
+                float p = scratch_probability[slot];
+                float ds = scratch_ds[slot];
+                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+                // Operand order of the generic expression
+                // `grad_k[...] += pc.scale * softcap_derivative * ds * q_values[...]`
+                // and `grad_v[...] += p * dropout * grad_output[...] * value_scale`
+                // at softcap_derivative == dropout == value_scale == 1.0, which
+                // the gate enforces.
+                //
+                // The product is `precise` and the accumulation is a separate
+                // `precise` add. The generic kernel's accumulation into the
+                // output buffer is not contracted into an fma -- measured, not
+                // assumed: a host replay of every candidate tree against the
+                // scalar buffer matches only the tree that rounds the product
+                // and then adds it (512/512 elements, both groupings). Without
+                // these qualifiers the driver contracts `acc + a * b` into
+                // `fma(a, b, acc)`, which differs from the oracle at every
+                // grouped head boundary. At one query head per KV head the two
+                // are indistinguishable because the accumulator starts at zero,
+                // which is why this never showed up under MHA.
+                for (uint d = 0; d < qk_head_dim; ++d) {
+                    precise float contribution = pc.scale * ds * q_values[q_base + d];
+                    precise float next_k = dk[d] + contribution;
+                    dk[d] = next_k;
+                }
+                for (uint d = 0; d < value_head_dim; ++d) {
+                    precise float contribution = p * grad_output[grad_out_base + d];
+                    precise float next_v = dv[d] + contribution;
+                    dv[d] = next_v;
+                }
+            }
+        }
+
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            grad_k[k_base + d] = dk[d];
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            grad_v[v_base + d] = dv[d];
+        }
+        return;
+    }
+
+    // Mode 9. The generic strict adjoint reduces queries from zero for each
+    // repeated head, then sums the completed heads: the two-stage tree. Keep the
+    // head nesting; the per-head accumulator is the inner reduction and the
+    // shared accumulator is the outer one.
+    float dk[MAX_HEAD_DIM];
+    float dv[MAX_HEAD_DIM];
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        dk[d] = 0.0;
+    }
+    for (uint d = 0; d < value_head_dim; ++d) {
+        dv[d] = 0.0;
+    }
+
+    for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+        float head_k[MAX_HEAD_DIM];
+        float head_v[MAX_HEAD_DIM];
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            head_k[d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            head_v[d] = 0.0;
+        }
+        for (uint query = 0u; query < pc.query_seq_len; ++query) {
+            uint query_row = b * pc.query_seq_len + query;
+            uint absolute_query = pc.query_position_offset + query;
+            if (!query_contributes(query_row, key, absolute_query)) continue;
+            uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                + query * pc.key_value_seq_len + key;
+            float p = scratch_probability[slot];
+            float ds = scratch_ds[slot];
+            uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+            uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+            precise float score_scale = pc.scale * 1.0;
+            score_scale = score_scale * ds;
+            for (uint d = 0; d < qk_head_dim; ++d) {
+                precise float contribution = score_scale * q_values[q_base + d];
+                precise float next_k = head_k[d] + contribution;
+                head_k[d] = next_k;
+            }
+            for (uint d = 0; d < value_head_dim; ++d) {
+                precise float weighted_p = p * 1.0;
+                precise float product = weighted_p * grad_output[grad_out_base + d];
+                product = product * 1.0;
+                precise float next_v = head_v[d] + product;
+                head_v[d] = next_v;
+            }
+        }
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            dk[d] = dk[d] + head_k[d];
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            dv[d] = dv[d] + head_v[d];
+        }
+    }
+
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        grad_k[k_base + d] = dk[d];
+    }
+    for (uint d = 0; d < value_head_dim; ++d) {
+        grad_v[v_base + d] = dv[d];
+    }
+}

@@ -1,0 +1,3382 @@
+diff --git a/RDNA3_WMMA.md b/RDNA3_WMMA.md
+index c8268ce..6759360 100644
+--- a/RDNA3_WMMA.md
++++ b/RDNA3_WMMA.md
+@@ -706,15 +706,37 @@ the correctness harness in `validation/two_pass_backward_equivalence.sh`, whose
+ adapter comparison is only meaningful once the dispatch evidence shows both new
+ kernels ran.
+ 
+-## Two-pass attention backward (Llama mode 9), measured
++**Update 2026-11-24:** the pair is now wired. Mode-0 and mode-9 gradient parity
++is bit-exact over four geometries, scratch is sized exactly and allocated only
++for eligible geometry, and the path is the default for the existing gate. See
++`validation/mha_attention_backward_closeout_20261124/`.
++
++**Update 2026-11-24 (Phase VI):** the key pass was replaced by the Phase V
++grouped-reduction candidate, whose SPIR-V is byte-identical to the artifact that
++was measured bit-exact for 8q/2kv and 4q/2kv in both arithmetic modes
++(`ccf60984…`). MHA is unchanged by the swap: the full four-geometry matrix is
++still 6,316,128 / 6,316,128 FP32 elements bit-identical with zero ULP, and the
++MHA key pass measured slightly *faster* (1.965 ms vs 2.070 ms GPU median). The
++gate still admits every one-query-head-per-KV-head geometry exactly as before and
++adds four measured grouped shapes — `8q/2kv`, `4q/2kv`, `8q/4kv`, `16q/4kv` at
++head dimension 128, `q_seq = kv_seq = 64`, causal. Every other grouped geometry
++keeps the scalar kernel with a `grouped_query_attention_*` reason and allocates
++no scratch. See
++`validation/gqa_production_promotion_20261124/`.
++
++## Two-pass attention backward (Llama mode 9): historical opt-in measurement
+ 
+ `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1` replaces the scalar Llama attention
+ backward with two owned passes: a query pass that writes softmax and `dS`
+-scratch, and a key/value pass that reduces it. The default stays scalar; the
+-pair is gated to `unfused_qk` 0/9 with `num_heads == num_key_value_heads`.
++scratch, and a key/value pass that reduces it. At the time of this measurement
++the default was scalar; Phase III later made it the default for the same gate
++(`unfused_qk` 0/9, `num_heads == num_key_value_heads`).
+ 
+ Geometry: batch 8, sequence 64, 8 heads / 8 KV heads, head_dim 128, 2 layers.
+-Scratch: `rows * query_hidden` floats per layer (8 * 64 * 1024 * 4 B = 2 MiB).
++Scratch at the time: `rows * query_hidden` floats per buffer (8 * 64 * 1024 * 4 B
++= 2 MiB per buffer, 4 MiB per layer). Phase III replaced this with the exact
++`batch * num_heads * query_seq * kv_seq` size (1 MiB per buffer, 2 MiB per layer)
++allocated lazily only for eligible geometry.
+ 
+ Kernel time per step, 12 profiled steps after warmup:
+ 
+@@ -736,6 +758,13 @@ exported adapter after two LoRA steps is bit-identical between arms
+ (`b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4`), and the
+ candidate arm dispatches the scalar backward zero times.
+ 
++**This 2.88x narrative has no committed benchmark receipt.** It is retained here
++as an unverified historical measurement, not as a verified result. The fresh
++Phase III reproduction of the same protocol measured 3.2492x on the complete
++optimizer step (95% CI 3.1146..3.3838, five paired ABBA rounds) and 9.7965x on
++the attention backward alone; both the fresh reproduction and its raw samples are
++bound in `hierarchos-vulkan/validation/mha_attention_backward_closeout_20261124/`.
++
+ ## Native V4.1: numerical qualification, not dispatch evidence
+ 
+ **Scope (current source).** The native V4.1 bounded fixture is a *numerical*
+diff --git a/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.comp b/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.comp
+index c4a6f75..216c050 100644
+--- a/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.comp
++++ b/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.comp
+@@ -7,14 +7,47 @@
+ //
+ // One lane owns one (batch, KV head, key) and reduces dK and dV over the mapped
+ // query heads and the query positions, reproducing the generic kernel's per-key
+-// adjoint: query positions ascending inside each head, each head reduced into its
+-// own accumulator, and the completed head accumulators combined in head order.
++// adjoint for both the one-query-head-per-KV-head (MHA) and grouped-query (GQA)
++// geometries.
++//
++// Promoted in Phase VI from the Phase V experimental candidate, which was
++// bit-exact against the scalar oracle for 8q/2kv and 4q/2kv in both admitted
++// arithmetic modes (validation/gqa_attention_backward_experiment_20261124/).
++// The body below is that candidate; only the status lines of this header changed.
++//
++// The behavioural difference from the MHA-only predecessor is the SCOPE of the
++// dK/dV accumulator, which the two admitted arithmetic modes do not share:
++//
++//   unfused_qk == 0   The generic kernel's primary pass accumulates grad_k/grad_v
++//                     directly in the output buffer, which it zeroed once over
++//                     the whole key range. For one key element the operand
++//                     sequence is therefore a single continuous chain across
++//                     the mapped query heads (head ascending) and, inside each
++//                     head, the query positions (ascending):
++//
++//                         ((((0 + t_h0q0) + t_h0q1) + ... ) + t_h1q0) + ...
++//
++//                     One accumulator spanning the whole group reproduces it.
++//
++//   unfused_qk == 9   The generic strict adjoint reduces each repeated head
++//                     from zero and only then combines the completed heads
++//                     through shared_k/shared_v:
++//
++//                         ((0 + t_h0q0) + ...) + ((0 + t_h1q0) + ...) + ...
++//
++//                     A per-head accumulator combined in head order reproduces
++//                     it.
++//
++// For MHA (queries_per_kv == 1) the two trees coincide, because the only
++// cross-head step is `0 + s_h0`, which is exact. For GQA they do not, so one
++// nesting cannot serve both modes: mode 0 is a flat reduction and mode 9 is a
++// two-stage reduction. Both are reproduced here separately. Merging them, or
++// replacing either with a reassociated tree, would change FP32 output.
+ //
+ // The probability and the adjoint's dS come from pass 1. Both are exact FP32
+ // values the generic kernel would have recomputed on the fly, so carrying them
+-// through memory changes no bits -- provided the operand sequence is unchanged,
+-// which is why every accumulation below is `precise` in mode 9 and the head
+-// nesting is kept rather than flattened into head -> query.
++// through memory changes no bits provided the operand sequence is unchanged --
++// which is why every mode-9 accumulation below is `precise`.
+ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+ 
+ const uint MAX_HEAD_DIM = 128u;
+@@ -61,6 +94,16 @@ layout(push_constant) uniform Push {
+     uint unfused_qk;
+ } pc;
+ 
++// The generic row's key range reaches this key, and the row was not masked out.
++// Causal local attention bounds the row at the query position; the gate admits
++// window == 0 and an all-ones key mask for this experiment, so the key-side
++// reachability is exactly this condition, as in the qualified MHA pass 2.
++bool query_contributes(uint query_row, uint key, uint absolute_query) {
++    if (query_mask[query_row] <= 0.0) return false;
++    if (pc.causal != 0u && key > absolute_query) return false;
++    return true;
++}
++
+ void main() {
+     uint rows = pc.batch_size * pc.num_key_value_heads * pc.key_value_seq_len;
+     uint row = gl_GlobalInvocationID.x;
+@@ -95,8 +138,76 @@ void main() {
+         return;
+     }
+ 
+-    // The completed gradient: shared accumulator plus the finished head, exactly
+-    // the order the generic adjoint writes it in.
++    uint first_head = kv_head * queries_per_kv;
++
++    if (pc.unfused_qk != 9u) {
++        // Mode 0. The generic primary pass owns one continuous accumulator per
++        // (key, element), zeroed once before the head loop and then extended by
++        // every (head, query) pair in order. Reproduce exactly that: one
++        // accumulator for the whole group, not one per head.
++        float dk[MAX_HEAD_DIM];
++        float dv[MAX_HEAD_DIM];
++        for (uint d = 0; d < qk_head_dim; ++d) {
++            dk[d] = 0.0;
++        }
++        for (uint d = 0; d < value_head_dim; ++d) {
++            dv[d] = 0.0;
++        }
++
++        for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
++            for (uint query = 0u; query < pc.query_seq_len; ++query) {
++                uint query_row = b * pc.query_seq_len + query;
++                uint absolute_query = pc.query_position_offset + query;
++                if (!query_contributes(query_row, key, absolute_query)) continue;
++                uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
++                    + query * pc.key_value_seq_len + key;
++                float p = scratch_probability[slot];
++                float ds = scratch_ds[slot];
++                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
++                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
++                // Operand order of the generic expression
++                // `grad_k[...] += pc.scale * softcap_derivative * ds * q_values[...]`
++                // and `grad_v[...] += p * dropout * grad_output[...] * value_scale`
++                // at softcap_derivative == dropout == value_scale == 1.0, which
++                // the gate enforces.
++                //
++                // The product is `precise` and the accumulation is a separate
++                // `precise` add. The generic kernel's accumulation into the
++                // output buffer is not contracted into an fma -- measured, not
++                // assumed: a host replay of every candidate tree against the
++                // scalar buffer matches only the tree that rounds the product
++                // and then adds it (512/512 elements, both groupings). Without
++                // these qualifiers the driver contracts `acc + a * b` into
++                // `fma(a, b, acc)`, which differs from the oracle at every
++                // grouped head boundary. At one query head per KV head the two
++                // are indistinguishable because the accumulator starts at zero,
++                // which is why this never showed up under MHA.
++                for (uint d = 0; d < qk_head_dim; ++d) {
++                    precise float contribution = pc.scale * ds * q_values[q_base + d];
++                    precise float next_k = dk[d] + contribution;
++                    dk[d] = next_k;
++                }
++                for (uint d = 0; d < value_head_dim; ++d) {
++                    precise float contribution = p * grad_output[grad_out_base + d];
++                    precise float next_v = dv[d] + contribution;
++                    dv[d] = next_v;
++                }
++            }
++        }
++
++        for (uint d = 0; d < qk_head_dim; ++d) {
++            grad_k[k_base + d] = dk[d];
++        }
++        for (uint d = 0; d < value_head_dim; ++d) {
++            grad_v[v_base + d] = dv[d];
++        }
++        return;
++    }
++
++    // Mode 9. The generic strict adjoint reduces queries from zero for each
++    // repeated head, then sums the completed heads: the two-stage tree. Keep the
++    // head nesting; the per-head accumulator is the inner reduction and the
++    // shared accumulator is the outer one.
+     float dk[MAX_HEAD_DIM];
+     float dv[MAX_HEAD_DIM];
+     for (uint d = 0; d < qk_head_dim; ++d) {
+@@ -106,7 +217,6 @@ void main() {
+         dv[d] = 0.0;
+     }
+ 
+-    uint first_head = kv_head * queries_per_kv;
+     for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+         float head_k[MAX_HEAD_DIM];
+         float head_v[MAX_HEAD_DIM];
+@@ -118,41 +228,27 @@ void main() {
+         }
+         for (uint query = 0u; query < pc.query_seq_len; ++query) {
+             uint query_row = b * pc.query_seq_len + query;
+-            if (query_mask[query_row] <= 0.0) continue;
+-            // The generic row's key range ends at the query position when causal;
+-            // this is the same condition seen from the key side.
+-            if (pc.causal != 0u) {
+-                uint absolute_query = pc.query_position_offset + query;
+-                if (key > absolute_query) continue;
+-            }
++            uint absolute_query = pc.query_position_offset + query;
++            if (!query_contributes(query_row, key, absolute_query)) continue;
+             uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                 + query * pc.key_value_seq_len + key;
+             float p = scratch_probability[slot];
+             float ds = scratch_ds[slot];
+             uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+             uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+-            if (pc.unfused_qk == 9u) {
+-                precise float score_scale = pc.scale * 1.0;
+-                score_scale = score_scale * ds;
+-                for (uint d = 0; d < qk_head_dim; ++d) {
+-                    precise float contribution = score_scale * q_values[q_base + d];
+-                    precise float next_k = head_k[d] + contribution;
+-                    head_k[d] = next_k;
+-                }
+-                for (uint d = 0; d < value_head_dim; ++d) {
+-                    precise float weighted_p = p * 1.0;
+-                    precise float product = weighted_p * grad_output[grad_out_base + d];
+-                    product = product * 1.0;
+-                    precise float next_v = head_v[d] + product;
+-                    head_v[d] = next_v;
+-                }
+-            } else {
+-                for (uint d = 0; d < qk_head_dim; ++d) {
+-                    head_k[d] += pc.scale * ds * q_values[q_base + d];
+-                }
+-                for (uint d = 0; d < value_head_dim; ++d) {
+-                    head_v[d] += p * grad_output[grad_out_base + d];
+-                }
++            precise float score_scale = pc.scale * 1.0;
++            score_scale = score_scale * ds;
++            for (uint d = 0; d < qk_head_dim; ++d) {
++                precise float contribution = score_scale * q_values[q_base + d];
++                precise float next_k = head_k[d] + contribution;
++                head_k[d] = next_k;
++            }
++            for (uint d = 0; d < value_head_dim; ++d) {
++                precise float weighted_p = p * 1.0;
++                precise float product = weighted_p * grad_output[grad_out_base + d];
++                product = product * 1.0;
++                precise float next_v = head_v[d] + product;
++                head_v[d] = next_v;
+             }
+         }
+         for (uint d = 0; d < qk_head_dim; ++d) {
+diff --git a/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.spv b/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.spv
+index dae421f..8c6f30f 100644
+Binary files a/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.spv and b/hierarchos-vulkan/shaders/transformer_attention_backward_key_rdna3.spv differ
+diff --git a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp
+index 4959c4d..891f923 100644
+--- a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp
++++ b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.comp
+@@ -274,7 +274,12 @@ void main() {
+         float ds_q = p * (dp - softmax_dot);
+         uint slot = scratch_base + key;
+         scratch_probability[slot] = p;
+-        scratch_ds[slot] = p * (dp - kv_softmax_dot);
++        // Mode 9's scalar adjoint reduces dK/dV against the `precise` per-key dot
++        // it caches in row_softmax_dot. Mode 0's scalar path keeps no cached
++        // statistics and reduces against the primary plain `softmax_dot`.
++        // Carrying the one the owning scalar path uses keeps dK/dV bit-exact.
++        float kv_dot = pc.unfused_qk == 9u ? float(kv_softmax_dot) : softmax_dot;
++        scratch_ds[slot] = p * (dp - kv_dot);
+         if (pc.unfused_qk == 9u) {
+             precise float score_scale = pc.scale * 1.0;
+             score_scale = score_scale * ds_q;
+diff --git a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv
+index 8ddc547..04e8471 100644
+Binary files a/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv and b/hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3.spv differ
+diff --git a/hierarchos-vulkan/src/bin/held_out_eval.rs b/hierarchos-vulkan/src/bin/held_out_eval.rs
+index 340cf6d..c8ce69b 100644
+--- a/hierarchos-vulkan/src/bin/held_out_eval.rs
++++ b/hierarchos-vulkan/src/bin/held_out_eval.rs
+@@ -549,9 +549,7 @@ fn evaluate(
+ 
+ fn run(args: Args) -> Result<()> {
+     let precision = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new()?;
+     let mut graph =
+         VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+diff --git a/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs b/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs
+index a4aee65..4e7dcc9 100644
+--- a/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs
++++ b/hierarchos-vulkan/src/bin/hierarchos-vulkan-training-qualification.rs
+@@ -353,9 +353,7 @@ fn run(args: Args) -> Result<()> {
+         );
+     }
+     let precision = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new()?;
+     let mut graph = VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+     let mut hyper = AdamWHyperParams {
+diff --git a/hierarchos-vulkan/src/bin/training-stability.rs b/hierarchos-vulkan/src/bin/training-stability.rs
+index e476d5e..8c4397b 100644
+--- a/hierarchos-vulkan/src/bin/training-stability.rs
++++ b/hierarchos-vulkan/src/bin/training-stability.rs
+@@ -368,9 +368,7 @@ fn run(args: Args) -> Result<()> {
+         );
+     }
+     let precision = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new()?;
+     let mut graph = VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+     let mut hyper = AdamWHyperParams {
+diff --git a/hierarchos-vulkan/src/bin/transformer_train.rs b/hierarchos-vulkan/src/bin/transformer_train.rs
+index e2f685e..a9a8155 100644
+--- a/hierarchos-vulkan/src/bin/transformer_train.rs
++++ b/hierarchos-vulkan/src/bin/transformer_train.rs
+@@ -1262,6 +1262,20 @@ fn main() -> Result<()> {
+             );
+         }
+     }
++    // The backward route is a per-geometry decision; report the counters the
++    // dispatch actually recorded so a benchmark or qualification log cannot
++    // claim a fast path that never ran.
++    let attention = hierarchos_vulkan::attention_backward_dispatch_counts();
++    eprintln!(
++        "two-pass backward counters: effective={} scalar={} query={} key={} \
++         scratch_allocations={} scratch_bytes={}",
++        hierarchos_vulkan::attention_backward_two_pass_enabled(),
++        attention.scalar,
++        attention.query,
++        attention.key,
++        attention.scratch_allocations,
++        attention.scratch_bytes
++    );
+     let mut report=serde_json::to_value(report)?;
+     report["attempted_optimizer_windows"]=serde_json::json!(optimizer_steps);
+     report["optimizer_steps"]=serde_json::json!(graph.step()-starting_optimizer_step);
+diff --git a/hierarchos-vulkan/src/bin/wmma_drift.rs b/hierarchos-vulkan/src/bin/wmma_drift.rs
+index 3fcb6a3..4c91982 100644
+--- a/hierarchos-vulkan/src/bin/wmma_drift.rs
++++ b/hierarchos-vulkan/src/bin/wmma_drift.rs
+@@ -771,9 +771,7 @@ fn run(args: Args) -> Result<()> {
+         return run_compare_forward(&args);
+     }
+     let mode = WmmaMode::from_env()?;
+-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-        .map(|value| value == "1")
+-        .unwrap_or(false);
++    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
+     let device = VulkanDevice::new_for_wmma(mode)?;
+     let mut graph = VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
+     graph.set_dropout_seed(args.seed as u32 ^ (args.seed >> 32) as u32);
+diff --git a/hierarchos-vulkan/src/lib.rs b/hierarchos-vulkan/src/lib.rs
+index 1fc478d..c8c68e4 100644
+--- a/hierarchos-vulkan/src/lib.rs
++++ b/hierarchos-vulkan/src/lib.rs
+@@ -55,6 +55,10 @@ mod token_frontend;
+ mod training_numerics;
+ mod transformer;
+ pub mod precision_policy;
++pub use transformer::{
++    attention_backward_dispatch_counts, attention_backward_two_pass_enabled,
++    attention_backward_two_pass_explicitly_requested, AttentionBackwardDispatchCounts,
++};
+ pub use transformer::deepseek_v41_vision::{
+     DeepseekV41VisionConfig, DeepseekV41VisionTensor, VulkanDeepseekV41Image,
+     VulkanDeepseekV41Vision,
+diff --git a/hierarchos-vulkan/src/transformer.rs b/hierarchos-vulkan/src/transformer.rs
+index 174e915..7194eb3 100644
+--- a/hierarchos-vulkan/src/transformer.rs
++++ b/hierarchos-vulkan/src/transformer.rs
+@@ -25531,53 +25531,704 @@ fn rdna3_short_attention_supported(push: &AttentionPush) -> bool {
+         && push.value_scale == 1.0
+ }
+ 
+-/// Whether the opt-in two-pass attention backward is switched on.
+-///
+-/// Off by default: the scalar kernel stays the qualified path until the two-pass
+-/// pair has its own numerical evidence. Read once so a dispatch never consults
+-/// the environment.
+-fn two_pass_attention_enabled() -> bool {
++/// The explicit two-pass selection, read once so a dispatch never consults the
++/// environment. `None` is the eligible default.
++fn two_pass_attention_setting() -> Option<bool> {
++    #[cfg(test)]
++    {
++        if let Some(setting) = two_pass_attention_test_hooks::forced_setting() {
++            return setting;
++        }
++    }
+     use std::sync::OnceLock;
+-    static ENABLED: OnceLock<bool> = OnceLock::new();
+-    *ENABLED.get_or_init(|| {
+-        std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+-            .map(|value| value == "1")
+-            .unwrap_or(false)
++    static SETTING: OnceLock<Option<bool>> = OnceLock::new();
++    *SETTING.get_or_init(|| {
++        match std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS") {
++            Ok(value) => match value.trim() {
++                "1" | "true" | "on" => Some(true),
++                "0" | "false" | "off" => Some(false),
++                other => {
++                    eprintln!(
++                        "two-pass backward: unrecognized \
++                         HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS={other:?}; \
++                         using the eligible default"
++                    );
++                    None
++                }
++            },
++            Err(_) => None,
++        }
+     })
+ }
+ 
+-/// Allocate the two-pass scratch for a layer, or nothing when the switch is off.
++/// Whether the two-pass attention backward is selected for eligible geometry.
++///
++/// On by default now that the pair has mode-0 and mode-9 gradient evidence,
++/// exact scratch sizing and a per-geometry decision report. Every geometry the
++/// eligibility proof rejects keeps the scalar kernel, and an explicit
++/// `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0` forces the scalar path.
++fn two_pass_attention_enabled() -> bool {
++    two_pass_attention_setting() != Some(false)
++}
++
++/// True only when the environment explicitly asks for the two-pass path. A
++/// hardware qualification uses this to turn a missing device or artifact into
++/// a failure instead of a silent skip.
++pub fn attention_backward_two_pass_explicitly_requested() -> bool {
++    // Derived from the once-read setting rather than from a second read of the
++    // environment, so every binary and the loader agree on one parse.
++    two_pass_attention_setting() == Some(true)
++}
++
++/// The effective selection, for binaries that report the requested route.
++pub fn attention_backward_two_pass_enabled() -> bool {
++    two_pass_attention_enabled()
++}
++
++static ATTENTION_BACKWARD_SCALAR_DISPATCHES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_KEY_DISPATCHES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++static ATTENTION_BACKWARD_SCRATCH_BYTES: std::sync::atomic::AtomicU64 =
++    std::sync::atomic::AtomicU64::new(0);
++
++/// Which dispatch a backward counter records.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum AttentionBackwardDispatch {
++    Scalar,
++    Query,
++    Key,
++}
++
++/// Bump the process-wide counter for one recorded dispatch.
++///
++/// The counters are read back by `attention_backward_dispatch_counts`, so a
++/// benchmark or qualification log cannot claim a route the dispatch did not
++/// take. Tests additionally see a per-thread copy, which keeps their deltas
++/// independent of tests running in parallel.
++fn record_attention_backward_dispatch(dispatch: AttentionBackwardDispatch) {
++    use std::sync::atomic::Ordering;
++    let counter = match dispatch {
++        AttentionBackwardDispatch::Scalar => &ATTENTION_BACKWARD_SCALAR_DISPATCHES,
++        AttentionBackwardDispatch::Query => &ATTENTION_BACKWARD_QUERY_DISPATCHES,
++        AttentionBackwardDispatch::Key => &ATTENTION_BACKWARD_KEY_DISPATCHES,
++    };
++    counter.fetch_add(1, Ordering::Relaxed);
++    #[cfg(test)]
++    {
++        two_pass_attention_test_hooks::note_dispatch(dispatch);
++    }
++}
++
++/// Record one two-pass scratch allocation of `elements` floats per buffer.
++fn record_attention_backward_scratch(elements: usize) {
++    use std::sync::atomic::Ordering;
++    let bytes = (elements * 2 * std::mem::size_of::<f32>()) as u64;
++    ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
++    ATTENTION_BACKWARD_SCRATCH_BYTES.fetch_add(bytes, Ordering::Relaxed);
++    #[cfg(test)]
++    {
++        two_pass_attention_test_hooks::note_scratch_allocation(bytes);
++    }
++}
++
++/// Actual attention-backward dispatch counters for this process.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct AttentionBackwardDispatchCounts {
++    pub scalar: u64,
++    pub query: u64,
++    pub key: u64,
++    pub scratch_allocations: u64,
++    pub scratch_bytes: u64,
++}
++
++pub fn attention_backward_dispatch_counts() -> AttentionBackwardDispatchCounts {
++    use std::sync::atomic::Ordering;
++    AttentionBackwardDispatchCounts {
++        scalar: ATTENTION_BACKWARD_SCALAR_DISPATCHES.load(Ordering::Relaxed),
++        query: ATTENTION_BACKWARD_QUERY_DISPATCHES.load(Ordering::Relaxed),
++        key: ATTENTION_BACKWARD_KEY_DISPATCHES.load(Ordering::Relaxed),
++        scratch_allocations: ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS.load(Ordering::Relaxed),
++        scratch_bytes: ATTENTION_BACKWARD_SCRATCH_BYTES.load(Ordering::Relaxed),
++    }
++}
++
++/// Floats each pass-1 scratch buffer must hold, derived from the shaders' own
++/// indexing: pass 1 writes slot
++/// `(b * num_heads + head) * query_seq * key_value_seq + query * key_value_seq + key`
++/// and pass 2 reads exactly the slots pass 1 wrote, so the highest index is
++/// `batch_size * num_heads * query_seq_len * key_value_seq_len - 1`.
++///
++/// The earlier `rows * query_hidden` bound over-allocated by
++/// `head_dim / key_value_seq_len` and made every ineligible geometry pay for a
++/// fast path it would never run.
++fn two_pass_attention_scratch_elements(push: &AttentionPush) -> Option<usize> {
++    (push.batch_size as usize)
++        .checked_mul(push.num_heads as usize)?
++        .checked_mul(push.query_seq_len as usize)?
++        .checked_mul(push.key_value_seq_len as usize)
++}
++
++/// Which member of the optional two-pass pair a load refers to.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum TwoPassAttentionPass {
++    Query,
++    Key,
++}
++
++impl TwoPassAttentionPass {
++    fn name(self) -> &'static str {
++        match self {
++            Self::Query => "query",
++            Self::Key => "key",
++        }
++    }
++
++    fn unavailable_reason(self) -> &'static str {
++        match self {
++            Self::Query => "query_shader_unavailable",
++            Self::Key => "key_shader_unavailable",
++        }
++    }
++
++    fn binding_count(self) -> usize {
++        match self {
++            Self::Query => 9,
++            Self::Key => 8,
++        }
++    }
++
++    /// The SPIR-V this build ships for the pass.
++    ///
++    /// The pair is embedded with `include_bytes!`, so a missing artifact is a
++    /// build error rather than a runtime one. The test seam substitutes bytes
++    /// the driver cannot decode, which is the runtime shape of a truncated or
++    /// foreign-architecture artifact.
++    fn spirv(self) -> &'static [u8] {
++        #[cfg(test)]
++        {
++            if two_pass_attention_test_hooks::rejects(self) {
++                return two_pass_attention_test_hooks::undecodable_spirv();
++            }
++        }
++        match self {
++            Self::Query => ATTENTION_BACKWARD_QUERY_PARALLEL_SPV,
++            Self::Key => ATTENTION_BACKWARD_KEY_PARALLEL_SPV,
++        }
++    }
++}
++
++/// How a failed load of an optional kernel must be treated.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum OptionalKernelOutcome {
++    /// The driver refused this module for a reason that is specific to the
++    /// optional pair. The scalar kernel and the device are unaffected.
++    Incompatible,
++    /// The device or the backend's global state is broken. Reporting a scalar
++    /// fallback here would turn a dead device into an apparently successful run.
++    Fatal { reason: &'static str },
++}
++
++/// The `ComputeKernel::new` stages that fail because of the module itself rather
++/// than because of the device: SPIR-V decoding, shader-module creation and
++/// pipeline creation all reject *this* module.
++const OPTIONAL_KERNEL_BUILD_STAGES: [&str; 3] = [
++    "decoding embedded SPIR-V",
++    "creating Vulkan shader module",
++    "creating Vulkan compute pipeline",
++];
++
++/// Classify a failure from building an optional kernel.
+ ///
+-/// Sized from `rows * query_hidden`, an upper bound for every geometry the
+-/// dispatcher admits (it additionally requires `seq <= head_dim`). A geometry
+-/// outside that bound keeps the scalar kernel rather than growing the buffer on
+-/// the hot path.
+-fn two_pass_attention_scratch(
++/// Vulkan reports every failure through `anyhow` strings here, so the decision
++/// is made from the device's own device-lost flag plus the named condition in
++/// the error chain. The default is fatal: an unrecognised failure must surface
++/// rather than be converted into a scalar "success".
++fn classify_optional_kernel_error(device_lost: bool, detail: &str) -> OptionalKernelOutcome {
++    use OptionalKernelOutcome::{Fatal, Incompatible};
++    // `VK_ERROR_DEVICE_LOST` is sticky: every later submission fails. A scalar
++    // fallback after it would be a lie about a device that no longer works.
++    if device_lost || detail.contains("ERROR_DEVICE_LOST") {
++        return Fatal {
++            reason: "device_lost",
++        };
++    }
++    // An allocation failure while building the optional pair is a resource
++    // failure, not a capability one. The scalar path allocates its own buffers,
++    // so true exhaustion surfaces there; hiding the first symptom would let a
++    // starved process keep reporting progress for a while.
++    if detail.contains("ERROR_OUT_OF_DEVICE_MEMORY") || detail.contains("ERROR_OUT_OF_HOST_MEMORY") {
++        return Fatal {
++            reason: "out_of_memory",
++        };
++    }
++    // A poisoned interner is another thread panicking inside the device-wide
++    // layout lock. Nothing built after that can be trusted.
++    if detail.contains("lock was poisoned") {
++        return Fatal {
++            reason: "invalid_device_state",
++        };
++    }
++    if OPTIONAL_KERNEL_BUILD_STAGES
++        .iter()
++        .any(|stage| detail.contains(stage))
++    {
++        return Incompatible;
++    }
++    Fatal {
++        reason: "unclassified",
++    }
++}
++
++/// One member of the optional pair, or the reason this device refused it.
++enum OptionalKernelLoad {
++    Ready(vulkan::ComputeKernel),
++    Incompatible {
++        reason: &'static str,
++        detail: String,
++    },
++}
++
++/// Build one optional kernel, converting an expected incompatibility into a
++/// recorded reason and leaving every fatal condition an error.
++fn load_optional_attention_kernel(
+     device: &VulkanDevice,
+-    rows: usize,
+-    query_hidden: usize,
+-) -> Result<Option<TwoPassAttentionScratch>> {
+-    if !two_pass_attention_enabled() {
+-        return Ok(None);
++    pass: TwoPassAttentionPass,
++) -> Result<OptionalKernelLoad> {
++    #[cfg(test)]
++    {
++        two_pass_attention_test_hooks::note_optional_kernel_load();
+     }
+-    let capacity = rows
+-        .checked_mul(query_hidden)
+-        .ok_or_else(|| anyhow::anyhow!("two-pass attention scratch size overflow"))?;
+-    Ok(Some(TwoPassAttentionScratch {
+-        probability: GpuBuffer::zeros_f32(device, capacity)?,
+-        ds: GpuBuffer::zeros_f32(device, capacity)?,
+-        capacity,
+-    }))
++    let built = vulkan::ComputeKernel::new(
++        device,
++        pass.spirv(),
++        pass.binding_count(),
++        std::mem::size_of::<AttentionPush>() as u32,
++    )
++    .with_context(|| {
++        format!(
++            "initializing the optional two-pass attention {} kernel",
++            pass.name()
++        )
++    });
++    match built {
++        Ok(kernel) => Ok(OptionalKernelLoad::Ready(kernel)),
++        Err(error) => {
++            let detail = format!("{error:#}");
++            match classify_optional_kernel_error(device.is_device_lost(), &detail) {
++                OptionalKernelOutcome::Incompatible => Ok(OptionalKernelLoad::Incompatible {
++                    reason: pass.unavailable_reason(),
++                    detail,
++                }),
++                OptionalKernelOutcome::Fatal { reason } => Err(error.context(format!(
++                    "the optional two-pass attention {} kernel failed for a reason that is not \
++                     specific to the optional pair ({reason}); the scalar fallback cannot be \
++                     trusted after it",
++                    pass.name()
++                ))),
++            }
++        }
++    }
++}
++
++/// The optional two-pass attention-backward pair as resolved on this device.
++///
++/// Resolved once, while the kernel set is built, and cached with it: a dispatch
++/// never retries the load, and a geometry the gate rejects never reaches it.
++/// `kernels == None` means the scalar kernel is the only route and `reason`
++/// records why, so every per-geometry report names the same cause.
++struct TwoPassAttentionBackward {
++    /// Both passes, in dispatch order, when this device built the pair.
++    kernels: Option<[vulkan::ComputeKernel; 2]>,
++    /// Machine-readable cause when `kernels` is `None`; `"ready"` otherwise.
++    reason: &'static str,
++    /// The loader's message, when the pair was refused.
++    detail: Option<String>,
++}
++
++impl TwoPassAttentionBackward {
++    fn is_available(&self) -> bool {
++        self.kernels.is_some()
++    }
++
++    fn absent(reason: &'static str, detail: Option<String>) -> Self {
++        Self {
++            kernels: None,
++            reason,
++            detail,
++        }
++    }
++
++    /// Resolve the pair for this device.
++    ///
++    /// `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0` returns before building
++    /// anything: an explicitly scalar run loads no optional kernel at all.
++    fn load(device: &VulkanDevice) -> Result<Self> {
++        if !two_pass_attention_enabled() {
++            return Ok(Self::absent("disabled_by_environment", None));
++        }
++        // Both members are attempted so a pair that is unusable for two
++        // different reasons is reported as such. A fatal result returns through
++        // `?` immediately, because nothing after it is trustworthy.
++        let query = load_optional_attention_kernel(device, TwoPassAttentionPass::Query)?;
++        let key = load_optional_attention_kernel(device, TwoPassAttentionPass::Key)?;
++        let resolved = match (query, key) {
++            (OptionalKernelLoad::Ready(query), OptionalKernelLoad::Ready(key)) => Self {
++                kernels: Some([query, key]),
++                reason: "ready",
++                detail: None,
++            },
++            (OptionalKernelLoad::Incompatible { reason, detail }, OptionalKernelLoad::Ready(_)) => {
++                Self::absent(reason, Some(detail))
++            }
++            (OptionalKernelLoad::Ready(_), OptionalKernelLoad::Incompatible { reason, detail }) => {
++                Self::absent(reason, Some(detail))
++            }
++            (
++                OptionalKernelLoad::Incompatible {
++                    reason: query_reason,
++                    detail: query_detail,
++                },
++                OptionalKernelLoad::Incompatible {
++                    reason: key_reason,
++                    detail: key_detail,
++                },
++            ) => Self::absent(
++                "both_shaders_unavailable",
++                Some(format!(
++                    "{query_reason}: {query_detail}; {key_reason}: {key_detail}"
++                )),
++            ),
++        };
++        if resolved.is_available() {
++            return Ok(resolved);
++        }
++        let reason = resolved.reason;
++        let detail = resolved.detail.clone().unwrap_or_default();
++        // Explicit opt-in is a hardware qualification: an unavailable pair is a
++        // failure, never a silent scalar run that a log could later read as a
++        // successful two-pass qualification.
++        if attention_backward_two_pass_explicitly_requested() {
++            bail!(
++                "BLOCKED: HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1 requires the optional \
++                 two-pass attention-backward kernels, but this device cannot build them \
++                 ({reason}): {detail}"
++            );
++        }
++        eprintln!(
++            "two-pass backward: optional kernel pair unavailable ({reason}); every geometry \
++             keeps the scalar kernel: {detail}"
++        );
++        Ok(resolved)
++    }
++}
++
++/// Resolve the optional pair on first use and cache it with the kernel set.
++///
++/// Called only from an eligible dispatch, so the load waits until a geometry
++/// that can actually use it appears. The cached answer is what stops a shader
++/// failure from being retried on every training step.
++fn resolve_two_pass_attention_backward<'a>(
++    kernels: &'a TransformerKernels,
++    device: &VulkanDevice,
++) -> Result<&'a TwoPassAttentionBackward> {
++    if kernels.rdna3_two_pass_attention_backward.get().is_none() {
++        let resolved = TwoPassAttentionBackward::load(device)?;
++        // One recorder owns this kernel set, so `set` only fails when another
++        // thread resolved it first; in that case its answer stands.
++        let _ = kernels.rdna3_two_pass_attention_backward.set(resolved);
++    }
++    kernels
++        .rdna3_two_pass_attention_backward
++        .get()
++        .context("the two-pass attention pair was not cached after it was resolved")
++}
++
++/// The backward route for one attention-backward call.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum AttentionBackwardRoute {
++    /// The generic scalar kernel, with the first condition that chose it.
++    Scalar { reason: &'static str },
++    /// Both optional passes.
++    TwoPass,
++}
++
++/// Decide the geometry and environment half of the backward route.
++///
++/// Evaluated before the optional pair is resolved, so an ineligible geometry
++/// never builds it: a GQA, windowed or long-context model pays nothing for an
++/// optimisation it cannot run, and `=0` never reaches the loader at all. The
++/// order is the order the gate has always applied.
++fn two_pass_attention_gate(
++    push: &AttentionPush,
++    key_blocks: u32,
++    enabled: bool,
++) -> AttentionBackwardRoute {
++    use AttentionBackwardRoute::{Scalar, TwoPass};
++    if !enabled {
++        return Scalar {
++            reason: "disabled_by_environment",
++        };
++    }
++    if key_blocks != 1 {
++        return Scalar {
++            reason: "key_range_split",
++        };
++    }
++    if let Some(reason) = two_pass_attention_rejection(push) {
++        return Scalar { reason };
++    }
++    if two_pass_attention_scratch_elements(push).is_none() {
++        return Scalar {
++            reason: "scratch_size_overflow",
++        };
++    }
++    TwoPass
++}
++
++/// Test-only seams for the optional pair.
++///
++/// The production build embeds both shaders and reads the environment once, so
++/// neither "this device cannot build the optional pair" nor "the operator forced
++/// `=0`" is reachable from an ordinary test run. Both seams are thread-local and
++/// compiled out of every non-test build.
++#[cfg(test)]
++mod two_pass_attention_test_hooks {
++    use super::{AttentionBackwardDispatch, AttentionBackwardDispatchCounts, TwoPassAttentionPass};
++    use std::cell::{Cell, RefCell};
++
++    /// Which member of the optional pair the loader must be unable to decode.
++    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
++    pub(super) enum ShaderFault {
++        Query,
++        Key,
++        Both,
++    }
++
++    #[derive(Clone, Copy, Default)]
++    struct Overrides {
++        /// `Some(setting)` answers `two_pass_attention_setting` directly;
++        /// `Some(None)` pins the unset-and-eligible default.
++        setting: Option<Option<bool>>,
++        fault: Option<ShaderFault>,
++        optional_kernel_loads: u32,
++    }
++
++    thread_local! {
++        static OVERRIDES: RefCell<Overrides> = RefCell::new(Overrides::default());
++        static THREAD_COUNTS: Cell<AttentionBackwardDispatchCounts> =
++            Cell::new(AttentionBackwardDispatchCounts::default());
++    }
++
++    /// A blob no driver can build a shader module from: the SPIR-V magic number
++    /// is wrong, which is what a truncated or foreign-architecture artifact
++    /// looks like to the real loader.
++    static UNDECODABLE_SPIRV: [u8; 64] = [0u8; 64];
++
++    pub(super) fn undecodable_spirv() -> &'static [u8] {
++        &UNDECODABLE_SPIRV
++    }
++
++    pub(super) fn forced_setting() -> Option<Option<bool>> {
++        OVERRIDES.with(|overrides| overrides.borrow().setting)
++    }
++
++    pub(super) fn rejects(pass: TwoPassAttentionPass) -> bool {
++        let fault = OVERRIDES.with(|overrides| overrides.borrow().fault);
++        match fault {
++            None => false,
++            Some(ShaderFault::Query) => pass == TwoPassAttentionPass::Query,
++            Some(ShaderFault::Key) => pass == TwoPassAttentionPass::Key,
++            Some(ShaderFault::Both) => true,
++        }
++    }
++
++    pub(super) fn note_optional_kernel_load() {
++        OVERRIDES.with(|overrides| {
++            overrides.borrow_mut().optional_kernel_loads += 1;
++        });
++    }
++
++    pub(super) fn optional_kernel_loads() -> u32 {
++        OVERRIDES.with(|overrides| overrides.borrow().optional_kernel_loads)
++    }
++
++    pub(super) fn note_dispatch(dispatch: AttentionBackwardDispatch) {
++        THREAD_COUNTS.with(|counts| {
++            let mut value = counts.get();
++            match dispatch {
++                AttentionBackwardDispatch::Scalar => value.scalar += 1,
++                AttentionBackwardDispatch::Query => value.query += 1,
++                AttentionBackwardDispatch::Key => value.key += 1,
++            }
++            counts.set(value);
++        });
++    }
++
++    pub(super) fn note_scratch_allocation(bytes: u64) {
++        THREAD_COUNTS.with(|counts| {
++            let mut value = counts.get();
++            value.scratch_allocations += 1;
++            value.scratch_bytes += bytes;
++            counts.set(value);
++        });
++    }
++
++    pub(super) fn thread_counts() -> AttentionBackwardDispatchCounts {
++        THREAD_COUNTS.with(Cell::get)
++    }
++
++    pub(super) fn reset_thread_counts() {
++        THREAD_COUNTS.with(|counts| counts.set(AttentionBackwardDispatchCounts::default()));
++    }
++
++    /// Restores the previous overrides when dropped, so a panicking assertion
++    /// cannot leak a fault into the next test on this thread.
++    pub(super) struct Scope {
++        previous: Overrides,
++    }
++
++    impl Drop for Scope {
++        fn drop(&mut self) {
++            let previous = self.previous;
++            OVERRIDES.with(|overrides| *overrides.borrow_mut() = previous);
++        }
++    }
++
++    /// Install overrides for the duration of one test.
++    pub(super) fn scope(setting: Option<Option<bool>>, fault: Option<ShaderFault>) -> Scope {
++        OVERRIDES.with(|overrides| {
++            let mut overrides = overrides.borrow_mut();
++            let previous = *overrides;
++            overrides.setting = setting;
++            overrides.fault = fault;
++            overrides.optional_kernel_loads = 0;
++            Scope { previous }
++        })
++    }
++}
++
++/// Report each distinct backward-route decision once per process.
++///
++/// A one-shot line described only the first geometry, so a later layer that fell
++/// back stayed invisible. The set is keyed by the whole decision, including the
++/// geometry, so two layers with different shapes each get their own line and a
++/// repeated training step adds none.
++fn report_two_pass_decision(
++    push: &AttentionPush,
++    kernels_available: bool,
++    key_blocks: u32,
++    route: &'static str,
++    eligible: bool,
++    reason: &'static str,
++    scratch_elements: usize,
++) {
++    use std::sync::{Mutex, OnceLock};
++    static SEEN: OnceLock<Mutex<std::collections::BTreeSet<String>>> = OnceLock::new();
++    let head_dim = push.query_hidden_size / push.num_heads.max(1);
++    let key = format!(
++        "{route}|{eligible}|{reason}|{kernels_available}|{key_blocks}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
++        push.batch_size,
++        push.num_heads,
++        push.num_key_value_heads,
++        push.query_seq_len,
++        push.key_value_seq_len,
++        head_dim,
++        push.causal,
++        push.unfused_qk,
++        scratch_elements,
++    );
++    {
++        let seen = SEEN.get_or_init(|| Mutex::new(std::collections::BTreeSet::new()));
++        let mut seen = match seen.lock() {
++            Ok(guard) => guard,
++            Err(poisoned) => poisoned.into_inner(),
++        };
++        if !seen.insert(key) {
++            return;
++        }
++    }
++    eprintln!(
++        "two-pass backward: route={route} eligible={eligible} reason={reason} \
++         kernels={kernels_available} scratch={} \
++         key_blocks={key_blocks} batch={} heads={} kv_heads={} q_seq={} kv_seq={} \
++         head_dim={head_dim} causal={} unfused_qk={} scratch_elements={scratch_elements} \
++         scratch_bytes={}",
++        scratch_elements != 0,
++        push.batch_size,
++        push.num_heads,
++        push.num_key_value_heads,
++        push.query_seq_len,
++        push.key_value_seq_len,
++        push.causal,
++        push.unfused_qk,
++        scratch_elements * 2 * std::mem::size_of::<f32>(),
++    );
+ }
+ 
+-/// Whether the two-pass pair reproduces this geometry exactly.
++/// Grouped-query groupings the production key pass has been numerically
++/// qualified on: `(num_heads, num_key_value_heads)`.
++///
++/// This is an allowlist, not a formula. The evidence is a set of measured shapes,
++/// not a proof about the grouped loop, so a divisible geometry that has never
++/// been run keeps the scalar kernel. `8q/2kv` and `4q/2kv` were qualified in
++/// Phase V against the candidate that is now the production artifact; `8q/4kv`
++/// and `16q/4kv` were added in Phase VI so the grouped reduction is not tied to a
++/// single KV-head count. See
++/// `validation/gqa_attention_backward_experiment_20261124/` (Phase V) and
++/// `validation/gqa_production_promotion_20261124/` (Phase VI).
++const QUALIFIED_GROUPED_QUERY_GROUPINGS: [(u32, u32); 4] =
++    [(8, 2), (4, 2), (8, 4), (16, 4)];
++
++/// Head dimension every qualified grouped geometry was measured at.
++const QUALIFIED_GROUPED_QUERY_HEAD_DIM: u32 = 128;
++
++/// Query and key sequence length every qualified grouped geometry was measured
++/// at. The grouped shapes were qualified at one symmetric sequence shape; a
++/// different `kv_seq` needs its own run before it is admitted.
++const QUALIFIED_GROUPED_QUERY_SEQ_LEN: u32 = 64;
++
++/// The reason a grouped geometry is not admitted, or `None` when it is.
++///
++/// The grouped path is the *same* artifact as the MHA one, so each restriction
++/// here is a statement about measurement coverage rather than about a distinct
++/// shader: a shape that has never been driven keeps the scalar kernel even
++/// though the loop could probably run it.
++fn grouped_query_attention_rejection(
++    push: &AttentionPush,
++    head_dim: u32,
++) -> Option<&'static str> {
++    if !QUALIFIED_GROUPED_QUERY_GROUPINGS.contains(&(push.num_heads, push.num_key_value_heads)) {
++        return Some("grouped_query_attention_unqualified_grouping");
++    }
++    if head_dim != QUALIFIED_GROUPED_QUERY_HEAD_DIM {
++        return Some("grouped_query_attention_unqualified_head_dim");
++    }
++    if push.query_seq_len != QUALIFIED_GROUPED_QUERY_SEQ_LEN
++        || push.key_value_seq_len != QUALIFIED_GROUPED_QUERY_SEQ_LEN
++    {
++        return Some("grouped_query_attention_unqualified_sequence");
++    }
++    if push.causal != 1 {
++        return Some("grouped_query_attention_unqualified_causal");
++    }
++    None
++}
++
++/// The first reason the two-pass pair does not reproduce this geometry, or
++/// `None` when it does.
+ ///
+ /// Covers the plain fused path (mode 0) and Llama's materialised-SLEEF adjoint
+ /// (mode 9), both of which the pair implements. Everything else keeps the scalar
+ /// kernel: a shared score parameter or a non-plain softmax would need reductions
+ /// this pair does not implement, and an unsupported ordering can only be a
+-/// silent numerical change.
+-fn two_pass_attention_supported(push: &AttentionPush, capacity: usize) -> bool {
++/// silent numerical change. The reasons are reported per distinct geometry; the
++/// order is the order the gate has always applied.
++fn two_pass_attention_rejection(push: &AttentionPush) -> Option<&'static str> {
+     if push.batch_size == 0
+         || push.query_seq_len == 0
+         || push.key_value_seq_len == 0
+@@ -25587,35 +26238,72 @@ fn two_pass_attention_supported(push: &AttentionPush, capacity: usize) -> bool {
+         || push.query_hidden_size % push.num_heads != 0
+         || push.value_hidden_size % push.num_key_value_heads != 0
+     {
+-        return false;
++        return Some("invalid_geometry");
+     }
+     let head_dim = push.query_hidden_size / push.num_heads;
+     let value_head_dim = push.value_hidden_size / push.num_key_value_heads;
+-    let elements = push.batch_size as usize
+-        * push.num_heads as usize
+-        * push.query_seq_len as usize
+-        * push.key_value_seq_len as usize;
+-    // One query head per KV head keeps pass 2's per-head accumulator identical
+-    // to the generic adjoint's shared accumulator; a grouped geometry would need
+-    // the head nesting measured on its own before it can be claimed.
+-    push.num_heads == push.num_key_value_heads
+-        && matches!(push.unfused_qk, 0 | 9)
+-        && head_dim == value_head_dim
+-        && head_dim <= 128
+-        && push.key_value_seq_len as usize <= head_dim as usize
+-        && elements <= capacity
+-        && push.window_size == 0
+-        && push.softcap == 0.0
+-        && push.alibi_mode == 0
+-        && push.relative_bias_mode == 0
+-        && push.dropout_p == 0.0
+-        && push.has_sink == 0
+-        && push.causal <= 1
+-        && push.query_position_offset == 0
+-        && push.has_sparse_mask == 0
+-        && push.compressed_key_count == 0
+-        && push.paged_kv == 0
+-        && push.value_scale == 1.0
++    // One query head per KV head is the qualified MHA path, unchanged. A grouped
++    // geometry is admitted only where the production key artifact has been
++    // measured bit-exact against the scalar oracle in both admitted arithmetic
++    // modes; everything else keeps the scalar kernel.
++    if push.num_heads != push.num_key_value_heads {
++        if let Some(reason) = grouped_query_attention_rejection(push, head_dim) {
++            return Some(reason);
++        }
++    }
++    if !matches!(push.unfused_qk, 0 | 9) {
++        return Some("unsupported_arithmetic_mode");
++    }
++    if head_dim != value_head_dim {
++        return Some("mismatched_head_dim");
++    }
++    if head_dim > 128 {
++        return Some("head_dim_above_128");
++    }
++    if push.key_value_seq_len as usize > head_dim as usize {
++        return Some("kv_sequence_above_head_dim");
++    }
++    if push.window_size != 0 {
++        return Some("sliding_window");
++    }
++    if push.softcap != 0.0 {
++        return Some("softcap");
++    }
++    if push.alibi_mode != 0 {
++        return Some("alibi");
++    }
++    if push.relative_bias_mode != 0 {
++        return Some("relative_bias");
++    }
++    if push.dropout_p != 0.0 {
++        return Some("dropout");
++    }
++    if push.has_sink != 0 {
++        return Some("attention_sink");
++    }
++    if push.causal > 1 {
++        return Some("causal_mode");
++    }
++    if push.query_position_offset != 0 {
++        return Some("query_position_offset");
++    }
++    if push.has_sparse_mask != 0 {
++        return Some("sparse_mask");
++    }
++    if push.compressed_key_count != 0 {
++        return Some("compressed_keys");
++    }
++    if push.paged_kv != 0 {
++        return Some("paged_kv");
++    }
++    if push.value_scale != 1.0 {
++        return Some("value_scale");
++    }
++    None
++}
++
++fn two_pass_attention_supported(push: &AttentionPush) -> bool {
++    two_pass_attention_rejection(push).is_none()
+ }
+ 
+ fn rdna3_avx512_sdpa_supported(push: &AttentionPush) -> bool {
+@@ -26421,7 +27109,7 @@ struct TransformerKernels {
+     rdna3_short_attention_backward: Option<vulkan::ComputeKernel>,
+     /// The opt-in two-pass backward: [query-parallel, key-parallel]. Loaded only
+     /// when the switch is set, so a default run creates no extra pipeline.
+-    rdna3_two_pass_attention_backward: Option<[vulkan::ComputeKernel; 2]>,
++    rdna3_two_pass_attention_backward: std::cell::OnceCell<TwoPassAttentionBackward>,
+     rdna3_avx512_gpt2: Option<[vulkan::ComputeKernel; 3]>,
+     rdna3_avx512_cross_entropy: Option<vulkan::ComputeKernel>,
+     attention_backward: vulkan::ComputeKernel,
+@@ -26916,24 +27604,11 @@ impl TransformerKernels {
+             )?,
+             rdna3_short_attention: None,
+             rdna3_short_attention_backward: None,
+-            rdna3_two_pass_attention_backward: if two_pass_attention_enabled() {
+-                Some([
+-                    vulkan::ComputeKernel::new(
+-                        device,
+-                        ATTENTION_BACKWARD_QUERY_PARALLEL_SPV,
+-                        9,
+-                        std::mem::size_of::<AttentionPush>() as u32,
+-                    )?,
+-                    vulkan::ComputeKernel::new(
+-                        device,
+-                        ATTENTION_BACKWARD_KEY_PARALLEL_SPV,
+-                        8,
+-                        std::mem::size_of::<AttentionPush>() as u32,
+-                    )?,
+-                ])
+-            } else {
+-                None
+-            },
++            // Optional and lazy: nothing is built here, so a model whose
++            // geometry never becomes eligible never builds the pair. The first
++            // eligible dispatch resolves it once and caches the answer with the
++            // kernel set, so no step retries the load.
++            rdna3_two_pass_attention_backward: std::cell::OnceCell::new(),
+             rdna3_avx512_gpt2: None,
+             rdna3_avx512_cross_entropy: None,
+             attention_backward: vulkan::ComputeKernel::new(
+@@ -59397,20 +60072,32 @@ struct VulkanTransformerLayer {
+     base_frozen_for_peft: bool,
+     cross_attention: Option<VulkanCrossAttention>,
+     tape: TransformerLayerTape,
+-    /// Scratch shared by both passes of the opt-in two-pass attention backward.
+-    /// Allocated once per layer when the switch is set and reused by every step
+-    /// that fits, so the hot path never allocates.
+-    two_pass_attention_scratch: Option<TwoPassAttentionScratch>,
++    /// Scratch shared by both passes of the two-pass attention backward.
++    /// Empty until an eligible geometry first dispatches, so a GQA,
++    /// long-context or otherwise ineligible layer never pays for the fast path.
++    /// Each layer owns its own storage.
++    two_pass_attention_scratch: std::cell::RefCell<Option<TwoPassAttentionScratch>>,
+ }
+ 
+ /// The per-element quantities pass 1 hands to pass 2 for one attention call.
+-/// `capacity` is in floats and bounds both buffers.
++/// `capacity` is in floats and is exactly the highest slot each shader indexes
++/// plus one; both buffers are that size.
+ struct TwoPassAttentionScratch {
+     probability: GpuBuffer,
+     ds: GpuBuffer,
+     capacity: usize,
+ }
+ 
++impl TwoPassAttentionScratch {
++    fn new(device: &VulkanDevice, elements: usize) -> Result<Self> {
++        Ok(Self {
++            probability: GpuBuffer::zeros_f32(device, elements)?,
++            ds: GpuBuffer::zeros_f32(device, elements)?,
++            capacity: elements,
++        })
++    }
++}
++
+ impl VulkanTransformerLayer {
+     /// Return the exact Q/K tensors consumed by the self-attention kernel in
+     /// the most recent forward pass. The forward path has several ordering
+@@ -60425,7 +61112,7 @@ impl VulkanTransformerLayer {
+                 value_hidden,
+                 attention_hidden,
+             )?,
+-            two_pass_attention_scratch: two_pass_attention_scratch(device, rows, q)?,
++            two_pass_attention_scratch: std::cell::RefCell::new(None),
+         };
+         if config.uses_parameter_free_layer_norm() {
+             layer.ln1.freeze();
+@@ -60631,11 +61318,7 @@ impl VulkanTransformerLayer {
+                 self.value_hidden_size,
+                 self.attention_hidden_size,
+             )?,
+-            two_pass_attention_scratch: two_pass_attention_scratch(
+-                device,
+-                rows,
+-                self.query_hidden_size,
+-            )?,
++            two_pass_attention_scratch: std::cell::RefCell::new(None),
+         })
+     }
+ 
+@@ -62802,6 +63485,90 @@ impl VulkanTransformerLayer {
+         )
+     }
+ 
++    /// Decide the backward route for this geometry and allocate the pair's
++    /// scratch on the first eligible call.
++    ///
++    /// Allocation happens here rather than at construction because eligibility
++    /// depends on values only the dispatch knows (mask mode, sink, bias, key
++    /// splitting). A rejected geometry returns before touching the allocator,
++    /// so it never pays for a fast path it cannot run.
++    fn select_two_pass_attention_backward(
++        &self,
++        commands: &vulkan::ComputeBatch,
++        kernels: &TransformerKernels,
++        push: &AttentionPush,
++        key_blocks: u32,
++    ) -> Result<bool> {
++        match two_pass_attention_gate(push, key_blocks, two_pass_attention_enabled()) {
++            AttentionBackwardRoute::Scalar { reason } => {
++                report_two_pass_decision(
++                    push,
++                    kernels
++                        .rdna3_two_pass_attention_backward
++                        .get()
++                        .is_some_and(TwoPassAttentionBackward::is_available),
++                    key_blocks,
++                    "scalar",
++                    false,
++                    reason,
++                    0,
++                );
++                return Ok(false);
++            }
++            AttentionBackwardRoute::TwoPass => {}
++        }
++        // Only an eligible geometry reaches this point, so this is the first
++        // place the optional pair is ever built.
++        let availability = resolve_two_pass_attention_backward(kernels, commands.device())?;
++        if !availability.is_available() {
++            report_two_pass_decision(
++                push,
++                false,
++                key_blocks,
++                "scalar",
++                false,
++                availability.reason,
++                0,
++            );
++            return Ok(false);
++        }
++        // The gate proved the geometry is eligible, so the exact size is known.
++        let elements = two_pass_attention_scratch_elements(push)
++            .context("two-pass attention scratch size overflow")?;
++        let existing = self
++            .two_pass_attention_scratch
++            .borrow()
++            .as_ref()
++            .map(|scratch| scratch.capacity);
++        if existing != Some(elements) {
++            let scratch = TwoPassAttentionScratch::new(commands.device(), elements)?;
++            record_attention_backward_scratch(elements);
++            eprintln!(
++                "two-pass backward scratch: layer={} batch={} heads={} kv_heads={} \
++                 q_seq={} kv_seq={} elements={} bytes={}",
++                self.layer_index,
++                push.batch_size,
++                push.num_heads,
++                push.num_key_value_heads,
++                push.query_seq_len,
++                push.key_value_seq_len,
++                elements,
++                elements * 2 * std::mem::size_of::<f32>(),
++            );
++            *self.two_pass_attention_scratch.borrow_mut() = Some(scratch);
++        }
++        report_two_pass_decision(
++            push,
++            true,
++            key_blocks,
++            "two-pass",
++            true,
++            "eligible",
++            elements,
++        );
++        Ok(true)
++    }
++
+     fn record_backward_with_cross_attention(
+         &self,
+         commands: &mut vulkan::ComputeBatch,
+@@ -64216,49 +64983,28 @@ impl VulkanTransformerLayer {
+                 // The two-pass pair is opt-in and geometry-gated: pass 1 owns one
+                 // query row per lane, pass 2 owns one key per lane, and every
+                 // geometry either pass cannot reproduce keeps the scalar kernel.
+-                let two_pass = if key_blocks == 1 && two_pass_attention_enabled() {
+-                    let pair = kernels.rdna3_two_pass_attention_backward.as_ref();
+-                    let scratch = self.two_pass_attention_scratch.as_ref();
+-                    let supported = scratch
+-                        .map(|scratch| {
+-                            two_pass_attention_supported(&attention_push, scratch.capacity)
+-                        })
+-                        .unwrap_or(false);
+-                    // One line per process, only under the opt-in switch: a silent
+-                    // fallback would look exactly like a qualified run.
+-                    {
+-                        use std::sync::atomic::{AtomicBool, Ordering};
+-                        static REPORTED: AtomicBool = AtomicBool::new(false);
+-                        if !REPORTED.swap(true, Ordering::Relaxed) {
+-                            eprintln!(
+-                                "two-pass backward: kernels={} scratch={} supported={} \
+-                                 key_blocks={} causal={} unfused_qk={} head_dim={} kv_seq={} \
+-                                 value_scale={} bias={} sparse={} compressed={} paged={} offset={}",
+-                                pair.is_some(),
+-                                scratch.is_some(),
+-                                supported,
+-                                key_blocks,
+-                                attention_push.causal,
+-                                attention_push.unfused_qk,
+-                                attention_push.query_hidden_size
+-                                    / attention_push.num_heads.max(1),
+-                                attention_push.key_value_seq_len,
+-                                attention_push.value_scale,
+-                                attention_push.relative_bias_mode,
+-                                attention_push.has_sparse_mask,
+-                                attention_push.compressed_key_count,
+-                                attention_push.paged_kv,
+-                                attention_push.query_position_offset,
+-                            );
+-                        }
+-                    }
+-                    match (pair, scratch) {
+-                        (Some(pair), Some(scratch)) if supported => Some((pair, scratch)),
+-                        _ => None,
+-                    }
++                let two_pass_scratch = if self.select_two_pass_attention_backward(
++                    commands,
++                    kernels,
++                    &attention_push,
++                    key_blocks,
++                )? {
++                    Some(self.two_pass_attention_scratch.borrow())
+                 } else {
+                     None
+                 };
++                let two_pass = match (
++                    kernels
++                        .rdna3_two_pass_attention_backward
++                        .get()
++                        .and_then(|pair| pair.kernels.as_ref()),
++                    two_pass_scratch
++                        .as_ref()
++                        .and_then(|guard| guard.as_ref()),
++                ) {
++                    (Some(pair), Some(scratch)) => Some((pair, scratch)),
++                    _ => None,
++                };
+                 if let Some((two_pass_kernels, two_pass_scratch)) = two_pass {
+                     let query_rows = attention_push.batch_size
+                         * attention_push.num_heads
+@@ -64282,6 +65028,7 @@ impl VulkanTransformerLayer {
+                         bytemuck::bytes_of(&attention_push),
+                         [(query_rows + 63) / 64, 1, 1],
+                     )?;
++                    record_attention_backward_dispatch(AttentionBackwardDispatch::Query);
+                     two_pass_kernels[1].record_dispatch(
+                         commands,
+                         &[
+@@ -64297,6 +65044,7 @@ impl VulkanTransformerLayer {
+                         bytemuck::bytes_of(&attention_push),
+                         [(key_rows + 63) / 64, 1, 1],
+                     )?;
++                    record_attention_backward_dispatch(AttentionBackwardDispatch::Key);
+                 } else if let Some(family) = kernels
+                     .rdna3_avx512_gpt2
+                     .as_ref()
+@@ -64395,6 +65143,7 @@ impl VulkanTransformerLayer {
+                             ),
+                             [num_key_value_heads as u32, batch_rows, 1],
+                         )?;
++                        record_attention_backward_dispatch(AttentionBackwardDispatch::Scalar);
+                         if key_block + 1 < key_blocks {
+                             commands.submit_and_restart()?;
+                         }
+@@ -135589,7 +136338,7 @@ mod tests {
+     /// Compare one gradient tensor element by element and describe the first
+     /// divergence in full. Returns the report and whether every element matched
+     /// bit for bit.
+-    fn gradient_report(name: &str, expected: &[f32], actual: &[f32]) -> (bool, String) {
++    fn gradient_report(name: &str, expected: &[f32], actual: &[f32]) -> (bool, String, f32, u32) {
+         assert_eq!(expected.len(), actual.len(), "{name} length mismatch");
+         let mut equal = 0usize;
+         let mut max_abs = 0.0_f32;
+@@ -135658,7 +136407,7 @@ mod tests {
+                 (ulp_order(expected_value) - ulp_order(actual_value)).abs(),
+             )),
+         }
+-        (equal == expected.len(), report)
++        (equal == expected.len(), report, max_abs, max_ulp as u32)
+     }
+ 
+     /// Deterministic input bytes for the direct comparison: two runs of the same
+@@ -135675,25 +136424,63 @@ mod tests {
+             .collect()
+     }
+ 
+-    /// Direct dQ/dK/dV comparison between the scalar mode-9 backward and the
+-    /// two-pass pair, both driven through their production kernels, descriptor
+-    /// bindings and push-constant layouts on the same device.
++    /// Direct dQ/dK/dV comparison between the scalar backward and the two-pass
++    /// pair, both driven through their production kernels, descriptor bindings
++    /// and push-constant layouts on the same device.
++    ///
++    /// Both arithmetic modes the eligibility gate admits -- the plain fused path
++    /// (mode 0) and Llama's materialised-SLEEF adjoint (mode 9) -- are exercised
++    /// over the same four geometries. The adapters agreed after two LoRA steps,
++    /// but that only observes the composition; this reads the gradient tensors
++    /// themselves. Outputs start as a sentinel so an element the kernel never
++    /// writes cannot pass as a zero.
+     ///
+-    /// The adapters agreed after two LoRA steps, but that only observes the
+-    /// composition; this reads the gradient tensors themselves. Outputs start as
+-    /// NaN so an element the kernel never writes cannot pass as a zero.
++    /// A missing device is a visible SKIP unless the run explicitly asked for
++    /// the two-pass path (``=1``), in which case it is BLOCKED and fails. A
++    /// device that is present but cannot qualify is always a FAIL.
+     #[test]
+     fn two_pass_attention_backward_matches_scalar_gradients() -> Result<()> {
+-        let Ok(device) = VulkanDevice::new() else {
++        let explicitly_requested = attention_backward_two_pass_explicitly_requested();
++        if two_pass_attention_setting() == Some(false) {
++            eprintln!(
++                "two-pass gradient qualification: status=SKIP reason=disabled_by_environment"
++            );
+             return Ok(());
++        }
++        let device = match VulkanDevice::new() {
++            Ok(device) => device,
++            Err(error) => {
++                eprintln!(
++                    "two-pass gradient qualification: status=BLOCKED \
++                     reason=no_vulkan_device detail={error}"
++                );
++                if explicitly_requested {
++                    panic!("two-pass gradient qualification BLOCKED: no Vulkan device: {error}");
++                }
++                return Ok(());
++            }
+         };
+-        let kernels = TransformerKernels::new(&device)?;
+-        let Some(two_pass) = kernels.rdna3_two_pass_attention_backward.as_ref() else {
++        let kernels = match TransformerKernels::new(&device) {
++            Ok(kernels) => kernels,
++            Err(error) => {
++                eprintln!(
++                    "two-pass gradient qualification: status=FAIL \
++                     reason=kernels_failed detail={error}"
++                );
++                return Err(error);
++            }
++        };
++        // The pair is resolved lazily, at the first eligible dispatch. This test
++        // is that dispatch, so it resolves the pair exactly as the production
++        // path does.
++        let pair = resolve_two_pass_attention_backward(&kernels, &device)?;
++        let Some(two_pass) = pair.kernels.as_ref() else {
+             eprintln!(
+-                "two-pass backward not loaded; run with \
+-                 HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1 to compare gradients"
++                "two-pass gradient qualification: status=FAIL reason={} detail={}",
++                pair.reason,
++                pair.detail.as_deref().unwrap_or("none")
+             );
+-            return Ok(());
++            panic!("two-pass kernels are not loaded although they are the eligible default");
+         };
+         let cases: [(&str, u32, u32, u32, u32, u32, bool); 4] = [
+             ("fixture-causal", 8, 8, 64, 128, 1, false),
+@@ -135701,7 +136488,19 @@ mod tests {
+             ("padded-causal", 2, 2, 16, 64, 1, true),
+             ("small-causal", 1, 1, 4, 4, 1, false),
+         ];
++        let modes = [0u32, 9u32];
+         let mut failures = 0usize;
++        let mut executed_cases = 0usize;
++        let mut comparisons = 0usize;
++        let mut total_elements = 0usize;
++        let mut total_equal = 0usize;
++        let mut total_unwritten = 0usize;
++        let mut max_abs = 0.0f32;
++        let mut max_ulp = 0u32;
++        let mut query_dispatches = 0usize;
++        let mut key_dispatches = 0usize;
++        let mut scalar_dispatches = 0usize;
++        for mode in modes {
+         for (label, batch, heads, seq, head_dim, causal, masked) in cases {
+             let hidden = seq * head_dim;
+             let rows = batch * heads * seq;
+@@ -135776,7 +136575,7 @@ mod tests {
+                 paged_kv: 0,
+                 kv_page_size: 1,
+                 kv_page_table_stride: 1,
+-                unfused_qk: 9,
++                unfused_qk: mode,
+             };
+             let mut scalar_commands = vulkan::ComputeBatch::new(&device)?;
+             kernels.attention_backward.record_dispatch(
+@@ -135803,8 +136602,16 @@ mod tests {
+                 // its grid has to cover the whole case or one head runs alone.
+                 [heads as u32, batch as u32, 1],
+             )?;
++            assert_eq!(
++                scalar_commands.dispatch_count(),
++                1,
++                "[{label}] mode={mode}: the scalar arm recorded {} dispatches",
++                scalar_commands.dispatch_count()
++            );
++            scalar_dispatches += scalar_commands.dispatch_count();
+             scalar_commands.submit()?;
+-            let capacity = (batch * heads * seq * head_dim) as usize;
++            let capacity = two_pass_attention_scratch_elements(&push)
++                .ok_or_else(|| anyhow::anyhow!("two-pass attention scratch size overflow"))?;
+             let scratch_sentinel = vec![sentinel_value; capacity];
+             let probability = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
+             let ds = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
+@@ -135840,6 +136647,15 @@ mod tests {
+                 bytemuck::bytes_of(&push),
+                 [(key_rows + 63) / 64, 1, 1],
+             )?;
++            assert_eq!(
++                parallel_commands.dispatch_count(),
++                2,
++                "[{label}] mode={mode}: the two-pass arm recorded {} dispatches, \
++                 expected both passes",
++                parallel_commands.dispatch_count()
++            );
++            query_dispatches += 1;
++            key_dispatches += 1;
+             parallel_commands.submit()?;
+ 
+             let count = (batch * heads * hidden) as usize;
+@@ -135869,22 +136685,1662 @@ mod tests {
+                     .chain(actual.iter())
+                     .filter(|value| **value == sentinel_value)
+                     .count();
+-                let (equal, report) = gradient_report(name, &expected, &actual);
++                let (equal, report, case_max_abs, case_max_ulp) =
++                    gradient_report(name, &expected, &actual);
+                 eprintln!(
+-                    "[{label}] batch={batch} heads={heads} seq={seq} head_dim={head_dim} \
+-                     causal={causal} masked={masked} unwritten={unwritten} {report} {}",
++                    "[{label}] mode={mode} batch={batch} heads={heads} seq={seq} \
++                     head_dim={head_dim} causal={causal} masked={masked} \
++                     unfused_qk={mode} unwritten={unwritten} {report} {}",
+                     if equal && unwritten == 0 { "PASS" } else { "FAIL" }
+                 );
++                comparisons += 1;
++                total_elements += expected.len();
++                if equal {
++                    total_equal += expected.len();
++                }
++                total_unwritten += unwritten;
++                max_abs = max_abs.max(case_max_abs);
++                max_ulp = max_ulp.max(case_max_ulp);
+                 if !equal || unwritten != 0 {
+                     case_failed += 1;
+                 }
+             }
++            if case_failed == 0 {
++                executed_cases += 1;
++            }
+             failures += case_failed;
+         }
++        }
++        let status = if failures == 0 && executed_cases == 8 && comparisons == 24 {
++            "PASS"
++        } else {
++            "FAIL"
++        };
++        eprintln!(
++            "two-pass gradient qualification: status={status} cases={executed_cases}/8 \
++             comparisons={comparisons}/24 elements={total_elements} \
++             bitwise_equal={total_equal} max_abs={max_abs:.3e} max_ulp={max_ulp} \
++             unwritten={total_unwritten} scalar_dispatches={scalar_dispatches} \
++             query_dispatches={query_dispatches} key_dispatches={key_dispatches}"
++        );
+         assert_eq!(failures, 0, "two-pass gradients diverge from the scalar path");
+         Ok(())
+     }
+ 
++    /// Decompose a flat gradient index back into the coordinates the kernel
++    /// indexed it by, so a divergence names an element rather than an offset.
++    fn describe_gradient_index(
++        index: usize,
++        seq: u32,
++        group_heads: u32,
++        head_dim: u32,
++        query_layout: bool,
++    ) -> String {
++        let d = index as u32 % head_dim;
++        let rest = index as u32 / head_dim;
++        let head = rest % group_heads;
++        let rest = rest / group_heads;
++        let position = rest % seq;
++        let batch = rest / seq;
++        if query_layout {
++            format!("batch={batch} head={head} query={position} dim={d}")
++        } else {
++            format!("batch={batch} kv_head={head} key={position} dim={d}")
++        }
++    }
++
++    /// Production-artifact qualification for grouped-query attention.
++    ///
++    /// The key pass this drives is the *shipped* one: both members come from
++    /// `resolve_two_pass_attention_backward`, the loader production dispatch
++    /// calls, so a PASS here is a statement about the bytes in `shaders/`, not
++    /// about a test-only SPIR-V constant. The selector must also admit exactly
++    /// these geometries first, which the test asserts per case: if the gate ever
++    /// drifts away from the shapes covered here, the test says so instead of
++    /// quietly qualifying something production cannot reach.
++    ///
++    /// Every case is bit-exact or it fails: dQ, dK and dV are compared against
++    /// the scalar kernel byte for byte, with a sentinel so an element neither arm
++    /// wrote cannot pass as zero. Scratch is read back after pass 1 alone, so a
++    /// slot pass 2 would read stale is caught before pass 2 can hide it.
++    ///
++    /// The negative control is the reduction tree the superseded MHA-only
++    /// artifact implemented (per-head accumulation combined in head order): it is
++    /// replayed on the host from pass 1's own operands and must *not* reproduce
++    /// the scalar oracle in mode 0, which is what makes the mode-0 result
++    /// non-vacuous. `gradient_report_rejects_a_one_ulp_difference` is the second
++    /// control, on the comparator itself.
++    #[test]
++    fn grouped_query_attention_two_pass_matches_scalar_gradients() -> Result<()> {
++        let explicitly_requested = attention_backward_two_pass_explicitly_requested();
++        if two_pass_attention_setting() == Some(false) {
++            eprintln!(
++                "gqa gradient qualification: status=SKIP reason=disabled_by_environment"
++            );
++            return Ok(());
++        }
++        let device = match VulkanDevice::new() {
++            Ok(device) => device,
++            Err(error) => {
++                eprintln!(
++                    "gqa gradient qualification: status=BLOCKED \
++                     reason=no_vulkan_device detail={error}"
++                );
++                if explicitly_requested {
++                    panic!("gqa gradient qualification BLOCKED: no Vulkan device: {error}");
++                }
++                return Ok(());
++            }
++        };
++        let kernels = TransformerKernels::new(&device)?;
++        let pair = resolve_two_pass_attention_backward(&kernels, &device)?;
++        let Some(two_pass) = pair.kernels.as_ref() else {
++            eprintln!(
++                "gqa gradient qualification: status=FAIL reason={} detail={}",
++                pair.reason,
++                pair.detail.as_deref().unwrap_or("none")
++            );
++            panic!("grouped-query qualification needs both optional passes, and they did not load");
++        };
++        assert_eq!(
++            pair.reason, "ready",
++            "the production loader did not report a usable pair"
++        );
++
++        let seq = 64u32;
++        let head_dim = 128u32;
++        // `8q/2kv` and `4q/2kv` are the Phase V groupings. `8q/4kv` and
++        // `16q/4kv` separate the grouped reduction from an assumption about a
++        // fixed KV-head count. Batch is varied for one grouping because the
++        // allowlist does not restrict it.
++        let cases: [(&str, u32, u32, u32); 6] = [
++            ("8q-2kv", 8, 2, 2),
++            ("4q-2kv", 4, 2, 2),
++            ("8q-4kv", 8, 4, 2),
++            ("16q-4kv", 16, 4, 2),
++            ("8q-2kv-b1", 8, 2, 1),
++            ("8q-2kv-b4", 8, 2, 4),
++        ];
++        let modes = [0u32, 9u32];
++        let sentinel_value = -98_765.432_1_f32;
++
++        let mut executed_cases = 0usize;
++        let mut comparisons = 0usize;
++        let mut failures = 0usize;
++        let mut total_elements = 0usize;
++        let mut total_equal = 0usize;
++        let mut total_unwritten = 0usize;
++        let mut max_abs = 0.0f32;
++        let mut max_ulp = 0u32;
++        let mut scratch_bytes = 0u64;
++        let mut scalar_dispatches = 0usize;
++        let mut query_dispatches = 0usize;
++        let mut key_dispatches = 0usize;
++
++        for mode in modes {
++            for (label, heads, kv_heads, case_batch) in cases {
++                let batch = case_batch;
++                let query_hidden = heads * head_dim;
++                let kv_hidden = kv_heads * head_dim;
++                let q_count = (batch * seq * query_hidden) as usize;
++                let kv_count = (batch * seq * kv_hidden) as usize;
++                let mask_count = (batch * seq) as usize;
++                let push = AttentionPush {
++                    batch_size: batch,
++                    query_seq_len: seq,
++                    key_value_seq_len: seq,
++                    query_hidden_size: query_hidden,
++                    value_hidden_size: kv_hidden,
++                    num_heads: heads,
++                    num_key_value_heads: kv_heads,
++                    window_size: 0,
++                    scale: 1.0 / (head_dim as f32).sqrt(),
++                    value_scale: 1.0,
++                    softcap: 0.0,
++                    alibi_mode: 0,
++                    alibi_bias_max: 0.0,
++                    dropout_p: 0.0,
++                    rng_step: 0,
++                    rng_site: 0,
++                    rng_seed: 0,
++                    has_sink: 0,
++                    causal: 1,
++                    relative_bias_mode: 0,
++                    relative_bias_num_buckets: 0,
++                    relative_bias_max_distance: 0,
++                    query_position_offset: 0,
++                    has_sparse_mask: 0,
++                    compressed_key_count: 0,
++                    compressed_key_rate: 0,
++                    paged_kv: 0,
++                    kv_page_size: 1,
++                    kv_page_table_stride: 1,
++                    unfused_qk: mode,
++                };
++                // The selector must admit exactly this geometry, in both modes.
++                // Otherwise the test would qualify bytes production cannot reach
++                // and the route would silently stay scalar.
++                assert_eq!(
++                    two_pass_attention_rejection(&push),
++                    None,
++                    "[{label}] mode={mode}: the production gate rejects this qualified geometry"
++                );
++                assert_eq!(
++                    two_pass_attention_gate(&push, 1, true),
++                    AttentionBackwardRoute::TwoPass,
++                    "[{label}] mode={mode}: production dispatch would not select the pair"
++                );
++
++                let query = GpuBuffer::from_f32(&device, &comparison_values(11, q_count))?;
++                let key = GpuBuffer::from_f32(&device, &comparison_values(12, kv_count))?;
++                let value = GpuBuffer::from_f32(&device, &comparison_values(13, kv_count))?;
++                let grad_output = GpuBuffer::from_f32(&device, &comparison_values(14, q_count))?;
++                let query_mask = GpuBuffer::from_f32(&device, &vec![1.0_f32; mask_count])?;
++                let key_mask = GpuBuffer::from_f32(&device, &vec![1.0_f32; mask_count])?;
++                let dummy = GpuBuffer::from_f32(&device, &[0.0_f32])?;
++                let scalar_q = GpuBuffer::from_f32(&device, &vec![sentinel_value; q_count])?;
++                let scalar_k = GpuBuffer::from_f32(&device, &vec![sentinel_value; kv_count])?;
++                let scalar_v = GpuBuffer::from_f32(&device, &vec![sentinel_value; kv_count])?;
++                let parallel_q = GpuBuffer::from_f32(&device, &vec![sentinel_value; q_count])?;
++                let parallel_k = GpuBuffer::from_f32(&device, &vec![sentinel_value; kv_count])?;
++                let parallel_v = GpuBuffer::from_f32(&device, &vec![sentinel_value; kv_count])?;
++
++                // Oracle: the scalar kernel, through its production descriptors,
++                // push block and grid.
++                let mut scalar_commands = vulkan::ComputeBatch::new(&device)?;
++                kernels.attention_backward.record_dispatch(
++                    &mut scalar_commands,
++                    &[
++                        &query,
++                        &key,
++                        &value,
++                        &query_mask,
++                        &key_mask,
++                        &dummy,
++                        &grad_output,
++                        &scalar_q,
++                        &scalar_k,
++                        &scalar_v,
++                        &dummy,
++                        &dummy,
++                        &dummy,
++                        &dummy,
++                        &dummy,
++                    ],
++                    bytemuck::bytes_of(&push.as_backward_push(0, 1)),
++                    [kv_heads, batch, 1],
++                )?;
++                assert_eq!(
++                    scalar_commands.dispatch_count(),
++                    1,
++                    "[{label}] mode={mode}: the scalar arm recorded {} dispatches",
++                    scalar_commands.dispatch_count()
++                );
++                scalar_dispatches += scalar_commands.dispatch_count();
++                scalar_commands.submit()?;
++
++                // Scratch is sized from the shaders' own indexing, unchanged.
++                let capacity = two_pass_attention_scratch_elements(&push)
++                    .context("grouped-query scratch size overflow")?;
++                assert_eq!(
++                    capacity,
++                    (batch * heads * seq * seq) as usize,
++                    "[{label}] mode={mode}: scratch must be batch * num_heads * q_seq * kv_seq"
++                );
++                scratch_bytes += (capacity * 2 * std::mem::size_of::<f32>()) as u64;
++                let probability = GpuBuffer::from_f32(&device, &vec![sentinel_value; capacity])?;
++                let ds = GpuBuffer::from_f32(&device, &vec![sentinel_value; capacity])?;
++
++                // Pass 1 alone, so scratch coverage is observable before pass 2
++                // can hide an unwritten slot.
++                let query_rows = batch * heads * seq;
++                let mut query_commands = vulkan::ComputeBatch::new(&device)?;
++                two_pass[0].record_dispatch(
++                    &mut query_commands,
++                    &[
++                        &query,
++                        &key,
++                        &value,
++                        &query_mask,
++                        &key_mask,
++                        &grad_output,
++                        &parallel_q,
++                        &probability,
++                        &ds,
++                    ],
++                    bytemuck::bytes_of(&push),
++                    [(query_rows + 63) / 64, 1, 1],
++                )?;
++                assert_eq!(
++                    query_commands.dispatch_count(),
++                    1,
++                    "[{label}] mode={mode}: the query pass recorded {} dispatches",
++                    query_commands.dispatch_count()
++                );
++                query_dispatches += query_commands.dispatch_count();
++                query_commands.submit()?;
++
++                let probability_host = probability.read_f32(capacity)?;
++                let ds_host = ds.read_f32(capacity)?;
++                let mut reachable = 0usize;
++                let mut stale_in_reachable = 0usize;
++                for b in 0..batch {
++                    for head in 0..heads {
++                        for q in 0..seq {
++                            // Causal, offset 0, kv_seq == query_seq: the row owns
++                            // keys 0..=query, and that is exactly what pass 2
++                            // may read for this key.
++                            for k in 0..=q {
++                                let slot = (((b * heads + head) * seq + q) * seq + k) as usize;
++                                reachable += 1;
++                                if probability_host[slot] == sentinel_value
++                                    || ds_host[slot] == sentinel_value
++                                {
++                                    stale_in_reachable += 1;
++                                }
++                            }
++                        }
++                    }
++                }
++                let stale_total = probability_host
++                    .iter()
++                    .chain(ds_host.iter())
++                    .filter(|value| **value == sentinel_value)
++                    .count();
++                assert_eq!(
++                    reachable,
++                    (batch * heads * seq * (seq + 1) / 2) as usize,
++                    "[{label}] mode={mode}: reachable scratch slot count"
++                );
++                assert_eq!(
++                    stale_in_reachable, 0,
++                    "[{label}] mode={mode}: {stale_in_reachable} scratch slots pass 2 reads \
++                     were never written by pass 1"
++                );
++                assert_eq!(
++                    stale_total,
++                    2 * (capacity - reachable),
++                    "[{label}] mode={mode}: pass 1 wrote outside the causal reachable set"
++                );
++
++                let key_rows = batch * kv_heads * seq;
++                let mut key_commands = vulkan::ComputeBatch::new(&device)?;
++                two_pass[1].record_dispatch(
++                    &mut key_commands,
++                    &[
++                        &query,
++                        &grad_output,
++                        &probability,
++                        &ds,
++                        &parallel_k,
++                        &parallel_v,
++                        &key_mask,
++                        &query_mask,
++                    ],
++                    bytemuck::bytes_of(&push),
++                    [(key_rows + 63) / 64, 1, 1],
++                )?;
++                assert_eq!(
++                    key_commands.dispatch_count(),
++                    1,
++                    "[{label}] mode={mode}: the key pass recorded {} dispatches",
++                    key_commands.dispatch_count()
++                );
++                key_dispatches += key_commands.dispatch_count();
++                key_commands.submit()?;
++
++                let q_expected = scalar_q.read_f32(q_count)?;
++                let q_actual = parallel_q.read_f32(q_count)?;
++                let k_expected = scalar_k.read_f32(kv_count)?;
++                let k_actual = parallel_k.read_f32(kv_count)?;
++                let v_expected = scalar_v.read_f32(kv_count)?;
++                let v_actual = parallel_v.read_f32(kv_count)?;
++                let tensors: [(&str, &[f32], &[f32], u32, bool); 3] = [
++                    ("grad_q", &q_expected, &q_actual, heads, true),
++                    ("grad_k", &k_expected, &k_actual, kv_heads, false),
++                    ("grad_v", &v_expected, &v_actual, kv_heads, false),
++                ];
++                let mut case_failed = 0usize;
++                for (name, expected, actual, group_heads, query_layout) in tensors {
++                    let unwritten = expected
++                        .iter()
++                        .chain(actual.iter())
++                        .filter(|value| **value == sentinel_value)
++                        .count();
++                    let (equal, report, case_max_abs, case_max_ulp) =
++                        gradient_report(name, expected, actual);
++                    let first = expected
++                        .iter()
++                        .zip(actual.iter())
++                        .position(|(expected_value, actual_value)| {
++                            expected_value.to_bits() != actual_value.to_bits()
++                        });
++                    let location = match first {
++                        Some(index) => format!(
++                            " first_divergence_at={} expected={:.9e} actual={:.9e}",
++                            describe_gradient_index(
++                                index,
++                                seq,
++                                group_heads,
++                                head_dim,
++                                query_layout
++                            ),
++                            expected[index],
++                            actual[index]
++                        ),
++                        None => String::new(),
++                    };
++                    eprintln!(
++                        "[gqa] {label} mode={mode} batch={batch} heads={heads} \
++                         kv_heads={kv_heads} queries_per_kv={} seq={seq} head_dim={head_dim} \
++                         causal=1 unfused_qk={mode} unwritten={unwritten} {report}{location} {}",
++                        heads / kv_heads,
++                        if equal && unwritten == 0 { "PASS" } else { "FAIL" }
++                    );
++                    comparisons += 1;
++                    total_elements += expected.len();
++                    if equal {
++                        total_equal += expected.len();
++                    }
++                    total_unwritten += unwritten;
++                    max_abs = max_abs.max(case_max_abs);
++                    max_ulp = max_ulp.max(case_max_ulp);
++                    if !equal || unwritten != 0 {
++                        case_failed += 1;
++                    }
++                }
++                // Phase V diagnostic: identify the scalar oracle's exact dK/dV
++                // reduction tree instead of assuming it. Pass 1's scratch is
++                // bit-exact (dQ proves it), so the host can reproduce the scalar
++                // reduction from the same operands under each candidate tree and
++                // report which one matches the oracle bit for bit.
++                if mode == 0 {
++                    let q_host = comparison_values(11, q_count);
++                    let go_host = comparison_values(14, q_count);
++                    let scale = 1.0_f32 / (head_dim as f32).sqrt();
++                    let out_hidden = heads * head_dim;
++                    let group = heads / kv_heads;
++                    let mut dk_trees = [0usize; 4];
++                    let mut dv_trees = [0usize; 4];
++                    let mut dims = 0usize;
++                    for probe_key in 0..4u32 {
++                        for dd in 0..head_dim {
++                            let mut dk_flat = 0.0f32;
++                            let mut dk_flat_fma = 0.0f32;
++                            let mut dk_head_plain = vec![0.0f32; group as usize];
++                            let mut dk_head_fma = vec![0.0f32; group as usize];
++                            let mut dv_flat = 0.0f32;
++                            let mut dv_flat_fma = 0.0f32;
++                            let mut dv_head_plain = vec![0.0f32; group as usize];
++                            let mut dv_head_fma = vec![0.0f32; group as usize];
++                            for hi in 0..group {
++                                let head = hi;
++                                for query in 0..seq {
++                                    if probe_key > query {
++                                        continue;
++                                    }
++                                    let slot = (((head)*seq + query) * seq + probe_key) as usize;
++                                    let p = probability_host[slot];
++                                    let ds = ds_host[slot];
++                                    let q_index = ((query * query_hidden + head * head_dim) + dd) as usize;
++                                    let go_index = ((query * out_hidden + head * head_dim) + dd) as usize;
++                                    let t = scale * ds;
++                                    dk_flat += t * q_host[q_index];
++                                    dk_flat_fma = t.mul_add(q_host[q_index], dk_flat_fma);
++                                    dk_head_plain[hi as usize] += t * q_host[q_index];
++                                    dk_head_fma[hi as usize] =
++                                        t.mul_add(q_host[q_index], dk_head_fma[hi as usize]);
++                                    dv_flat += p * go_host[go_index];
++                                    dv_flat_fma = p.mul_add(go_host[go_index], dv_flat_fma);
++                                    dv_head_plain[hi as usize] += p * go_host[go_index];
++                                    dv_head_fma[hi as usize] =
++                                        p.mul_add(go_host[go_index], dv_head_fma[hi as usize]);
++                                }
++                            }
++                            let mut dk_two_plain = 0.0f32;
++                            let mut dk_two_fma = 0.0f32;
++                            let mut dv_two_plain = 0.0f32;
++                            let mut dv_two_fma = 0.0f32;
++                            for hi in 0..group as usize {
++                                dk_two_plain += dk_head_plain[hi];
++                                dk_two_fma += dk_head_fma[hi];
++                                dv_two_plain += dv_head_plain[hi];
++                                dv_two_fma += dv_head_fma[hi];
++                            }
++                            // kv_head 0, batch 0: the element is [probe_key * kv_hidden + dd]
++                            let k_index = (probe_key * kv_hidden + dd) as usize;
++                            let v_index = k_index;
++                            let oracle_k = k_expected[k_index].to_bits();
++                            let oracle_v = v_expected[v_index].to_bits();
++                            dims += 1;
++                            for (slot_index, value) in [
++                                dk_flat, dk_flat_fma, dk_two_plain, dk_two_fma
++                            ]
++                            .iter()
++                            .enumerate()
++                            {
++                                if value.to_bits() == oracle_k {
++                                    dk_trees[slot_index] += 1;
++                                }
++                            }
++                            for (slot_index, value) in [
++                                dv_flat, dv_flat_fma, dv_two_plain, dv_two_fma
++                            ]
++                            .iter()
++                            .enumerate()
++                            {
++                                if value.to_bits() == oracle_v {
++                                    dv_trees[slot_index] += 1;
++                                }
++                            }
++                        }
++                    }
++                    let names = ["flat_plain", "flat_fma", "two_stage_plain", "two_stage_fma"];
++                    for index in 0..4 {
++                        eprintln!(
++                            "[gqa] {label} mode=0 tree_probe tree={} dk_match={}/{} dv_match={}/{}",
++                            names[index], dk_trees[index], dims, dv_trees[index], dims
++                        );
++                    }
++                    // Negative control, measured rather than assumed: the
++                    // superseded MHA-only tree (per-head accumulation combined in
++                    // head order) does not reproduce the oracle for a grouped
++                    // geometry, while the flat tree the promoted shader
++                    // implements does. If both matched, the mode-0 result would
++                    // prove nothing about grouping.
++                    assert_eq!(
++                        (dk_trees[0], dv_trees[0]),
++                        (dims, dims),
++                        "[{label}] mode=0: the flat tree probe does not reproduce the scalar \
++                         oracle, so the oracle's own reduction order is not what this shader \
++                         implements"
++                    );
++                    assert!(
++                        dk_trees[2] < dims && dv_trees[2] < dims,
++                        "[{label}] mode=0: the superseded two-stage tree reproduces the oracle, \
++                         so the grouped-accumulation negative control is vacuous \
++                         (dk {}/{dims}, dv {}/{dims})",
++                        dk_trees[2],
++                        dv_trees[2]
++                    );
++                }
++
++                if case_failed == 0 {
++                    executed_cases += 1;
++                }
++                failures += case_failed;
++            }
++        }
++
++        let status = if failures == 0 && executed_cases == 12 && comparisons == 36 {
++            "PASS"
++        } else {
++            "FAIL"
++        };
++        eprintln!(
++            "gqa two-pass qualification: status={status} cases={executed_cases}/12 \
++             comparisons={comparisons}/36 elements={total_elements} \
++             bitwise_equal={total_equal} max_abs={max_abs:.3e} max_ulp={max_ulp} \
++             unwritten={total_unwritten} scratch_bytes={scratch_bytes} \
++             scalar_dispatches={scalar_dispatches} query_dispatches={query_dispatches} \
++             key_dispatches={key_dispatches}"
++        );
++        assert_eq!(
++            failures, 0,
++            "the grouped-query production pair diverges from the scalar path"
++        );
++        assert_eq!(
++            (executed_cases, comparisons),
++            (12, 36),
++            "the grouped-query matrix did not run to completion"
++        );
++        assert_eq!(scalar_dispatches, 12);
++        assert_eq!(query_dispatches, 12);
++        assert_eq!(key_dispatches, 12);
++        Ok(())
++    }
++
++    /// The production route for a qualified grouped geometry, end to end.
++    ///
++    /// The numerical test above drives the pair directly so it can observe
++    /// scratch coverage between the passes; this one goes through
++    /// `VulkanTransformerLayer::record_backward`, which is the code path training
++    /// actually runs, and reads the dispatch counters the layer recorded. A
++    /// qualified geometry must select the pair, dispatch both passes exactly once
++    /// per backward call, never touch the scalar kernel, and allocate its scratch
++    /// once. A divisible-but-unmeasured geometry must do none of that.
++    #[test]
++    fn grouped_query_attention_production_route_dispatches_both_passes() -> Result<()> {
++        use two_pass_attention_test_hooks::ShaderFault;
++        let Ok(device) = VulkanDevice::new() else {
++            eprintln!(
++                "gqa production-route qualification: status=BLOCKED reason=no_vulkan_device"
++            );
++            return Ok(());
++        };
++        // 8 query heads / 2 KV heads at the qualified head dimension and
++        // sequence shape, through the real layer.
++        let (heads, kv_heads, head_dim, batch, seq) = (8, 2, 128, 2, 64);
++        let scalar = run_attention_backward_step(
++            &device,
++            Some(Some(false)),
++            None,
++            heads,
++            kv_heads,
++            head_dim,
++            batch,
++            seq,
++        )?;
++        assert!(scalar.counts.scalar > 0, "the =0 baseline never dispatched");
++        assert_eq!(scalar.counts.query, 0);
++        assert_eq!(scalar.counts.key, 0);
++        assert_eq!(scalar.counts.scratch_allocations, 0);
++
++        let accelerated = run_attention_backward_step(
++            &device,
++            Some(None),
++            None,
++            heads,
++            kv_heads,
++            head_dim,
++            batch,
++            seq,
++        )?;
++        assert_eq!(
++            accelerated.counts.query, 1,
++            "the query pass did not dispatch exactly once"
++        );
++        assert_eq!(
++            accelerated.counts.key, 1,
++            "the promoted key pass did not dispatch exactly once"
++        );
++        assert_eq!(
++            accelerated.counts.scalar, 0,
++            "a qualified grouped geometry fell back to the scalar kernel"
++        );
++        assert_eq!(
++            accelerated.counts.scratch_allocations, 1,
++            "two-pass scratch was not allocated exactly once"
++        );
++        assert_eq!(accelerated.optional_kernel_loads, 2);
++        assert_eq!(accelerated.pair_reason, Some("ready"));
++        assert_same_attention_gradients("gqa-production-route", &scalar, &accelerated);
++
++        // The same grouping at an unmeasured head dimension and sequence shape:
++        // divisible, still refused, and nothing optional is built or allocated --
++        // not even with the pair deliberately broken and the default on.
++        let unmeasured = run_attention_backward_step(
++            &device,
++            Some(None),
++            Some(ShaderFault::Both),
++            8,
++            2,
++            8,
++            2,
++            8,
++        )?;
++        assert_eq!(unmeasured.counts.query, 0);
++        assert_eq!(unmeasured.counts.key, 0);
++        assert_eq!(unmeasured.counts.scratch_allocations, 0);
++        assert!(unmeasured.counts.scalar > 0);
++        assert_eq!(
++            unmeasured.optional_kernel_loads, 0,
++            "an unqualified grouped geometry built an optional kernel"
++        );
++        assert_eq!(unmeasured.pair_reason, None);
++
++        eprintln!(
++            "gqa production-route qualification: status=PASS \
++             default_query={} default_key={} default_scalar={} scratch_allocations={} \
++             unmeasured_loads={}",
++            accelerated.counts.query,
++            accelerated.counts.key,
++            accelerated.counts.scalar,
++            accelerated.counts.scratch_allocations,
++            unmeasured.optional_kernel_loads,
++        );
++        Ok(())
++    }
++
++    /// Focused kernel timing for the shipped two-pass pair.
++    ///
++    /// Only meaningful after parity, so it is a separate opt-in run that reports
++    /// GPU time from the shipped timestamp profiler rather than wall time. It
++    /// covers the qualified MHA geometry as well as the grouped ones, because the
++    /// key pass is a single artifact for both and a generic shader is only worth
++    /// its generality if it does not cost MHA anything:
++    ///
++    /// ```text
++    /// HIERARCHOS_ATTENTION_BACKWARD_KERNEL_TIMING=1 \
++    ///   HIERARCHOS_VULKAN_PROFILE_KERNELS=1 \
++    ///   cargo test --lib two_pass_attention_kernel_timing -- --nocapture
++    /// ```
++    ///
++    /// Each arm is one submission of `iterations` identical dispatches, and the
++    /// profiler block printed immediately after each `[two-pass-bench]` marker is that
++    /// submission's own GPU total, so the per-dispatch time is the total divided
++    /// by the dispatch count. Every conditional keeps the arms identical and the
++    /// kernels unchanged from the numerical run.
++    #[test]
++    fn two_pass_attention_kernel_timing() -> Result<()> {
++        let requested = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_KERNEL_TIMING")
++            .map(|value| value.trim() == "1")
++            .unwrap_or(false);
++        if !requested {
++            eprintln!(
++                "two-pass kernel timing: status=SKIP reason=not_requested \
++                 (set HIERARCHOS_ATTENTION_BACKWARD_KERNEL_TIMING=1)"
++            );
++            return Ok(());
++        }
++        // The timestamp profile is a cross-check, not a precondition: without it
++        // the run still reports host-observed submission latency and says so.
++        let profiled = std::env::var_os("HIERARCHOS_VULKAN_PROFILE_KERNELS").is_some();
++        eprintln!(
++            "two-pass kernel timing: status=RUN timestamp_profile={profiled} \
++             (set HIERARCHOS_VULKAN_PROFILE_KERNELS=1 for the GPU-time cross-check)"
++        );
++        let device = VulkanDevice::new()?;
++        let query_kernel = vulkan::ComputeKernel::new(
++            &device,
++            TwoPassAttentionPass::Query.spirv(),
++            TwoPassAttentionPass::Query.binding_count(),
++            std::mem::size_of::<AttentionPush>() as u32,
++        )?;
++        // The shipped key pass: the same artifact production dispatch loads, so a
++        // number here is a statement about the production shader.
++        let key_kernel = vulkan::ComputeKernel::new(
++            &device,
++            TwoPassAttentionPass::Key.spirv(),
++            TwoPassAttentionPass::Key.binding_count(),
++            std::mem::size_of::<AttentionPush>() as u32,
++        )?;
++        let kernels = TransformerKernels::new(&device)?;
++
++        let seq = 64u32;
++        let batch = 2u32;
++        let head_dim = 128u32;
++        let iterations = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_KERNEL_TIMING_ITERATIONS")
++            .ok()
++            .and_then(|value| value.trim().parse::<u32>().ok())
++            .unwrap_or(30);
++        let warmup = 5u32;
++        // `8q-8kv` is the qualified MHA geometry, measured with the same protocol
++        // as the grouped ones so the before/after comparison of the key pass is
++        // apples to apples.
++        for (label, heads, kv_heads) in [
++            ("8q-8kv", 8u32, 8u32),
++            ("8q-2kv", 8u32, 2u32),
++            ("4q-2kv", 4u32, 2u32),
++        ] {
++            let query_hidden = heads * head_dim;
++            let kv_hidden = kv_heads * head_dim;
++            let q_count = (batch * seq * query_hidden) as usize;
++            let kv_count = (batch * seq * kv_hidden) as usize;
++            let mask_count = (batch * seq) as usize;
++            let push = AttentionPush {
++                batch_size: batch,
++                query_seq_len: seq,
++                key_value_seq_len: seq,
++                query_hidden_size: query_hidden,
++                value_hidden_size: kv_hidden,
++                num_heads: heads,
++                num_key_value_heads: kv_heads,
++                window_size: 0,
++                scale: 1.0 / (head_dim as f32).sqrt(),
++                value_scale: 1.0,
++                softcap: 0.0,
++                alibi_mode: 0,
++                alibi_bias_max: 0.0,
++                dropout_p: 0.0,
++                rng_step: 0,
++                rng_site: 0,
++                rng_seed: 0,
++                has_sink: 0,
++                causal: 1,
++                relative_bias_mode: 0,
++                relative_bias_num_buckets: 0,
++                relative_bias_max_distance: 0,
++                query_position_offset: 0,
++                has_sparse_mask: 0,
++                compressed_key_count: 0,
++                compressed_key_rate: 0,
++                paged_kv: 0,
++                kv_page_size: 1,
++                kv_page_table_stride: 1,
++                unfused_qk: 0,
++            };
++            let query = GpuBuffer::from_f32(&device, &comparison_values(11, q_count))?;
++            let key = GpuBuffer::from_f32(&device, &comparison_values(12, kv_count))?;
++            let value = GpuBuffer::from_f32(&device, &comparison_values(13, kv_count))?;
++            let grad_output = GpuBuffer::from_f32(&device, &comparison_values(14, q_count))?;
++            let query_mask = GpuBuffer::from_f32(&device, &vec![1.0_f32; mask_count])?;
++            let key_mask = GpuBuffer::from_f32(&device, &vec![1.0_f32; mask_count])?;
++            let dummy = GpuBuffer::from_f32(&device, &[0.0_f32])?;
++            let grad_q = GpuBuffer::from_f32(&device, &vec![0.0_f32; q_count])?;
++            let grad_k = GpuBuffer::from_f32(&device, &vec![0.0_f32; kv_count])?;
++            let grad_v = GpuBuffer::from_f32(&device, &vec![0.0_f32; kv_count])?;
++            let scratch_capacity = two_pass_attention_scratch_elements(&push)
++                .context("grouped-query scratch size overflow")?;
++            let probability =
++                GpuBuffer::from_f32(&device, &vec![0.0_f32; scratch_capacity])?;
++            let ds = GpuBuffer::from_f32(&device, &vec![0.0_f32; scratch_capacity])?;
++
++            let query_grid = [((batch * heads * seq) + 63) / 64, 1, 1];
++            let key_grid = [((batch * kv_heads * seq) + 63) / 64, 1, 1];
++            let scalar_grid = [kv_heads, batch, 1];
++            let query_buffers: [&GpuBuffer; 9] = [
++                &query,
++                &key,
++                &value,
++                &query_mask,
++                &key_mask,
++                &grad_output,
++                &grad_q,
++                &probability,
++                &ds,
++            ];
++            let key_buffers: [&GpuBuffer; 8] = [
++                &query,
++                &grad_output,
++                &probability,
++                &ds,
++                &grad_k,
++                &grad_v,
++                &key_mask,
++                &query_mask,
++            ];
++            let scalar_buffers: [&GpuBuffer; 15] = [
++                &query,
++                &key,
++                &value,
++                &query_mask,
++                &key_mask,
++                &dummy,
++                &grad_output,
++                &grad_q,
++                &grad_k,
++                &grad_v,
++                &dummy,
++                &dummy,
++                &dummy,
++                &dummy,
++                &dummy,
++            ];
++            let backward_push = push.as_backward_push(0, 1);
++
++            // One dispatch per submission, so a submission's GPU total is one
++            // kernel's time and the profiler block that follows names it. The
++            // headline number is the median host-observed submission latency;
++            // the timestamp profiler's per-block gpu_ms is the cross-check.
++            let submit = |arm: &str, marker: &str| -> Result<()> {
++                eprintln!("[two-pass-bench{marker}] geometry={label} arm={arm}");
++                let mut commands = vulkan::ComputeBatch::new(&device)?;
++                match arm {
++                    "scalar" => kernels.attention_backward.record_dispatch(
++                        &mut commands,
++                        &scalar_buffers,
++                        bytemuck::bytes_of(&backward_push),
++                        scalar_grid,
++                    )?,
++                    "query" => query_kernel.record_dispatch(
++                        &mut commands,
++                        &query_buffers,
++                        bytemuck::bytes_of(&push),
++                        query_grid,
++                    )?,
++                    "key" => key_kernel.record_dispatch(
++                        &mut commands,
++                        &key_buffers,
++                        bytemuck::bytes_of(&push),
++                        key_grid,
++                    )?,
++                    _ => {
++                        query_kernel.record_dispatch(
++                            &mut commands,
++                            &query_buffers,
++                            bytemuck::bytes_of(&push),
++                            query_grid,
++                        )?;
++                        key_kernel.record_dispatch(
++                            &mut commands,
++                            &key_buffers,
++                            bytemuck::bytes_of(&push),
++                            key_grid,
++                        )?;
++                    }
++                }
++                commands.submit()?;
++                Ok(())
++            };
++            for arm in ["scalar", "query", "key", "combined"] {
++                for _ in 0..warmup {
++                    submit(arm, "-warmup")?;
++                }
++                let mut samples = Vec::with_capacity(iterations as usize);
++                for _ in 0..iterations {
++                    let start = std::time::Instant::now();
++                    submit(arm, "-sample")?;
++                    samples.push(start.elapsed().as_secs_f64() * 1e3);
++                }
++                samples.sort_by(|left, right| left.partial_cmp(right).unwrap());
++                let median = samples[samples.len() / 2];
++                let p25 = samples[samples.len() / 4];
++                eprintln!(
++                    "[two-pass-bench-result] geometry={label} arm={arm} iterations={iterations} \
++                     median_ms={median:.6} p25_ms={p25:.6} min_ms={:.6} max_ms={:.6}",
++                    samples[0],
++                    samples[samples.len() - 1]
++                );
++            }
++        }
++        Ok(())
++    }
++
++    /// The comparator that decides a gradient PASS must reject a one-ULP change;
++    /// otherwise the qualification would be vacuous.
++    #[test]
++    fn gradient_report_rejects_a_one_ulp_difference() {
++        let expected = vec![1.0_f32, -2.5, 0.75, 0.0];
++        let mut actual = expected.clone();
++        let (equal, _, _, max_ulp) = gradient_report("identical", &expected, &actual);
++        assert!(equal);
++        assert_eq!(max_ulp, 0);
++        actual[1] = f32::from_bits(actual[1].to_bits() ^ 1);
++        let (equal, report, _, max_ulp) = gradient_report("one-ulp", &expected, &actual);
++        assert!(!equal, "a one-ULP change must not pass: {report}");
++        assert!(max_ulp >= 1, "the report must carry the ULP distance");
++        assert!(report.contains("first_divergence=index 1"), "{report}");
++    }
++
++    fn eligibility_push(
++        batch: u32,
++        heads: u32,
++        kv_heads: u32,
++        seq: u32,
++        head_dim: u32,
++        mode: u32,
++    ) -> AttentionPush {
++        AttentionPush {
++            batch_size: batch,
++            query_seq_len: seq,
++            key_value_seq_len: seq,
++            query_hidden_size: heads * head_dim,
++            value_hidden_size: kv_heads * head_dim,
++            num_heads: heads,
++            num_key_value_heads: kv_heads,
++            window_size: 0,
++            scale: 1.0 / (head_dim as f32).sqrt(),
++            value_scale: 1.0,
++            softcap: 0.0,
++            alibi_mode: 0,
++            alibi_bias_max: 0.0,
++            dropout_p: 0.0,
++            rng_step: 0,
++            rng_site: 0,
++            rng_seed: 0,
++            has_sink: 0,
++            causal: 1,
++            relative_bias_mode: 0,
++            relative_bias_num_buckets: 0,
++            relative_bias_max_distance: 0,
++            query_position_offset: 0,
++            has_sparse_mask: 0,
++            compressed_key_count: 0,
++            compressed_key_rate: 0,
++            paged_kv: 0,
++            kv_page_size: 1,
++            kv_page_table_stride: 1,
++            unfused_qk: mode,
++        }
++    }
++
++    /// The scratch contract is derived from the shaders' slot indexing, and every
++    /// geometry the gate rejects is rejected before any allocation.
++    #[test]
++    fn two_pass_scratch_sizing_and_eligibility_are_geometry_exact() {
++        let eligible = eligibility_push(8, 8, 8, 64, 128, 9);
++        assert_eq!(two_pass_attention_rejection(&eligible), None);
++        assert_eq!(
++            two_pass_attention_scratch_elements(&eligible),
++            Some(8 * 8 * 64 * 64)
++        );
++        assert_eq!(two_pass_attention_scratch_elements(&eligible), Some(262_144));
++
++        let mode0 = eligibility_push(2, 4, 4, 16, 64, 0);
++        assert_eq!(two_pass_attention_rejection(&mode0), None);
++        assert_eq!(
++            two_pass_attention_scratch_elements(&mode0),
++            Some(2 * 4 * 16 * 16)
++        );
++
++        // A qualified grouped geometry sizes its scratch from the same formula:
++        // grouping changes which K/V row a query head contributes to, never which
++        // scratch slot it owns, so the slot base stays the query head.
++        let grouped = eligibility_push(2, 8, 2, 64, 128, 9);
++        assert_eq!(two_pass_attention_rejection(&grouped), None);
++        assert_eq!(
++            two_pass_attention_scratch_elements(&grouped),
++            Some(2 * 8 * 64 * 64)
++        );
++
++        // A divisible but unmeasured grouping never reaches the allocator.
++        let unmeasured = eligibility_push(8, 32, 2, 64, 128, 9);
++        assert_eq!(
++            two_pass_attention_rejection(&unmeasured),
++            Some("grouped_query_attention_unqualified_grouping")
++        );
++
++        // A qualified grouping at an unmeasured head dimension or sequence shape
++        // is rejected too: the allowlist is a conjunction, not a grouping-only
++        // check.
++        let narrow = eligibility_push(8, 8, 2, 64, 64, 9);
++        assert_eq!(
++            two_pass_attention_rejection(&narrow),
++            Some("grouped_query_attention_unqualified_head_dim")
++        );
++        let short = eligibility_push(8, 8, 2, 32, 128, 9);
++        assert_eq!(
++            two_pass_attention_rejection(&short),
++            Some("grouped_query_attention_unqualified_sequence")
++        );
++        let full = AttentionPush {
++            causal: 0,
++            ..eligibility_push(2, 8, 2, 64, 128, 9)
++        };
++        assert_eq!(
++            two_pass_attention_rejection(&full),
++            Some("grouped_query_attention_unqualified_causal")
++        );
++
++        // A key sequence above the admitted head dimension is unsupported.
++        let long = eligibility_push(1, 8, 8, 256, 128, 9);
++        assert_eq!(
++            two_pass_attention_rejection(&long),
++            Some("kv_sequence_above_head_dim")
++        );
++
++        // Other adjoint arithmetic orders keep the scalar kernel.
++        let mode1 = eligibility_push(8, 8, 8, 64, 128, 1);
++        assert_eq!(
++            two_pass_attention_rejection(&mode1),
++            Some("unsupported_arithmetic_mode")
++        );
++
++        assert!(two_pass_attention_supported(&eligible));
++        assert!(two_pass_attention_supported(&grouped));
++        assert!(!two_pass_attention_supported(&unmeasured));
++    }
++
++    /// The gate decides every route without a device, so the ineligible cases
++    /// cannot be "covered" by a branch that happens never to run.
++    #[test]
++    fn two_pass_gate_keeps_every_ineligible_geometry_on_scalar() {
++        use AttentionBackwardRoute::{Scalar, TwoPass};
++        let eligible = eligibility_push(8, 8, 8, 64, 128, 9);
++        assert_eq!(two_pass_attention_gate(&eligible, 1, true), TwoPass);
++
++        // An explicit `=0` wins over an otherwise eligible geometry.
++        assert_eq!(
++            two_pass_attention_gate(&eligible, 1, false),
++            Scalar {
++                reason: "disabled_by_environment"
++            }
++        );
++
++        // A split submission never dispatches the pair.
++        assert_eq!(
++            two_pass_attention_gate(&eligible, 2, true),
++            Scalar {
++                reason: "key_range_split"
++            }
++        );
++
++        // A qualified grouped geometry selects the pair; every other grouped
++        // geometry keeps the scalar kernel with an actionable reason.
++        let grouped = eligibility_push(2, 8, 2, 64, 128, 9);
++        assert_eq!(two_pass_attention_gate(&grouped, 1, true), TwoPass);
++        assert_eq!(
++            two_pass_attention_gate(&eligibility_push(2, 32, 2, 64, 128, 9), 1, true),
++            Scalar {
++                reason: "grouped_query_attention_unqualified_grouping"
++            }
++        );
++        assert_eq!(
++            two_pass_attention_gate(&eligibility_push(2, 8, 2, 32, 128, 9), 1, true),
++            Scalar {
++                reason: "grouped_query_attention_unqualified_sequence"
++            }
++        );
++
++        // A key sequence longer than the admitted head dimension.
++        let long = eligibility_push(1, 8, 8, 256, 128, 9);
++        assert_eq!(
++            two_pass_attention_gate(&long, 1, true),
++            Scalar {
++                reason: "kv_sequence_above_head_dim"
++            }
++        );
++
++        // Any other adjoint ordering keeps the qualified scalar kernel.
++        let mode1 = eligibility_push(8, 8, 8, 64, 128, 1);
++        assert_eq!(
++            two_pass_attention_gate(&mode1, 1, true),
++            Scalar {
++                reason: "unsupported_arithmetic_mode"
++            }
++        );
++    }
++
++    /// Optional-kernel failures split into "this module cannot run here" and
++    /// "this device is broken". Only the first may degrade to scalar.
++    #[test]
++    fn optional_kernel_failures_are_classified_as_capability_or_device() {
++        use OptionalKernelOutcome::{Fatal, Incompatible};
++
++        // A module this driver will not build is the optional pair's problem.
++        for stage in [
++            "decoding embedded SPIR-V: invalid SPIR-V magic number",
++            "creating Vulkan shader module: ERROR_UNKNOWN",
++            "creating Vulkan compute pipeline: ERROR_UNKNOWN",
++        ] {
++            assert_eq!(
++                classify_optional_kernel_error(false, stage),
++                Incompatible,
++                "{stage}"
++            );
++        }
++
++        // A device that is gone cannot be rescued by falling back.
++        assert_eq!(
++            classify_optional_kernel_error(false, "creating Vulkan compute pipeline: ERROR_DEVICE_LOST"),
++            Fatal {
++                reason: "device_lost"
++            }
++        );
++        // The device's own sticky flag outranks an otherwise capability-shaped
++        // message: a lost device is lost whatever the last call said.
++        assert_eq!(
++            classify_optional_kernel_error(true, "creating Vulkan shader module: ERROR_UNKNOWN"),
++            Fatal {
++                reason: "device_lost"
++            }
++        );
++
++        // Allocation failure is a resource failure, not a capability one.
++        for out_of_memory in [
++            "creating Vulkan shader module: ERROR_OUT_OF_DEVICE_MEMORY",
++            "creating Vulkan compute pipeline: ERROR_OUT_OF_HOST_MEMORY",
++        ] {
++            assert_eq!(
++                classify_optional_kernel_error(false, out_of_memory),
++                Fatal {
++                    reason: "out_of_memory"
++                },
++                "{out_of_memory}"
++            );
++        }
++
++        // A poisoned device-wide lock means another thread panicked inside it.
++        assert_eq!(
++            classify_optional_kernel_error(false, "Vulkan layout interner lock was poisoned"),
++            Fatal {
++                reason: "invalid_device_state"
++            }
++        );
++
++        // An unrecognised failure must never be converted into a scalar success.
++        assert_eq!(
++            classify_optional_kernel_error(false, "creating Vulkan buffer: ERROR_UNKNOWN"),
++            Fatal {
++                reason: "unclassified"
++            }
++        );
++    }
++
++    /// One real forward+backward through a one-layer Llama-shaped graph.
++    ///
++    /// Every claim the fallback has to prove is read from this: the gradient
++    /// tensors, the dispatch the layer actually recorded on this thread, how
++    /// many optional kernels the loader built, and what the pair resolved to.
++    #[derive(Debug)]
++    struct AttentionBackwardStep {
++        grad_q: Vec<f32>,
++        grad_k: Vec<f32>,
++        grad_v: Vec<f32>,
++        counts: AttentionBackwardDispatchCounts,
++        optional_kernel_loads: u32,
++        pair_reason: Option<&'static str>,
++    }
++
++    fn two_pass_test_weights(len: usize, salt: usize) -> Vec<f32> {
++        (0..len)
++            .map(|index| (((index * 53 + salt * 29) % 197) as f32 - 98.0) / 113.0)
++            .collect()
++    }
++
++    fn two_pass_test_layer(
++        device: &VulkanDevice,
++        heads: u32,
++        kv_heads: u32,
++        head_dim: u32,
++        batch: u32,
++        seq: u32,
++    ) -> Result<(VulkanTransformerLayer, VulkanTransformerConfig)> {
++        let hidden = (heads * head_dim) as usize;
++        let config = VulkanTransformerConfig::from_hf_value(&serde_json::json!({
++            "model_type": "llama",
++            "vocab_size": 32,
++            "hidden_size": hidden,
++            "num_hidden_layers": 1,
++            "num_attention_heads": heads,
++            "num_key_value_heads": kv_heads,
++            "head_dim": head_dim,
++            "intermediate_size": hidden,
++            "hidden_act": "silu",
++            "rms_norm_eps": 1.0e-6,
++            "max_position_embeddings": 256,
++        }))?;
++        let d = config.hidden_size;
++        let i = config.intermediate_size;
++        let query_width = (heads * head_dim) as usize;
++        let kv_width = (kv_heads * head_dim) as usize;
++        let linear = |output: usize, input: usize, salt: usize| HostLinear {
++            weight: two_pass_test_weights(output * input, salt),
++            bias: None,
++        };
++        let host = HostTransformerLayer {
++            post_attention_norm: None,
++            post_mlp_norm: None,
++            ln1: HostLayerNorm {
++                weight: vec![1.0; d],
++                bias: Vec::new(),
++            },
++            c_attn: None,
++            q_proj: Some(linear(query_width, d, 1)),
++            k_proj: Some(linear(kv_width, d, 2)),
++            v_proj: Some(linear(kv_width, d, 3)),
++            q_norm: None,
++            k_norm: None,
++            c_proj: linear(d, query_width, 4),
++            ln2: HostLayerNorm {
++                weight: vec![1.0; d],
++                bias: Vec::new(),
++            },
++            c_fc: linear(i, d, 5),
++            c_gate: Some(linear(i, d, 7)),
++            c_mlp_proj: linear(d, i, 6),
++            xielu: None,
++        };
++        let rotary = TransformerRotaryLayerSpec {
++            enabled: true,
++            rotary_dim: config.rotary_dim,
++            rotary_emb_base: config.rotary_emb_base,
++            rope_scaling: config.rope_scaling.clone(),
++        };
++        let layer = VulkanTransformerLayer::new(
++            device,
++            &config,
++            (batch * seq) as usize,
++            seq as usize,
++            0,
++            rotary,
++            config.attention_windows[0],
++            None,
++            None,
++            None,
++            None,
++            None,
++            None,
++            None,
++            None,
++            None,
++            None,
++            None,
++            None,
++            false,
++            host,
++        )?;
++        Ok((layer, config))
++    }
++
++    fn run_attention_backward_step(
++        device: &VulkanDevice,
++        setting: Option<Option<bool>>,
++        fault: Option<two_pass_attention_test_hooks::ShaderFault>,
++        heads: u32,
++        kv_heads: u32,
++        head_dim: u32,
++        batch: u32,
++        seq: u32,
++    ) -> Result<AttentionBackwardStep> {
++        run_attention_backward_steps(
++            device, setting, fault, heads, kv_heads, head_dim, batch, seq, 1,
++        )
++    }
++
++    /// As [`run_attention_backward_step`], recording `steps` backward calls
++    /// against one kernel set and one layer. Used to prove the failed optional
++    /// load is cached rather than retried on every training step.
++    #[allow(clippy::too_many_arguments)]
++    fn run_attention_backward_steps(
++        device: &VulkanDevice,
++        setting: Option<Option<bool>>,
++        fault: Option<two_pass_attention_test_hooks::ShaderFault>,
++        heads: u32,
++        kv_heads: u32,
++        head_dim: u32,
++        batch: u32,
++        seq: u32,
++        steps: u32,
++    ) -> Result<AttentionBackwardStep> {
++        let _scope = two_pass_attention_test_hooks::scope(setting, fault);
++        two_pass_attention_test_hooks::reset_thread_counts();
++        let kernels = TransformerKernels::new(device)?;
++        let (layer, config) = two_pass_test_layer(device, heads, kv_heads, head_dim, batch, seq)?;
++        let rows = (batch * seq) as usize;
++        let d = config.hidden_size;
++        let input = GpuBuffer::from_f32(device, &two_pass_test_weights(rows * d, 11))?;
++        let mask = GpuBuffer::from_f32(device, &vec![1.0_f32; rows])?;
++        let alibi = GpuBuffer::from_f32(device, &[0.0_f32])?;
++        let mut commands = vulkan::ComputeBatch::new(device)?;
++        layer.record_forward(
++            &mut commands,
++            &kernels,
++            &config,
++            &input,
++            None,
++            &mask,
++            &alibi,
++            batch as usize,
++            seq as usize,
++            0,
++            0,
++        )?;
++        commands.submit()?;
++        let grad_output = GpuBuffer::from_f32(device, &two_pass_test_weights(rows * d, 19))?;
++        for _ in 0..steps {
++            let mut commands = vulkan::ComputeBatch::new(device)?;
++            layer.record_backward(
++                &mut commands,
++                &kernels,
++                &config,
++                &input,
++                &mask,
++                &alibi,
++                &grad_output,
++                batch as usize,
++                seq as usize,
++                0,
++                0,
++            )?;
++            commands.submit()?;
++        }
++        let query_width = (heads * head_dim) as usize;
++        let kv_width = (kv_heads * head_dim) as usize;
++        Ok(AttentionBackwardStep {
++            grad_q: layer.tape.grad_q.read_f32(rows * query_width)?,
++            grad_k: layer.tape.grad_k.read_f32(rows * kv_width)?,
++            grad_v: layer.tape.grad_v.read_f32(rows * kv_width)?,
++            counts: two_pass_attention_test_hooks::thread_counts(),
++            optional_kernel_loads: two_pass_attention_test_hooks::optional_kernel_loads(),
++            pair_reason: kernels
++                .rdna3_two_pass_attention_backward
++                .get()
++                .map(|pair| pair.reason),
++        })
++    }
++
++    fn assert_same_attention_gradients(
++        label: &str,
++        expected: &AttentionBackwardStep,
++        actual: &AttentionBackwardStep,
++    ) {
++        for (name, expected_values, actual_values) in [
++            ("dQ", &expected.grad_q, &actual.grad_q),
++            ("dK", &expected.grad_k, &actual.grad_k),
++            ("dV", &expected.grad_v, &actual.grad_v),
++        ] {
++            let (equal, report, _, _) = gradient_report(name, expected_values, actual_values);
++            assert!(equal, "[{label}] {report}");
++        }
++    }
++
++    /// Scalar execution must survive every optional-shader failure, and the
++    /// eligible accelerated path must keep its Phase III result.
++    ///
++    /// The failure is forced through the real loader: the test seam hands
++    /// `ComputeKernel::new` a SPIR-V blob the driver cannot decode, so the whole
++    /// production path runs from module creation to fallback selection.
++    #[test]
++    fn optional_two_pass_load_failure_keeps_scalar_execution_and_gradients() -> Result<()> {
++        use two_pass_attention_test_hooks::ShaderFault;
++        let Ok(device) = VulkanDevice::new() else {
++            eprintln!(
++                "two-pass fallback qualification: status=BLOCKED reason=no_vulkan_device"
++            );
++            return Ok(());
++        };
++        // Batch 1, one head, head_dim 8, sequence 8: the smallest geometry the
++        // gate admits, so the fallback runs the branch it would run in training.
++        let (heads, kv_heads, head_dim, batch, seq) = (1, 1, 8, 1, 8);
++
++        // The normal scalar baseline: `=0`, so no optional kernel is built.
++        let baseline = run_attention_backward_step(
++            &device,
++            Some(Some(false)),
++            None,
++            heads,
++            kv_heads,
++            head_dim,
++            batch,
++            seq,
++        )?;
++        assert_eq!(baseline.counts.query, 0, "=0 dispatched the query pass");
++        assert_eq!(baseline.counts.key, 0, "=0 dispatched the key pass");
++        assert_eq!(
++            baseline.counts.scratch_allocations, 0,
++            "=0 allocated two-pass scratch"
++        );
++        assert_eq!(
++            baseline.optional_kernel_loads, 0,
++            "=0 built an optional kernel"
++        );
++        assert!(
++            baseline.counts.scalar > 0,
++            "=0 did not dispatch the scalar kernel"
++        );
++        assert_eq!(baseline.pair_reason, None, "=0 resolved the optional pair");
++
++        // 1. Both passes build: the eligible default uses both and stays
++        // bit-identical to the scalar baseline.
++        let accelerated = run_attention_backward_step(
++            &device,
++            Some(None),
++            None,
++            heads,
++            kv_heads,
++            head_dim,
++            batch,
++            seq,
++        )?;
++        assert_eq!(
++            accelerated.counts.query, 1,
++            "the query pass did not dispatch exactly once"
++        );
++        assert_eq!(
++            accelerated.counts.key, 1,
++            "the key pass did not dispatch exactly once"
++        );
++        assert_eq!(
++            accelerated.counts.scalar, 0,
++            "the eligible default still dispatched the scalar kernel"
++        );
++        assert_eq!(accelerated.counts.scratch_allocations, 1);
++        assert_eq!(accelerated.optional_kernel_loads, 2);
++        assert_eq!(accelerated.pair_reason, Some("ready"));
++        assert_same_attention_gradients("accelerated-vs-scalar", &baseline, &accelerated);
++
++        // 2-4. Each optional member failing, and both failing, must leave the
++        // scalar route: it dispatches, allocates nothing, and produces the same
++        // gradients as the `=0` baseline.
++        for (label, fault, reason) in [
++            (
++                "query-unavailable",
++                ShaderFault::Query,
++                "query_shader_unavailable",
++            ),
++            (
++                "key-unavailable",
++                ShaderFault::Key,
++                "key_shader_unavailable",
++            ),
++            (
++                "both-unavailable",
++                ShaderFault::Both,
++                "both_shaders_unavailable",
++            ),
++        ] {
++            let fallback = run_attention_backward_step(
++                &device,
++                Some(None),
++                Some(fault),
++                heads,
++                kv_heads,
++                head_dim,
++                batch,
++                seq,
++            )?;
++            assert_eq!(
++                fallback.pair_reason,
++                Some(reason),
++                "[{label}] the pair did not record the failure"
++            );
++            assert_eq!(
++                fallback.counts.query, 0,
++                "[{label}] the query pass dispatched"
++            );
++            assert_eq!(fallback.counts.key, 0, "[{label}] the key pass dispatched");
++            assert_eq!(
++                fallback.counts.scratch_allocations, 0,
++                "[{label}] two-pass scratch was allocated"
++            );
++            assert!(
++                fallback.counts.scalar > 0,
++                "[{label}] the scalar kernel did not dispatch"
++            );
++            assert_eq!(
++                fallback.optional_kernel_loads, 2,
++                "[{label}] the loader did not attempt both members"
++            );
++            assert_same_attention_gradients(label, &baseline, &fallback);
++        }
++
++        // 8. Explicit `=1` is a hardware qualification: an unavailable pair is a
++        // visible failure, never a silent scalar run.
++        let qualified = run_attention_backward_step(
++            &device,
++            Some(Some(true)),
++            None,
++            heads,
++            kv_heads,
++            head_dim,
++            batch,
++            seq,
++        )?;
++        assert_eq!(qualified.counts.query, 1);
++        assert_eq!(qualified.counts.key, 1);
++        assert_eq!(qualified.pair_reason, Some("ready"));
++
++        let blocked = run_attention_backward_step(
++            &device,
++            Some(Some(true)),
++            Some(ShaderFault::Query),
++            heads,
++            kv_heads,
++            head_dim,
++            batch,
++            seq,
++        )
++        .expect_err("=1 must not fall back silently");
++        let message = format!("{blocked:#}");
++        assert!(
++            message.contains("BLOCKED"),
++            "the qualification failure does not name itself: {message}"
++        );
++        assert!(
++            message.contains("query_shader_unavailable"),
++            "the qualification failure does not carry the reason: {message}"
++        );
++
++        // 5. A grouped-query geometry is ineligible, so it never even builds the
++        // optional pair -- not even with the pair broken and the default on.
++        let grouped_baseline =
++            run_attention_backward_step(&device, Some(Some(false)), None, 4, 2, 8, 2, 8)?;
++        let grouped = run_attention_backward_step(
++            &device,
++            Some(None),
++            Some(ShaderFault::Both),
++            4,
++            2,
++            8,
++            2,
++            8,
++        )?;
++        assert_eq!(
++            grouped.pair_reason, None,
++            "the GQA geometry resolved the optional pair"
++        );
++        assert_eq!(
++            grouped.optional_kernel_loads, 0,
++            "the GQA geometry built an optional kernel"
++        );
++        assert_eq!(grouped.counts.query, 0);
++        assert_eq!(grouped.counts.key, 0);
++        assert_eq!(grouped.counts.scratch_allocations, 0);
++        assert!(grouped.counts.scalar > 0);
++        assert_same_attention_gradients("gqa-vs-scalar", &grouped_baseline, &grouped);
++
++        // 6. A key sequence above the admitted head dimension is ineligible too.
++        let long_baseline =
++            run_attention_backward_step(&device, Some(Some(false)), None, 1, 1, 8, 1, 64)?;
++        let long = run_attention_backward_step(
++            &device,
++            Some(None),
++            Some(ShaderFault::Both),
++            1,
++            1,
++            8,
++            1,
++            64,
++        )?;
++        assert_eq!(
++            long.pair_reason, None,
++            "the long-context geometry resolved the optional pair"
++        );
++        assert_eq!(
++            long.optional_kernel_loads, 0,
++            "the long-context geometry built an optional kernel"
++        );
++        assert_eq!(long.counts.query, 0);
++        assert_eq!(long.counts.key, 0);
++        assert_eq!(long.counts.scratch_allocations, 0);
++        assert!(long.counts.scalar > 0);
++        assert_same_attention_gradients("long-context-vs-scalar", &long_baseline, &long);
++
++        eprintln!(
++            "two-pass fallback qualification: status=PASS cases=8 \
++             default_query={} default_key={} default_scalar={} fallback_scalar={} \
++             explicit_zero_loads={} gqa_loads={} long_context_loads={} scratch_fallbacks=0",
++            accelerated.counts.query,
++            accelerated.counts.key,
++            accelerated.counts.scalar,
++            baseline.counts.scalar,
++            baseline.optional_kernel_loads,
++            grouped.optional_kernel_loads,
++            long.optional_kernel_loads,
++        );
++        Ok(())
++    }
++
++    /// A failed optional load is resolved once and cached with the kernel set.
++    ///
++    /// Retrying it every step would turn a one-off incompatibility into a
++    /// permanent per-step cost and a permanently noisy log.
++    #[test]
++    fn optional_kernel_failure_is_cached_across_training_steps() -> Result<()> {
++        use two_pass_attention_test_hooks::ShaderFault;
++        let Ok(device) = VulkanDevice::new() else {
++            return Ok(());
++        };
++        let step = run_attention_backward_steps(
++            &device,
++            Some(None),
++            Some(ShaderFault::Both),
++            1,
++            1,
++            8,
++            1,
++            8,
++            3,
++        )?;
++        assert_eq!(
++            step.optional_kernel_loads, 2,
++            "three steps retried the optional load: {} attempts",
++            step.optional_kernel_loads
++        );
++        assert_eq!(
++            step.counts.scalar, 3,
++            "three steps recorded {} scalar dispatches",
++            step.counts.scalar
++        );
++        assert_eq!(step.counts.query, 0);
++        assert_eq!(step.counts.key, 0);
++        assert_eq!(step.counts.scratch_allocations, 0);
++        assert_eq!(step.pair_reason, Some("both_shaders_unavailable"));
++        Ok(())
++    }
++
+     #[test]
+     fn attention_backward_key_range_split_is_bit_exact() -> Result<()> {
+         let Ok(device) = VulkanDevice::new() else {
+diff --git a/hierarchos-vulkan/src/vulkan.rs b/hierarchos-vulkan/src/vulkan.rs
+index b07a5f9..c42ffb2 100644
+--- a/hierarchos-vulkan/src/vulkan.rs
++++ b/hierarchos-vulkan/src/vulkan.rs
+@@ -2324,6 +2324,15 @@ impl VulkanDevice {
+         self.inner.device_group_physical_device_count
+     }
+ 
++    /// Whether this device has reported `VK_ERROR_DEVICE_LOST`.
++    ///
++    /// The flag is sticky: once Vulkan reports it, no later submission can be
++    /// trusted. Callers that would otherwise degrade gracefully must treat it
++    /// as fatal rather than as a recoverable optimisation failure.
++    pub(crate) fn is_device_lost(&self) -> bool {
++        self.inner.device_lost.load(std::sync::atomic::Ordering::Acquire)
++    }
++
+     pub fn is_multi_physical_device_logical_device(&self) -> bool {
+         self.inner.device_group_physical_device_count > 1
+     }
+@@ -7443,6 +7452,12 @@ impl ComputeBatch {
+         self.dispatch_count
+     }
+ 
++    /// The device this batch records against, so a caller that must size or
++    /// allocate a buffer at record time does not need a separate handle.
++    pub(crate) fn device(&self) -> &VulkanDevice {
++        &self.device
++    }
++
+     pub(crate) fn shader_barrier_count(&self) -> usize {
+         self.shader_barrier_count
+     }

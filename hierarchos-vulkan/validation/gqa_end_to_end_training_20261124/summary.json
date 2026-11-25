@@ -1,0 +1,1802 @@
+{
+ "binary": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-training-qualification.exe",
+ "binary_sha256": "0a66bc366d490e720beb8b067043f8721eca6c84f4f200e2f8ee2eb7c430dbe0",
+ "geometries": {
+  "8q2kv": {
+   "fixture": {
+    "path": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target\\gqa-e2e\\fixture-8q2kv",
+    "config_sha256": "f5f1703b3bc3c5be79fcde969ec7ebba500455fdb893906e82059d1fbeb8f68e",
+    "dataset_sha256": "0c5d3e907ff5158d819fbca3cd67a81f0d35578a7dfe596237879683a086af9c",
+    "weights_sha256": "a77d99d8176704aa5e181c4529ee65711b93eeca0631819fd489e9b4f7c2754b",
+    "config": {
+     "architectures": [
+      "LlamaForCausalLM"
+     ],
+     "attention_bias": false,
+     "attention_dropout": 0.0,
+     "bos_token_id": 1,
+     "eos_token_id": 2,
+     "head_dim": 128,
+     "hidden_act": "silu",
+     "hidden_size": 1024,
+     "initializer_range": 0.02,
+     "intermediate_size": 1024,
+     "max_position_embeddings": 128,
+     "mlp_bias": false,
+     "model_type": "llama",
+     "num_attention_heads": 8,
+     "num_hidden_layers": 2,
+     "num_key_value_heads": 2,
+     "pad_token_id": 0,
+     "pretraining_tp": 1,
+     "rms_norm_eps": 1e-06,
+     "rope_parameters": {
+      "rope_theta": 10000.0,
+      "rope_type": "default"
+     },
+     "tie_word_embeddings": false,
+     "torch_dtype": "float32",
+     "dtype": "float32",
+     "use_cache": false,
+     "vocab_size": 1024
+    }
+   },
+   "numerics": {
+    "scalar": {
+     "routes": [
+      "two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0"
+     ],
+     "losses": [
+      7.133183,
+      7.132698
+     ],
+     "loss_bits": [
+      1088701193,
+      1088700176
+     ],
+     "grad_digests": [
+      "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+      "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e"
+     ],
+     "grad_norms": [
+      0.1092858372398309,
+      0.14280274862284414
+     ],
+     "param_digests": [
+      "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655"
+     ],
+     "parameter_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+     "parameter_frozen": true,
+     "adapter_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "136989b6823f0e7dd94b36e0faa448d96fee3c0c7b6eae6d707c5db3c26c7a03"
+     },
+     "optimizer_state_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "136989b6823f0e7dd94b36e0faa448d96fee3c0c7b6eae6d707c5db3c26c7a03",
+      "hierarchos_adapter_optimizer.safetensors": "54ea9a8c4bbf1df909fe4eb2173b7f845ebc1674609d94be6b3e7bf71b52905d"
+     },
+     "kernel_profile": {
+      "blocks": 2,
+      "totals": {
+       "transformer_attention_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 2073.16248
+       },
+       "transformer_attention_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 80.80244
+       },
+       "linear_forward": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 27.02888
+       },
+       "linear_input_grad": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 17.616
+       },
+       "transformer_rms_norm_forward": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 6.51108
+       },
+       "falcon_h1_cross_entropy_lanes16": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 4.9275199999999995
+       },
+       "linear_input_grad_group4_muladd": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 2.12228
+       },
+       "transformer_rms_norm_input_grad": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 3.9067999999999996
+       },
+       "vector_add": {
+        "category": "elementwise-reduction",
+        "dispatches": 32,
+        "gpu_ms": 1.68936
+       },
+       "linear_forward_lane4": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 0.82984
+       },
+       "transformer_rope_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.19916
+       },
+       "silu_forward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.1864
+       },
+       "linear_weight_grad": {
+        "category": "projection.linear",
+        "dispatches": 8,
+        "gpu_ms": 0.16016
+       },
+       "transformer_elementwise_mul_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.09423999999999999
+       },
+       "transformer_rope_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 1.44335
+       },
+       "transformer_scale_copy": {
+        "category": "other",
+        "dispatches": 6,
+        "gpu_ms": 0.04184
+       },
+       "transformer_lora_scaled_add": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.06464
+       },
+       "transformer_elementwise_mul_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.050960000000000005
+       },
+       "silu_backward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.050280000000000005
+       },
+       "embedding_forward": {
+        "category": "token.embedding",
+        "dispatches": 2,
+        "gpu_ms": 0.03228
+       },
+       "adamw": {
+        "category": "optimizer.adamw",
+        "dispatches": 8,
+        "gpu_ms": 0.01372
+       },
+       "ordered_f32_sum": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 0.00596
+       }
+      }
+     }
+    },
+    "twopass": {
+     "routes": [
+      "two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288"
+     ],
+     "losses": [
+      7.133183,
+      7.132698
+     ],
+     "loss_bits": [
+      1088701193,
+      1088700176
+     ],
+     "grad_digests": [
+      "48819c3607764300d638af50b65d326173b15888029766711681e6a44673cfc2",
+      "9093107b4bec860d5a41544408451f5988205ffdaaf88c0d17a154c0d5bb886e"
+     ],
+     "grad_norms": [
+      0.1092858372398309,
+      0.14280274862284414
+     ],
+     "param_digests": [
+      "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655"
+     ],
+     "parameter_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+     "parameter_frozen": true,
+     "adapter_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "136989b6823f0e7dd94b36e0faa448d96fee3c0c7b6eae6d707c5db3c26c7a03"
+     },
+     "optimizer_state_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "136989b6823f0e7dd94b36e0faa448d96fee3c0c7b6eae6d707c5db3c26c7a03",
+      "hierarchos_adapter_optimizer.safetensors": "54ea9a8c4bbf1df909fe4eb2173b7f845ebc1674609d94be6b3e7bf71b52905d"
+     },
+     "kernel_profile": {
+      "blocks": 2,
+      "totals": {
+       "transformer_attention_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 81.15116
+       },
+       "transformer_attention_backward_key_rdna3": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 48.429640000000006
+       },
+       "linear_forward": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 28.38416
+       },
+       "transformer_attention_backward_query_rdna3": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 24.38512
+       },
+       "linear_input_grad": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 19.749760000000002
+       },
+       "transformer_rms_norm_forward": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 6.3555600000000005
+       },
+       "falcon_h1_cross_entropy_lanes16": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 4.97336
+       },
+       "transformer_rms_norm_input_grad": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 4.667479999999999
+       },
+       "linear_forward_lane4": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 0.92144
+       },
+       "vector_add": {
+        "category": "elementwise-reduction",
+        "dispatches": 32,
+        "gpu_ms": 0.46396000000000004
+       },
+       "linear_input_grad_group4_muladd": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 0.31999999999999995
+       },
+       "transformer_rope_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.20607999999999999
+       },
+       "silu_forward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.18596000000000001
+       },
+       "linear_weight_grad": {
+        "category": "projection.linear",
+        "dispatches": 8,
+        "gpu_ms": 0.13324
+       },
+       "transformer_rope_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.09348000000000001
+       },
+       "transformer_elementwise_mul_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.09028
+       },
+       "transformer_scale_copy": {
+        "category": "other",
+        "dispatches": 6,
+        "gpu_ms": 0.05936
+       },
+       "embedding_forward": {
+        "category": "token.embedding",
+        "dispatches": 2,
+        "gpu_ms": 0.06064
+       },
+       "transformer_elementwise_mul_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.051519999999999996
+       },
+       "transformer_lora_scaled_add": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.0824
+       },
+       "silu_backward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.05016
+       },
+       "adamw": {
+        "category": "optimizer.adamw",
+        "dispatches": 8,
+        "gpu_ms": 0.01584
+       },
+       "ordered_f32_sum": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 0.008239999999999999
+       }
+      }
+     }
+    },
+    "bit_identical": {
+     "loss_bits": true,
+     "grad_digests": true,
+     "param_digests": true,
+     "parameter_end_digest": true,
+     "adapter_files": true,
+     "optimizer_state_files": true
+    },
+    "all_identical": true
+   },
+   "profile": {
+    "scalar": {
+     "routes": [
+      "two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0"
+     ],
+     "wall_ms_per_step": 1058.7276166666668,
+     "attribution": {
+      "steps": 12,
+      "blocks": 12,
+      "gpu_ms_per_step_total": 1052.039215,
+      "buckets": {
+       "attention_backward_query": {
+        "dispatches_per_step": 0.0,
+        "gpu_ms_per_step": 0.0,
+        "shaders": [],
+        "share_pct": 0.0
+       },
+       "attention_backward_key": {
+        "dispatches_per_step": 0.0,
+        "gpu_ms_per_step": 0.0,
+        "shaders": [],
+        "share_pct": 0.0
+       },
+       "attention_backward_scalar": {
+        "dispatches_per_step": 2.0,
+        "gpu_ms_per_step": 1016.9809433333334,
+        "shaders": [
+         {
+          "shader": "transformer_attention_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 12203.77132
+         }
+        ],
+        "share_pct": 96.6675888914781
+       },
+       "attention_other": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 15.247819166666666,
+        "shaders": [
+         {
+          "shader": "transformer_attention_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 181.13003
+         },
+         {
+          "shader": "transformer_elementwise_mul_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.6154
+         },
+         {
+          "shader": "transformer_elementwise_mul_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.33647999999999995
+         },
+         {
+          "shader": "transformer_rope_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.42372
+         },
+         {
+          "shader": "transformer_rope_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.46819999999999995
+         }
+        ],
+        "share_pct": 1.4493584411363094
+       },
+       "linear_forward": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 7.196486666666668,
+        "shaders": [
+         {
+          "shader": "linear_forward",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 84.11180000000002
+         },
+         {
+          "shader": "linear_forward_lane4",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 2.24604
+         }
+        ],
+        "share_pct": 0.6840511802277891
+       },
+       "linear_weight_grad": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 1.0319508333333334,
+        "shaders": [
+         {
+          "shader": "linear_weight_grad",
+          "category": "projection.linear",
+          "dispatches": 48,
+          "gpu_ms": 12.38341
+         }
+        ],
+        "share_pct": 0.09809052919508646
+       },
+       "linear_input_grad": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 6.629479166666669,
+        "shaders": [
+         {
+          "shader": "linear_input_grad",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 76.26160000000002
+         },
+         {
+          "shader": "linear_input_grad_group4_muladd",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 3.29215
+         }
+        ],
+        "share_pct": 0.6301551379590606
+       },
+       "normalization": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 2.7543450000000003,
+        "shaders": [
+         {
+          "shader": "transformer_rms_norm_forward",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 16.07054
+         },
+         {
+          "shader": "transformer_rms_norm_input_grad",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 16.9816
+         }
+        ],
+        "share_pct": 0.2618101075253169
+       },
+       "mlp": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.06991000000000001,
+        "shaders": [
+         {
+          "shader": "silu_backward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.36996
+         },
+         {
+          "shader": "silu_forward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.46896000000000004
+         }
+        ],
+        "share_pct": 0.006645189552178434
+       },
+       "optimizer": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.009046666666666666,
+        "shaders": [
+         {
+          "shader": "adamw",
+          "category": "optimizer.adamw",
+          "dispatches": 48,
+          "gpu_ms": 0.10855999999999999
+         }
+        ],
+        "share_pct": 0.000859917248110059
+       },
+       "other": {
+        "dispatches_per_step": 24.0,
+        "gpu_ms_per_step": 2.1192341666666668,
+        "shaders": [
+         {
+          "shader": "embedding_forward",
+          "category": "token.embedding",
+          "dispatches": 12,
+          "gpu_ms": 0.12396
+         },
+         {
+          "shader": "falcon_h1_cross_entropy_lanes16",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 14.306960000000002
+         },
+         {
+          "shader": "ordered_f32_sum",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 0.031959999999999995
+         },
+         {
+          "shader": "transformer_lora_scaled_add",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.45258
+         },
+         {
+          "shader": "transformer_scale_copy",
+          "category": "other",
+          "dispatches": 36,
+          "gpu_ms": 0.13388
+         },
+         {
+          "shader": "vector_add",
+          "category": "elementwise-reduction",
+          "dispatches": 192,
+          "gpu_ms": 10.38147
+         }
+        ],
+        "share_pct": 0.20144060567805608
+       }
+      },
+      "unassigned_shaders": []
+     }
+    },
+    "twopass": {
+     "routes": [
+      "two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288"
+     ],
+     "wall_ms_per_step": 62.54363333333333,
+     "attribution": {
+      "steps": 12,
+      "blocks": 12,
+      "gpu_ms_per_step_total": 57.795449999999995,
+      "buckets": {
+       "attention_backward_query": {
+        "dispatches_per_step": 2.0,
+        "gpu_ms_per_step": 7.628583333333332,
+        "shaders": [
+         {
+          "shader": "transformer_attention_backward_query_rdna3",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 91.54299999999999
+         }
+        ],
+        "share_pct": 13.199280104806403
+       },
+       "attention_backward_key": {
+        "dispatches_per_step": 2.0,
+        "gpu_ms_per_step": 15.955656666666664,
+        "shaders": [
+         {
+          "shader": "transformer_attention_backward_key_rdna3",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 191.46787999999998
+         }
+        ],
+        "share_pct": 27.607115554367454
+       },
+       "attention_backward_scalar": {
+        "dispatches_per_step": 0.0,
+        "gpu_ms_per_step": 0.0,
+        "shaders": [],
+        "share_pct": 0.0
+       },
+       "attention_other": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 15.747303333333333,
+        "shaders": [
+         {
+          "shader": "transformer_attention_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 187.19172
+         },
+         {
+          "shader": "transformer_elementwise_mul_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.56204
+         },
+         {
+          "shader": "transformer_elementwise_mul_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.3371200000000001
+         },
+         {
+          "shader": "transformer_rope_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.40543999999999997
+         },
+         {
+          "shader": "transformer_rope_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.47132000000000007
+         }
+        ],
+        "share_pct": 27.24661428076662
+       },
+       "linear_forward": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 7.354043333333334,
+        "shaders": [
+         {
+          "shader": "linear_forward",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 86.02192000000001
+         },
+         {
+          "shader": "linear_forward_lane4",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 2.2266
+         }
+        ],
+        "share_pct": 12.724260012394288
+       },
+       "linear_weight_grad": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.054256666666666675,
+        "shaders": [
+         {
+          "shader": "linear_weight_grad",
+          "category": "projection.linear",
+          "dispatches": 48,
+          "gpu_ms": 0.6510800000000001
+         }
+        ],
+        "share_pct": 0.09387705548908552
+       },
+       "linear_input_grad": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 6.4655733333333325,
+        "shaders": [
+         {
+          "shader": "linear_input_grad",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 76.13068
+         },
+         {
+          "shader": "linear_input_grad_group4_muladd",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 1.4561999999999997
+         }
+        ],
+        "share_pct": 11.186993670493669
+       },
+       "normalization": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 2.8707391666666666,
+        "shaders": [
+         {
+          "shader": "transformer_rms_norm_forward",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 16.83415
+         },
+         {
+          "shader": "transformer_rms_norm_input_grad",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 17.61472
+         }
+        ],
+        "share_pct": 4.967067765138375
+       },
+       "mlp": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.06549,
+        "shaders": [
+         {
+          "shader": "silu_backward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.30796
+         },
+         {
+          "shader": "silu_forward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.47792
+         }
+        ],
+        "share_pct": 0.11331341827081545
+       },
+       "optimizer": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.008023333333333335,
+        "shaders": [
+         {
+          "shader": "adamw",
+          "category": "optimizer.adamw",
+          "dispatches": 48,
+          "gpu_ms": 0.09628000000000002
+         }
+        ],
+        "share_pct": 0.013882292348849842
+       },
+       "other": {
+        "dispatches_per_step": 24.0,
+        "gpu_ms_per_step": 1.6457808333333332,
+        "shaders": [
+         {
+          "shader": "embedding_forward",
+          "category": "token.embedding",
+          "dispatches": 12,
+          "gpu_ms": 0.14292
+         },
+         {
+          "shader": "falcon_h1_cross_entropy_lanes16",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 14.809839999999998
+         },
+         {
+          "shader": "ordered_f32_sum",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 0.03408
+         },
+         {
+          "shader": "transformer_lora_scaled_add",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.323
+         },
+         {
+          "shader": "transformer_scale_copy",
+          "category": "other",
+          "dispatches": 36,
+          "gpu_ms": 0.35775
+         },
+         {
+          "shader": "vector_add",
+          "category": "elementwise-reduction",
+          "dispatches": 192,
+          "gpu_ms": 4.08178
+         }
+        ],
+        "share_pct": 2.847595845924434
+       }
+      },
+      "unassigned_shaders": []
+     }
+    }
+   },
+   "abba": {
+    "geometry": "8q2kv",
+    "protocol": {
+     "rounds": 5,
+     "steps_per_run": 29,
+     "warmup_per_run": 3,
+     "measured_per_run": 26,
+     "order": [
+      "scalar",
+      "twopass",
+      "twopass",
+      "scalar"
+     ],
+     "processes": "one per run, strictly serial",
+     "wmma_mode": "off",
+     "samples_file": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\gqa_end_to_end_training_20261124\\samples\\abba-8q2kv.jsonl"
+    },
+    "per_round": [
+     {
+      "round": 0,
+      "scalar_median_ms": 1049.1967,
+      "twopass_median_ms": 53.0255,
+      "ratio": 19.78664416177122
+     },
+     {
+      "round": 1,
+      "scalar_median_ms": 1050.65015,
+      "twopass_median_ms": 53.035,
+      "ratio": 19.810505326671066
+     },
+     {
+      "round": 2,
+      "scalar_median_ms": 1050.3274000000001,
+      "twopass_median_ms": 53.040099999999995,
+      "ratio": 19.802515455287608
+     },
+     {
+      "round": 3,
+      "scalar_median_ms": 1050.2787,
+      "twopass_median_ms": 53.626599999999996,
+      "ratio": 19.585032427936884
+     },
+     {
+      "round": 4,
+      "scalar_median_ms": 1050.5216,
+      "twopass_median_ms": 52.9961,
+      "ratio": 19.822620909840538
+     }
+    ],
+    "paired_ratios": [
+     19.78664416177122,
+     19.810505326671066,
+     19.802515455287608,
+     19.585032427936884,
+     19.822620909840538
+    ],
+    "mean_paired_ratio": 19.761463656301466,
+    "ci95": {
+     "low": 19.637931221036837,
+     "high": 19.884996091566094,
+     "df": 4,
+     "t_critical": 2.776445105198036
+    },
+    "geomean_ratio": 19.761262434545138,
+    "ratio_of_medians": 19.787021867318863,
+    "scalar": {
+     "samples": 260,
+     "median_ms": 1050.1437500000002,
+     "mean_ms": 1049.9521307692307,
+     "std_ms": 3.0062460234468045,
+     "p95_ms": 1054.656,
+     "min_ms": 1042.2750999999998,
+     "max_ms": 1057.3057
+    },
+    "twopass": {
+     "samples": 260,
+     "median_ms": 53.07235,
+     "mean_ms": 53.26167730769231,
+     "std_ms": 0.5837735681785536,
+     "p95_ms": 54.5004,
+     "min_ms": 52.4002,
+     "max_ms": 55.5784
+    }
+   }
+  },
+  "4q2kv": {
+   "fixture": {
+    "path": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target\\gqa-e2e\\fixture-4q2kv",
+    "config_sha256": "bb01d962b4deb8d782e8e0f14eed11cf660f128ad02b03bffe818879a18de997",
+    "dataset_sha256": "0c5d3e907ff5158d819fbca3cd67a81f0d35578a7dfe596237879683a086af9c",
+    "weights_sha256": "9ca50e2128c1f45c12c729cf6f9770e377fba60880abd4ecc64753bb039f20b0",
+    "config": {
+     "architectures": [
+      "LlamaForCausalLM"
+     ],
+     "attention_bias": false,
+     "attention_dropout": 0.0,
+     "bos_token_id": 1,
+     "eos_token_id": 2,
+     "head_dim": 128,
+     "hidden_act": "silu",
+     "hidden_size": 512,
+     "initializer_range": 0.02,
+     "intermediate_size": 512,
+     "max_position_embeddings": 128,
+     "mlp_bias": false,
+     "model_type": "llama",
+     "num_attention_heads": 4,
+     "num_hidden_layers": 2,
+     "num_key_value_heads": 2,
+     "pad_token_id": 0,
+     "pretraining_tp": 1,
+     "rms_norm_eps": 1e-06,
+     "rope_parameters": {
+      "rope_theta": 10000.0,
+      "rope_type": "default"
+     },
+     "tie_word_embeddings": false,
+     "torch_dtype": "float32",
+     "dtype": "float32",
+     "use_cache": false,
+     "vocab_size": 1024
+    }
+   },
+   "numerics": {
+    "scalar": {
+     "routes": [
+      "two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0"
+     ],
+     "losses": [
+      7.017281,
+      7.0136776
+     ],
+     "loss_bits": [
+      1088458129,
+      1088450572
+     ],
+     "grad_digests": [
+      "ed565c3522ed012929ec0e8bac28817a36bfeaa26fd0eba204e9f57a4da29ad2",
+      "d5ffcf67cb373d9765e7660ca2636518f905ca41dca65e0945880dd47e327fd9"
+     ],
+     "grad_norms": [
+      0.03514241890668048,
+      0.04469574393455751
+     ],
+     "param_digests": [
+      "12a5187a7d9f3605210459e0388e33f1e9367a72d776b8cbe1627e3306aa6c1b",
+      "12a5187a7d9f3605210459e0388e33f1e9367a72d776b8cbe1627e3306aa6c1b"
+     ],
+     "parameter_end_digest": "12a5187a7d9f3605210459e0388e33f1e9367a72d776b8cbe1627e3306aa6c1b",
+     "parameter_frozen": true,
+     "adapter_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "9d2389b09015e371e1e5a9d34b9a029371079ddc14cad82b560ab2621ba1b6d3"
+     },
+     "optimizer_state_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "9d2389b09015e371e1e5a9d34b9a029371079ddc14cad82b560ab2621ba1b6d3",
+      "hierarchos_adapter_optimizer.safetensors": "b5c95332d88362f185c8a5e1f5176d60d535b13fdab7c0be19bbf4c3b634e306"
+     },
+     "kernel_profile": {
+      "blocks": 2,
+      "totals": {
+       "transformer_attention_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 1100.41568
+       },
+       "transformer_attention_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 50.17212
+       },
+       "linear_forward": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 9.1082
+       },
+       "falcon_h1_cross_entropy_lanes16": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 7.06356
+       },
+       "linear_input_grad": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 7.33475
+       },
+       "transformer_rms_norm_forward": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 3.6023199999999997
+       },
+       "transformer_rms_norm_input_grad": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 2.5425199999999997
+       },
+       "linear_input_grad_group4_muladd": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 0.7974100000000001
+       },
+       "linear_forward_lane4": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 0.36016000000000004
+       },
+       "vector_add": {
+        "category": "elementwise-reduction",
+        "dispatches": 32,
+        "gpu_ms": 0.6788000000000001
+       },
+       "silu_forward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.14496
+       },
+       "transformer_rope_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.11432
+       },
+       "linear_weight_grad": {
+        "category": "projection.linear",
+        "dispatches": 8,
+        "gpu_ms": 0.09084
+       },
+       "transformer_elementwise_mul_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.05552
+       },
+       "transformer_rope_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.04604
+       },
+       "silu_backward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.03752
+       },
+       "transformer_elementwise_mul_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.03896
+       },
+       "transformer_lora_scaled_add": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.03596
+       },
+       "transformer_scale_copy": {
+        "category": "other",
+        "dispatches": 6,
+        "gpu_ms": 0.01748
+       },
+       "embedding_forward": {
+        "category": "token.embedding",
+        "dispatches": 2,
+        "gpu_ms": 0.021679999999999998
+       },
+       "adamw": {
+        "category": "optimizer.adamw",
+        "dispatches": 8,
+        "gpu_ms": 0.00752
+       },
+       "ordered_f32_sum": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 0.00532
+       }
+      }
+     }
+    },
+    "twopass": {
+     "routes": [
+      "two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=32768 scratch_bytes=262144"
+     ],
+     "losses": [
+      7.017281,
+      7.0136776
+     ],
+     "loss_bits": [
+      1088458129,
+      1088450572
+     ],
+     "grad_digests": [
+      "ed565c3522ed012929ec0e8bac28817a36bfeaa26fd0eba204e9f57a4da29ad2",
+      "d5ffcf67cb373d9765e7660ca2636518f905ca41dca65e0945880dd47e327fd9"
+     ],
+     "grad_norms": [
+      0.03514241890668048,
+      0.04469574393455751
+     ],
+     "param_digests": [
+      "12a5187a7d9f3605210459e0388e33f1e9367a72d776b8cbe1627e3306aa6c1b",
+      "12a5187a7d9f3605210459e0388e33f1e9367a72d776b8cbe1627e3306aa6c1b"
+     ],
+     "parameter_end_digest": "12a5187a7d9f3605210459e0388e33f1e9367a72d776b8cbe1627e3306aa6c1b",
+     "parameter_frozen": true,
+     "adapter_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "9d2389b09015e371e1e5a9d34b9a029371079ddc14cad82b560ab2621ba1b6d3"
+     },
+     "optimizer_state_files": {
+      "adapter_config.json": "1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors": "9d2389b09015e371e1e5a9d34b9a029371079ddc14cad82b560ab2621ba1b6d3",
+      "hierarchos_adapter_optimizer.safetensors": "b5c95332d88362f185c8a5e1f5176d60d535b13fdab7c0be19bbf4c3b634e306"
+     },
+     "kernel_profile": {
+      "blocks": 2,
+      "totals": {
+       "transformer_attention_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 50.14824
+       },
+       "transformer_attention_backward_key_rdna3": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 34.289680000000004
+       },
+       "transformer_attention_backward_query_rdna3": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 33.11692
+       },
+       "linear_forward": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 9.33176
+       },
+       "linear_input_grad": {
+        "category": "projection.linear",
+        "dispatches": 34,
+        "gpu_ms": 8.664359999999999
+       },
+       "falcon_h1_cross_entropy_lanes16": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 7.24124
+       },
+       "transformer_rms_norm_forward": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 3.69836
+       },
+       "transformer_rms_norm_input_grad": {
+        "category": "other",
+        "dispatches": 10,
+        "gpu_ms": 3.3018
+       },
+       "vector_add": {
+        "category": "elementwise-reduction",
+        "dispatches": 32,
+        "gpu_ms": 0.40417
+       },
+       "linear_forward_lane4": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 0.36688
+       },
+       "linear_input_grad_group4_muladd": {
+        "category": "projection.linear",
+        "dispatches": 4,
+        "gpu_ms": 0.17972
+       },
+       "linear_weight_grad": {
+        "category": "projection.linear",
+        "dispatches": 8,
+        "gpu_ms": 0.12944
+       },
+       "transformer_rope_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.11376
+       },
+       "silu_forward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.11776
+       },
+       "transformer_rope_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.07036
+       },
+       "transformer_lora_scaled_add": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.05276
+       },
+       "transformer_elementwise_mul_backward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.044160000000000005
+       },
+       "embedding_forward": {
+        "category": "token.embedding",
+        "dispatches": 2,
+        "gpu_ms": 0.030359999999999998
+       },
+       "transformer_scale_copy": {
+        "category": "other",
+        "dispatches": 6,
+        "gpu_ms": 0.023719999999999998
+       },
+       "transformer_elementwise_mul_forward": {
+        "category": "other",
+        "dispatches": 4,
+        "gpu_ms": 0.03936
+       },
+       "silu_backward": {
+        "category": "elementwise-reduction",
+        "dispatches": 4,
+        "gpu_ms": 0.02748
+       },
+       "ordered_f32_sum": {
+        "category": "other",
+        "dispatches": 2,
+        "gpu_ms": 0.009559999999999999
+       },
+       "adamw": {
+        "category": "optimizer.adamw",
+        "dispatches": 8,
+        "gpu_ms": 0.00892
+       }
+      }
+     }
+    },
+    "bit_identical": {
+     "loss_bits": true,
+     "grad_digests": true,
+     "param_digests": true,
+     "parameter_end_digest": true,
+     "adapter_files": true,
+     "optimizer_state_files": true
+    },
+    "all_identical": true
+   },
+   "profile": {
+    "scalar": {
+     "routes": [
+      "two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0"
+     ],
+     "wall_ms_per_step": 533.637625,
+     "attribution": {
+      "steps": 12,
+      "blocks": 12,
+      "gpu_ms_per_step_total": 527.9445724999999,
+      "buckets": {
+       "attention_backward_query": {
+        "dispatches_per_step": 0.0,
+        "gpu_ms_per_step": 0.0,
+        "shaders": [],
+        "share_pct": 0.0
+       },
+       "attention_backward_key": {
+        "dispatches_per_step": 0.0,
+        "gpu_ms_per_step": 0.0,
+        "shaders": [],
+        "share_pct": 0.0
+       },
+       "attention_backward_scalar": {
+        "dispatches_per_step": 2.0,
+        "gpu_ms_per_step": 511.00456333333324,
+        "shaders": [
+         {
+          "shader": "transformer_attention_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 6132.054759999999
+         }
+        ],
+        "share_pct": 96.7913280959685
+       },
+       "attention_other": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 9.056550833333333,
+        "shaders": [
+         {
+          "shader": "transformer_attention_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 107.59933
+         },
+         {
+          "shader": "transformer_elementwise_mul_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.33296000000000003
+         },
+         {
+          "shader": "transformer_elementwise_mul_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.18439999999999998
+         },
+         {
+          "shader": "transformer_rope_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.29151999999999995
+         },
+         {
+          "shader": "transformer_rope_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.27040000000000003
+         }
+        ],
+        "share_pct": 1.7154359198063986
+       },
+       "linear_forward": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 1.8870166666666666,
+        "shaders": [
+         {
+          "shader": "linear_forward",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 21.98324
+         },
+         {
+          "shader": "linear_forward_lane4",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 0.6609599999999999
+         }
+        ],
+        "share_pct": 0.35742704157957167
+       },
+       "linear_weight_grad": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.04788333333333333,
+        "shaders": [
+         {
+          "shader": "linear_weight_grad",
+          "category": "projection.linear",
+          "dispatches": 48,
+          "gpu_ms": 0.5746
+         }
+        ],
+        "share_pct": 0.009069765241943716
+       },
+       "linear_input_grad": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 1.964685,
+        "shaders": [
+         {
+          "shader": "linear_input_grad",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 21.32052
+         },
+         {
+          "shader": "linear_input_grad_group4_muladd",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 2.2557
+         }
+        ],
+        "share_pct": 0.37213849755032763
+       },
+       "normalization": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 1.5857416666666666,
+        "shaders": [
+         {
+          "shader": "transformer_rms_norm_forward",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 9.376209999999999
+         },
+         {
+          "shader": "transformer_rms_norm_input_grad",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 9.652690000000002
+         }
+        ],
+        "share_pct": 0.3003613919464371
+       },
+       "mlp": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.04052,
+        "shaders": [
+         {
+          "shader": "silu_backward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.21660000000000001
+         },
+         {
+          "shader": "silu_forward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.26964
+         }
+        ],
+        "share_pct": 0.007675048122594347
+       },
+       "optimizer": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.007036666666666667,
+        "shaders": [
+         {
+          "shader": "adamw",
+          "category": "optimizer.adamw",
+          "dispatches": 48,
+          "gpu_ms": 0.08444
+         }
+        ],
+        "share_pct": 0.0013328419370513876
+       },
+       "other": {
+        "dispatches_per_step": 24.0,
+        "gpu_ms_per_step": 2.350575,
+        "shaders": [
+         {
+          "shader": "embedding_forward",
+          "category": "token.embedding",
+          "dispatches": 12,
+          "gpu_ms": 0.08524000000000001
+         },
+         {
+          "shader": "falcon_h1_cross_entropy_lanes16",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 15.268839999999999
+         },
+         {
+          "shader": "ordered_f32_sum",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 0.023639999999999998
+         },
+         {
+          "shader": "transformer_lora_scaled_add",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.18288000000000001
+         },
+         {
+          "shader": "transformer_scale_copy",
+          "category": "other",
+          "dispatches": 36,
+          "gpu_ms": 0.06196
+         },
+         {
+          "shader": "vector_add",
+          "category": "elementwise-reduction",
+          "dispatches": 192,
+          "gpu_ms": 12.584340000000001
+         }
+        ],
+        "share_pct": 0.44523139784716703
+       }
+      },
+      "unassigned_shaders": []
+     }
+    },
+    "twopass": {
+     "routes": [
+      "two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=32768 scratch_bytes=262144"
+     ],
+     "wall_ms_per_step": 38.45464166666667,
+     "attribution": {
+      "steps": 12,
+      "blocks": 12,
+      "gpu_ms_per_step_total": 33.96837166666666,
+      "buckets": {
+       "attention_backward_query": {
+        "dispatches_per_step": 2.0,
+        "gpu_ms_per_step": 7.817946666666668,
+        "shaders": [
+         {
+          "shader": "transformer_attention_backward_query_rdna3",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 93.81536000000001
+         }
+        ],
+        "share_pct": 23.015370720105665
+       },
+       "attention_backward_key": {
+        "dispatches_per_step": 2.0,
+        "gpu_ms_per_step": 8.911955833333332,
+        "shaders": [
+         {
+          "shader": "transformer_attention_backward_key_rdna3",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 106.94346999999999
+         }
+        ],
+        "share_pct": 26.23604075222328
+       },
+       "attention_backward_scalar": {
+        "dispatches_per_step": 0.0,
+        "gpu_ms_per_step": 0.0,
+        "shaders": [],
+        "share_pct": 0.0
+       },
+       "attention_other": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 9.89389,
+        "shaders": [
+         {
+          "shader": "transformer_attention_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 117.77044000000001
+         },
+         {
+          "shader": "transformer_elementwise_mul_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.25076
+         },
+         {
+          "shader": "transformer_elementwise_mul_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.17316000000000004
+         },
+         {
+          "shader": "transformer_rope_backward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.24559999999999998
+         },
+         {
+          "shader": "transformer_rope_forward",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.28672000000000003
+         }
+        ],
+        "share_pct": 29.126771507004342
+       },
+       "linear_forward": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 2.024903333333333,
+        "shaders": [
+         {
+          "shader": "linear_forward",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 23.587039999999995
+         },
+         {
+          "shader": "linear_forward_lane4",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 0.7118000000000001
+         }
+        ],
+        "share_pct": 5.961143363608391
+       },
+       "linear_weight_grad": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.04176,
+        "shaders": [
+         {
+          "shader": "linear_weight_grad",
+          "category": "projection.linear",
+          "dispatches": 48,
+          "gpu_ms": 0.50112
+         }
+        ],
+        "share_pct": 0.1229378917829591
+       },
+       "linear_input_grad": {
+        "dispatches_per_step": 19.0,
+        "gpu_ms_per_step": 2.0882666666666663,
+        "shaders": [
+         {
+          "shader": "linear_input_grad",
+          "category": "projection.linear",
+          "dispatches": 204,
+          "gpu_ms": 23.528079999999996
+         },
+         {
+          "shader": "linear_input_grad_group4_muladd",
+          "category": "projection.linear",
+          "dispatches": 24,
+          "gpu_ms": 1.5311199999999998
+         }
+        ],
+        "share_pct": 6.147679633156785
+       },
+       "normalization": {
+        "dispatches_per_step": 10.0,
+        "gpu_ms_per_step": 1.5268933333333334,
+        "shaders": [
+         {
+          "shader": "transformer_rms_norm_forward",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 8.682680000000001
+         },
+         {
+          "shader": "transformer_rms_norm_input_grad",
+          "category": "other",
+          "dispatches": 60,
+          "gpu_ms": 9.640039999999999
+         }
+        ],
+        "share_pct": 4.495044237965877
+       },
+       "mlp": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.03738666666666666,
+        "shaders": [
+         {
+          "shader": "silu_backward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.16027999999999998
+         },
+         {
+          "shader": "silu_forward",
+          "category": "elementwise-reduction",
+          "dispatches": 24,
+          "gpu_ms": 0.28835999999999995
+         }
+        ],
+        "share_pct": 0.1100631700381281
+       },
+       "optimizer": {
+        "dispatches_per_step": 4.0,
+        "gpu_ms_per_step": 0.00386,
+        "shaders": [
+         {
+          "shader": "adamw",
+          "category": "optimizer.adamw",
+          "dispatches": 48,
+          "gpu_ms": 0.04632
+         }
+        ],
+        "share_pct": 0.011363512027830988
+       },
+       "other": {
+        "dispatches_per_step": 24.0,
+        "gpu_ms_per_step": 1.6215091666666666,
+        "shaders": [
+         {
+          "shader": "embedding_forward",
+          "category": "token.embedding",
+          "dispatches": 12,
+          "gpu_ms": 0.08587999999999997
+         },
+         {
+          "shader": "falcon_h1_cross_entropy_lanes16",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 16.87
+         },
+         {
+          "shader": "ordered_f32_sum",
+          "category": "other",
+          "dispatches": 12,
+          "gpu_ms": 0.02908
+         },
+         {
+          "shader": "transformer_lora_scaled_add",
+          "category": "other",
+          "dispatches": 24,
+          "gpu_ms": 0.19824
+         },
+         {
+          "shader": "transformer_scale_copy",
+          "category": "other",
+          "dispatches": 36,
+          "gpu_ms": 0.05924000000000001
+         },
+         {
+          "shader": "vector_add",
+          "category": "elementwise-reduction",
+          "dispatches": 192,
+          "gpu_ms": 2.2156700000000003
+         }
+        ],
+        "share_pct": 4.773585212086754
+       }
+      },
+      "unassigned_shaders": []
+     }
+    }
+   },
+   "abba": {
+    "geometry": "4q2kv",
+    "protocol": {
+     "rounds": 3,
+     "steps_per_run": 29,
+     "warmup_per_run": 3,
+     "measured_per_run": 26,
+     "order": [
+      "scalar",
+      "twopass",
+      "twopass",
+      "scalar"
+     ],
+     "processes": "one per run, strictly serial",
+     "wmma_mode": "off",
+     "samples_file": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\gqa_end_to_end_training_20261124\\samples\\abba-4q2kv.jsonl"
+    },
+    "per_round": [
+     {
+      "round": 0,
+      "scalar_median_ms": 525.7013,
+      "twopass_median_ms": 28.6811,
+      "ratio": 18.3291889083752
+     },
+     {
+      "round": 1,
+      "scalar_median_ms": 525.3197,
+      "twopass_median_ms": 28.7468,
+      "ratio": 18.27402354349006
+     },
+     {
+      "round": 2,
+      "scalar_median_ms": 525.16065,
+      "twopass_median_ms": 28.72175,
+      "ratio": 18.284423825149933
+     }
+    ],
+    "paired_ratios": [
+     18.3291889083752,
+     18.27402354349006,
+     18.284423825149933
+    ],
+    "mean_paired_ratio": 18.295878759005063,
+    "ci95": {
+     "low": 18.223062754252677,
+     "high": 18.36869476375745,
+     "df": 2,
+     "t_critical": 4.302652729749752
+    },
+    "geomean_ratio": 18.295863113205783,
+    "ratio_of_medians": 18.299040291726236,
+    "scalar": {
+     "samples": 156,
+     "median_ms": 525.3992999999999,
+     "mean_ms": 525.1765897435897,
+     "std_ms": 1.559423836660754,
+     "p95_ms": 527.3449,
+     "min_ms": 521.2719999999999,
+     "max_ms": 530.1694
+    },
+    "twopass": {
+     "samples": 156,
+     "median_ms": 28.71185,
+     "mean_ms": 28.765664102564102,
+     "std_ms": 0.298456028413917,
+     "p95_ms": 29.293300000000002,
+     "min_ms": 28.287799999999997,
+     "max_ms": 30.1263
+    }
+   }
+  }
+ },
+ "environment": {
+  "device": "AMD Radeon Graphics",
+  "driver": "2.0.416 / 26.20.15.14 (LLPC)",
+  "rustc": "1.93.0",
+  "wmma_mode": "off"
+ },
+ "default_environment": {
+  "two_pass_env": null,
+  "routes": [
+   "two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288"
+  ],
+  "query_dispatches": 6,
+  "key_dispatches": 6,
+  "scalar_dispatches": 0,
+  "steps": 3,
+  "layers": 2,
+  "report_two_pass_requested": true
+ },
+ "fail_closed": {
+  "exit_code": 1,
+  "nonzero": true,
+  "routes": [],
+  "failure_tail": "Error: creating Vulkan instance: ERROR_INCOMPATIBLE_DRIVER"
+ }
+}

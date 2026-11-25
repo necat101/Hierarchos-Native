@@ -1,0 +1,1144 @@
+{
+  "geometry": {
+    "layers": 2,
+    "hidden": 1024,
+    "intermediate": 1024,
+    "vocab": 1024,
+    "q_heads": 8,
+    "kv_heads": 2,
+    "head_dim": 128,
+    "batch": 2,
+    "seq": 64,
+    "gemm_rows": 128,
+    "lora_rank": 8
+  },
+  "lora": [
+    {
+      "projection": "model.layers.0.self_attn.q_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.self_attn.k_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.self_attn.v_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.self_attn.o_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.mlp.gate_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.mlp.up_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.mlp.down_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.q_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.k_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.v_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.o_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.mlp.gate_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.mlp.up_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.mlp.down_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "lm_head",
+      "kind": "vocabulary projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": false,
+        "route": "not-recorded (base frozen)"
+      },
+      "train_base": false,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.self_attn.q_proj.lora_A",
+      "kind": "LoRA adapter A",
+      "in_dim": 1024,
+      "out_dim": 8,
+      "forward": {
+        "rows": 128,
+        "columns": 8,
+        "reduction": 1024,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 narrow-output lane4"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 8,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 group4-muladd"
+      },
+      "weight_grad": {
+        "rows": 8,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_weight_grad"
+      },
+      "train_base": true,
+      "fallback_reason": "wmma_shape_eligible: out_dim 8 < 16 and 1.05 MMAC < 16 MMAC floor"
+    },
+    {
+      "projection": "model.layers.0.self_attn.q_proj.lora_B",
+      "kind": "LoRA adapter B",
+      "in_dim": 8,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 8,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_forward"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 8,
+        "reduction": 1024,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_input_grad"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 8,
+        "reduction": 128,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_weight_grad"
+      },
+      "train_base": true,
+      "fallback_reason": "wmma_shape_eligible: reduction 8 < 16 (LoRA rank)"
+    },
+    {
+      "projection": "model.layers.1.self_attn.q_proj.lora_A",
+      "kind": "LoRA adapter A",
+      "in_dim": 1024,
+      "out_dim": 8,
+      "forward": {
+        "rows": 128,
+        "columns": 8,
+        "reduction": 1024,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 narrow-output lane4"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 8,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 group4-muladd"
+      },
+      "weight_grad": {
+        "rows": 8,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_weight_grad"
+      },
+      "train_base": true,
+      "fallback_reason": "wmma_shape_eligible: out_dim 8 < 16 and 1.05 MMAC < 16 MMAC floor"
+    },
+    {
+      "projection": "model.layers.1.self_attn.q_proj.lora_B",
+      "kind": "LoRA adapter B",
+      "in_dim": 8,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 8,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_forward"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 8,
+        "reduction": 1024,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_input_grad"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 8,
+        "reduction": 128,
+        "macs": 1048576,
+        "eligible": false,
+        "route": "fp32 linear_weight_grad"
+      },
+      "train_base": true,
+      "fallback_reason": "wmma_shape_eligible: reduction 8 < 16 (LoRA rank)"
+    }
+  ],
+  "full": [
+    {
+      "projection": "model.layers.0.self_attn.q_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.self_attn.k_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.self_attn.v_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.self_attn.o_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.mlp.gate_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.mlp.up_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.0.mlp.down_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.q_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.k_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.v_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 256,
+      "forward": {
+        "rows": 128,
+        "columns": 256,
+        "reduction": 1024,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 256,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 256,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 33554432,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.self_attn.o_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.mlp.gate_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.mlp.up_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "model.layers.1.mlp.down_proj",
+      "kind": "dense projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    },
+    {
+      "projection": "lm_head",
+      "kind": "vocabulary projection",
+      "in_dim": 1024,
+      "out_dim": 1024,
+      "forward": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "input_grad": {
+        "rows": 128,
+        "columns": 1024,
+        "reduction": 1024,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "weight_grad": {
+        "rows": 1024,
+        "columns": 1024,
+        "reduction": 128,
+        "macs": 134217728,
+        "eligible": true,
+        "route": "wmma-mixed-f32acc"
+      },
+      "train_base": true,
+      "fallback_reason": null
+    }
+  ],
+  "predicted": {
+    "lora": {
+      "forward": 15,
+      "weight_grad": 0,
+      "input_grad": 15
+    },
+    "full": {
+      "forward": 15,
+      "weight_grad": 15,
+      "input_grad": 15
+    }
+  },
+  "measured": {
+    "lora": {
+      "forward": 15,
+      "weight_grad": 0,
+      "input_grad": 15
+    },
+    "full": {
+      "forward": 15,
+      "weight_grad": 15,
+      "input_grad": 15
+    },
+    "steps": {
+      "lora": 3,
+      "full": 9
+    }
+  },
+  "shape_fallbacks": {
+    "lora": 0,
+    "full": 0
+  },
+  "macs_per_step": {
+    "forward": 1610612736,
+    "input_grad": 1610612736,
+    "weight_grad": 1610612736
+  }
+}

@@ -1,0 +1,39 @@
+{"device":"AMD Radeon Graphics","epoch":1,"epoch_batch":1,"event":"train_step","loss":7.113462924957275,"peft":true,"step":1,"supervised_tokens":504}
+{
+  "architecture": "llama",
+  "attempted_optimizer_windows": 2,
+  "backend": "rust-native-vulkan-transformer",
+  "batch_size": 8,
+  "dataset_source": "target/wmma-fixture/dataset.jsonl",
+  "device": "AMD Radeon Graphics",
+  "encoder_seq_len": null,
+  "epochs_requested": 1,
+  "final_loss": 7.119541168212891,
+  "loss_scaler": null,
+  "model_source": "target/wmma-fixture/model",
+  "optimizer_step": 2,
+  "optimizer_steps": 2,
+  "output": "target/mha-closeout-smoke/eligible",
+  "peft": true,
+  "precision": {
+    "accumulation_dispatches": [
+      0,
+      0
+    ],
+    "automatic_loss_scaling": false,
+    "full_fp16_max_reduction": 64,
+    "full_fp16_reduction_fallbacks": 0,
+    "master_weights": "fp32",
+    "optimizer_state": "fp32",
+    "phases": [
+      0,
+      0,
+      0
+    ],
+    "requested": "off"
+  },
+  "seq_len": 64,
+  "starting_optimizer_step": 0,
+  "supervised_tokens": 1008,
+  "training_sequences": 32
+}
