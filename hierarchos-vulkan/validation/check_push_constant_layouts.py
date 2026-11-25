@@ -229,12 +229,15 @@ def evaluate(expression: str, macros: dict[str, str]) -> bool | None:
         expression = re.sub(rf"\b{name}\b", macros.get(name, "0") or "0", expression)
     expression = expression.replace("&&", " and ").replace("||", " or ")
     expression = re.sub(r"!(?!=)", " not ", expression)
-    # Only digits, parentheses, comparisons and the three logical operators can
-    # remain; anything else means this is not an expression we understand.
+    # Only digits, parentheses, comparisons, arithmetic and the three logical
+    # operators can remain; anything else means this is not an expression we
+    # understand. `%` is part of the subset because the channel-tiled key shader
+    # guards its partition with `#if 128 % XI_CHANNEL_CHUNK != 0`, and refusing
+    # that expression would skip the artifact instead of checking it.
     for part in re.split(r"\b(and|or|not)\b", expression):
         if part in ("and", "or", "not", ""):
             continue
-        if not re.fullmatch(r"[0-9\s()<>=!&|+\-*/]+", part):
+        if not re.fullmatch(r"[0-9\s()<>=!&|+\-*/%]+", part):
             return None
     try:
         return bool(eval(expression, {"__builtins__": {}}, {}))  # noqa: S307 - digits and operators only
