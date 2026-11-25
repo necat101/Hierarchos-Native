@@ -481,6 +481,21 @@ fixed at the cause:
 - The compatibility matrix must exist in the active root; reissue it with
   `phase19w_matrix.py --forward … --generation … --peft … --output <root>/phase19w-matrix.json`
   from the frozen captures.
+
+A matrix is source-bound twice: its `source_contract` (eight digests, one of them
+its own builder) and its `registry_source_sha256`. Both are verified with
+`source_provenance` against the revision the matrix declares, not against the
+checkout. A sealed matrix is a statement about one revision, exactly like the
+unified receipt that carries it, so a later release that touches
+`hierarchos-vulkan/src/transformer.rs` must not make either artefact expire — and
+reverifying against the running bytes would also invalidate every matrix as soon
+as the verifier itself is corrected, because the builder hashes itself. The
+architecture inventory is still read from the current tree by `validate()`, and
+`check_unified_release.py` additionally requires the matrix's declared revision to
+be an ancestor of the receipt's `source_revision` — the same lineage rule the
+receipt's own source map uses. Sealing applies the same ancestry rule, so a matrix
+from an unrelated revision is refused rather than silently re-certified; a matrix
+is carried forward only while the current registry still parses to its inventory.
 - `.gitignore` excludes `*.safetensors`, so LoRA adapter evidence is present in the
   worktree but absent from every checkout. Use `git add -f` for
   `release_parity/**` and confirm tracked count equals on-disk count before pushing.

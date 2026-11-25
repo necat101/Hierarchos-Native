@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import subprocess
 import unittest
 from pathlib import Path
 
-from phase19w_matrix import DEFAULT_OUTPUT, validate
+from phase19w_matrix import DEFAULT_OUTPUT, ROOT, SOURCE_FILES, validate
 from phase19w_registry import parse_registry
 
 
@@ -92,6 +94,40 @@ class CompatibilityNegativeControls(unittest.TestCase):
             matrix["source_contract"]["transformer_sha256"] = "0" * 64
 
         self.rejected(change)
+
+    def test_unresolvable_source_revision_is_rejected(self):
+        def change(matrix):
+            matrix["source_contract"]["revision"] = "0" * 40
+
+        self.rejected(change)
+
+    def test_source_contract_is_read_at_its_declared_revision(self):
+        """The contract is a statement about the revision it names.
+
+        A sealed matrix must validate even when a bound source has moved in the
+        checkout, and the very same matrix must fail once the bytes at its
+        declared revision no longer match. Re-pointing the identical digests at
+        a revision whose files differ is the forgery this rejects.
+        """
+        head = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        contract = {"revision": head}
+        for name, path in SOURCE_FILES.items():
+            relative = path.relative_to(ROOT).as_posix()
+            blob = subprocess.run(
+                ["git", "-C", str(ROOT), "cat-file", "blob", f"{head}:{relative}"],
+                capture_output=True, check=True,
+            ).stdout
+            contract[name] = hashlib.sha256(blob).hexdigest()
+        matrix = copy.deepcopy(self.matrix)
+        matrix["source_contract"] = contract
+        matrix["registry_source_sha256"] = contract["transformer_sha256"]
+        validate(matrix, self.registry)
+        matrix["source_contract"]["transformer_sha256"] = "0" * 64
+        with self.assertRaises(ValueError):
+            validate(matrix, self.registry)
 
     def test_reduced_generation_matrix_is_rejected(self):
         def change(matrix):

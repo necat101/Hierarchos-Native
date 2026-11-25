@@ -28,7 +28,17 @@ def main():
         subprocess.run([sys.executable,str(ROOT/'hierarchos-vulkan/validation'/script),'--receipt',
                         str(Path(inputs['components'][name]).resolve())],cwd=ROOT,check=True)
     from phase19w_matrix import validate
-    validate(json.loads(Path(inputs['components']['phase19w']).read_text()))
+    compatibility=json.loads(Path(inputs['components']['phase19w']).read_text())
+    validate(compatibility)
+    # The matrix's own contract is now verified at the revision it declares. A
+    # seal is a statement about ``revision``, so the matrix it binds has to have
+    # been built inside that lineage: a matrix from an unrelated revision is
+    # refused here rather than silently certified.
+    matrix_revision=compatibility.get('source_contract',{}).get('revision')
+    require(isinstance(matrix_revision,str) and subprocess.run(
+                ['git','-C',str(ROOT),'merge-base','--is-ancestor',matrix_revision,revision],
+                capture_output=True).returncode==0,
+            'the Phase XIX-W matrix was built outside the revision being sealed')
     destination=base/'evidence/unified'
     require(not destination.exists(),'refusing to overwrite unified evidence')
     destination.mkdir(parents=True)

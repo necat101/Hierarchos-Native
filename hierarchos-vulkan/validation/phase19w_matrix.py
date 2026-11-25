@@ -15,6 +15,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import source_provenance
 from phase19w_registry import (
     ALIAS_COUNT,
     CANONICAL_COUNT,
@@ -170,16 +171,42 @@ def source_contract() -> dict:
 
 
 def _validate_source_contract(contract: dict) -> None:
-    expected = source_contract()
-    for name, value in expected.items():
-        if name == "revision":
-            # A committed matrix cannot contain the hash of the commit that
-            # first adds it (the commit hash is computed after its tree). The
-            # file hashes below bind the exact qualified source; the revision
-            # remains provenance only.
-            continue
-        if contract.get(name) != value:
-            raise ValueError(f"matrix source contract changed: {name}")
+    """Hold the matrix's source binding to the revision it declares.
+
+    A committed matrix is a sealed statement about one git revision, exactly
+    like the release receipt that carries it. Hashing the working tree asks a
+    different question: the receipt declares its own ``source_revision``, and a
+    later release that touches a bound source leaves both the matrix and the
+    receipt intact while making the checkout disagree with them. This file also
+    records its own builder (``matrix_builder_sha256``), so comparing against
+    the running bytes would invalidate every matrix as soon as the verifier is
+    corrected.
+
+    ``source_provenance`` is the repository's canonical revision-relative
+    verifier. It fails closed on an unusable or unavailable revision, an absent
+    file, a malformed digest, and content that differs at the declared revision,
+    so only that revision's committed bytes can satisfy the contract. The
+    architecture inventory is still checked against the current registry by
+    :func:`validate`; this function answers the seal's own question.
+    """
+    relative = {
+        name: path.relative_to(ROOT).as_posix() for name, path in SOURCE_FILES.items()
+    }
+    report = source_provenance.verify_bindings(
+        ROOT,
+        contract.get("revision"),
+        {relative[name]: contract.get(name) for name in SOURCE_FILES},
+    )
+    if report.ok:
+        return
+    changed = [
+        name
+        for name, path in relative.items()
+        if any(finding.path == path for finding in report.failures)
+    ]
+    if changed:
+        raise ValueError(f"matrix source contract changed: {changed[0]}")
+    raise ValueError("matrix source contract unverifiable: " + report.describe())
 
 
 def _forward_rows(path: Path) -> list[dict]:
@@ -685,9 +712,15 @@ def validate(matrix: dict, registry: dict | None = None) -> None:
         raise ValueError("not a Phase XIX-W matrix")
     if matrix.get("policy") != POLICY:
         raise ValueError("matrix numerical policy changed")
-    _validate_source_contract(matrix.get("source_contract", {}))
-    if matrix.get("registry_source_sha256") != registry["source_sha256"]:
-        raise ValueError("matrix registry source changed")
+    contract = matrix.get("source_contract", {})
+    _validate_source_contract(contract)
+    # The matrix's rows are still checked against ``parse_registry()`` - the
+    # current tree's canonical/alias inventory, alias targets and constructors -
+    # by every assertion below. The whole-file digest is not a current-source
+    # question for a sealed record, so it is required to be the exact source the
+    # verified contract names instead of the checkout's bytes.
+    if matrix.get("registry_source_sha256") != contract.get("transformer_sha256"):
+        raise ValueError("matrix registry source is not the contract's source")
     rows = matrix.get("records", [])
     if len(rows) != TOTAL_COUNT:
         raise ValueError("matrix row count is not 229")
