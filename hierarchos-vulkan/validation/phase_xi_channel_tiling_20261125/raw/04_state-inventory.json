@@ -1,0 +1,301 @@
+{
+  "artifacts": [
+    {
+      "arrays": [
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "239"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "254"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "477"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "491"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "517"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "531"
+        }
+      ],
+      "artifact": "transformer_attention_backward_key_rdna3.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 18,
+      "function_array_bytes": 3072,
+      "function_array_variables": 6,
+      "instructions": 681,
+      "loops": 22,
+      "scalar_float_storage_arrays": 1
+    },
+    {
+      "arrays": [
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "283"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "306"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "569"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "591"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "625"
+        },
+        {
+          "bytes": 512,
+          "elements": 128,
+          "variable": "647"
+        }
+      ],
+      "artifact": "key_chantile_c128_u0.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 18,
+      "function_array_bytes": 3072,
+      "function_array_variables": 6,
+      "instructions": 833,
+      "loops": 22,
+      "scalar_float_storage_arrays": 1
+    },
+    {
+      "arrays": [
+        {
+          "bytes": 64,
+          "elements": 16,
+          "variable": "284"
+        },
+        {
+          "bytes": 64,
+          "elements": 16,
+          "variable": "307"
+        },
+        {
+          "bytes": 64,
+          "elements": 16,
+          "variable": "570"
+        },
+        {
+          "bytes": 64,
+          "elements": 16,
+          "variable": "592"
+        },
+        {
+          "bytes": 64,
+          "elements": 16,
+          "variable": "626"
+        },
+        {
+          "bytes": 64,
+          "elements": 16,
+          "variable": "648"
+        }
+      ],
+      "artifact": "key_chantile_c16_u0.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 18,
+      "function_array_bytes": 384,
+      "function_array_variables": 6,
+      "instructions": 856,
+      "loops": 22,
+      "scalar_float_storage_arrays": 1
+    },
+    {
+      "arrays": [],
+      "artifact": "key_chantile_c16_u1.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 0,
+      "function_array_bytes": 0,
+      "function_array_variables": 0,
+      "instructions": 2833,
+      "loops": 4,
+      "scalar_float_storage_arrays": 0
+    },
+    {
+      "arrays": [
+        {
+          "bytes": 128,
+          "elements": 32,
+          "variable": "284"
+        },
+        {
+          "bytes": 128,
+          "elements": 32,
+          "variable": "307"
+        },
+        {
+          "bytes": 128,
+          "elements": 32,
+          "variable": "570"
+        },
+        {
+          "bytes": 128,
+          "elements": 32,
+          "variable": "592"
+        },
+        {
+          "bytes": 128,
+          "elements": 32,
+          "variable": "626"
+        },
+        {
+          "bytes": 128,
+          "elements": 32,
+          "variable": "648"
+        }
+      ],
+      "artifact": "key_chantile_c32_u0.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 18,
+      "function_array_bytes": 768,
+      "function_array_variables": 6,
+      "instructions": 856,
+      "loops": 22,
+      "scalar_float_storage_arrays": 1
+    },
+    {
+      "arrays": [],
+      "artifact": "key_chantile_c32_u1.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 0,
+      "function_array_bytes": 0,
+      "function_array_variables": 0,
+      "instructions": 5265,
+      "loops": 4,
+      "scalar_float_storage_arrays": 0
+    },
+    {
+      "arrays": [
+        {
+          "bytes": 16,
+          "elements": 4,
+          "variable": "284"
+        },
+        {
+          "bytes": 16,
+          "elements": 4,
+          "variable": "307"
+        },
+        {
+          "bytes": 16,
+          "elements": 4,
+          "variable": "570"
+        },
+        {
+          "bytes": 16,
+          "elements": 4,
+          "variable": "592"
+        },
+        {
+          "bytes": 16,
+          "elements": 4,
+          "variable": "626"
+        },
+        {
+          "bytes": 16,
+          "elements": 4,
+          "variable": "648"
+        }
+      ],
+      "artifact": "key_chantile_c4_u0.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 18,
+      "function_array_bytes": 96,
+      "function_array_variables": 6,
+      "instructions": 856,
+      "loops": 22,
+      "scalar_float_storage_arrays": 1
+    },
+    {
+      "arrays": [],
+      "artifact": "key_chantile_c4_u1.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 0,
+      "function_array_bytes": 0,
+      "function_array_variables": 0,
+      "instructions": 1011,
+      "loops": 4,
+      "scalar_float_storage_arrays": 0
+    },
+    {
+      "arrays": [
+        {
+          "bytes": 32,
+          "elements": 8,
+          "variable": "284"
+        },
+        {
+          "bytes": 32,
+          "elements": 8,
+          "variable": "307"
+        },
+        {
+          "bytes": 32,
+          "elements": 8,
+          "variable": "570"
+        },
+        {
+          "bytes": 32,
+          "elements": 8,
+          "variable": "592"
+        },
+        {
+          "bytes": 32,
+          "elements": 8,
+          "variable": "626"
+        },
+        {
+          "bytes": 32,
+          "elements": 8,
+          "variable": "648"
+        }
+      ],
+      "artifact": "key_chantile_c8_u0.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 18,
+      "function_array_bytes": 192,
+      "function_array_variables": 6,
+      "instructions": 856,
+      "loops": 22,
+      "scalar_float_storage_arrays": 1
+    },
+    {
+      "arrays": [],
+      "artifact": "key_chantile_c8_u1.spv",
+      "constant_function_array_access_chains": 0,
+      "dynamic_function_array_access_chains": 0,
+      "function_array_bytes": 0,
+      "function_array_variables": 0,
+      "instructions": 1619,
+      "loops": 4,
+      "scalar_float_storage_arrays": 0
+    }
+  ],
+  "note": "Structural facts read out of each artifact. Function-scope arrays with dynamic indices are the per-invocation state that cannot be scalar-replaced; their size is not a VGPR count, and none of this is a measurement of occupancy or hardware utilisation."
+}

@@ -1,0 +1,167 @@
+{
+  "arm_a": "production",
+  "arm_a_median_ms": 43.559275,
+  "arm_b": "c4_u0",
+  "arm_b_median_ms": 28.48545,
+  "max_round_ratio": 0.655371,
+  "median_round_ratio": 0.654281,
+  "min_round_ratio": 0.65377,
+  "per_round": [
+    {
+      "arm_a_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_a_ms": [
+        43.43385,
+        43.5001
+      ],
+      "arm_a_steps": 26,
+      "arm_b_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_b_ms": [
+        28.463,
+        28.4352
+      ],
+      "arm_b_over_a": [
+        0.655318,
+        0.653681
+      ],
+      "arm_b_over_a_mean": 0.6545,
+      "arm_b_steps": 26,
+      "round": 0
+    },
+    {
+      "arm_a_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_a_ms": [
+        43.54885,
+        43.54135
+      ],
+      "arm_a_steps": 26,
+      "arm_b_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_b_ms": [
+        28.43415,
+        28.5473
+      ],
+      "arm_b_over_a": [
+        0.652925,
+        0.655637
+      ],
+      "arm_b_over_a_mean": 0.654281,
+      "arm_b_steps": 26,
+      "round": 1
+    },
+    {
+      "arm_a_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_a_ms": [
+        43.5697,
+        43.6042
+      ],
+      "arm_a_steps": 26,
+      "arm_b_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_b_ms": [
+        28.5393,
+        28.592
+      ],
+      "arm_b_over_a": [
+        0.655026,
+        0.655717
+      ],
+      "arm_b_over_a_mean": 0.655371,
+      "arm_b_steps": 26,
+      "round": 2
+    },
+    {
+      "arm_a_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_a_ms": [
+        43.54215,
+        43.6
+      ],
+      "arm_a_steps": 26,
+      "arm_b_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_b_ms": [
+        28.47735,
+        28.49355
+      ],
+      "arm_b_over_a": [
+        0.654018,
+        0.653522
+      ],
+      "arm_b_over_a_mean": 0.65377,
+      "arm_b_steps": 26,
+      "round": 3
+    },
+    {
+      "arm_a_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_a_ms": [
+        43.5845,
+        43.59745
+      ],
+      "arm_a_steps": 26,
+      "arm_b_dispatch": {
+        "backward_key": "58",
+        "backward_query": "58",
+        "backward_scalar": "0"
+      },
+      "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "arm_b_ms": [
+        28.45815,
+        28.55735
+      ],
+      "arm_b_over_a": [
+        0.652942,
+        0.655023
+      ],
+      "arm_b_over_a_mean": 0.653983,
+      "arm_b_steps": 26,
+      "round": 4
+    }
+  ],
+  "positions_per_round": 4,
+  "rounds": 5,
+  "rounds_improved": 5,
+  "rounds_total": 5,
+  "speedup": 1.5284,
+  "verdict": "PASS"
+}

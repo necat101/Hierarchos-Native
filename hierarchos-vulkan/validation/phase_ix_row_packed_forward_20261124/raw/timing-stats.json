@@ -1,0 +1,1083 @@
+{
+  "arms": {
+    "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 6.37388,
+      "mean_gpu_ms": 6.230528,
+      "median_gpu_ms": 6.23296,
+      "median_host_ms": 7.0865,
+      "min_gpu_ms": 6.16876,
+      "p25_gpu_ms": 6.20892,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.038014,
+      "workgroups": 1024
+    },
+    "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.67988,
+      "mean_gpu_ms": 1.650958,
+      "median_gpu_ms": 1.65072,
+      "median_host_ms": 2.4631,
+      "min_gpu_ms": 1.62944,
+      "p25_gpu_ms": 1.64116,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.012357,
+      "workgroups": 16
+    },
+    "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.71688,
+      "mean_gpu_ms": 1.690861,
+      "median_gpu_ms": 1.68692,
+      "median_host_ms": 2.4538,
+      "min_gpu_ms": 1.67532,
+      "p25_gpu_ms": 1.68296,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.011057,
+      "workgroups": 1024
+    },
+    "timing-run0-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+      "lanes": 64,
+      "max_gpu_ms": 44.73468,
+      "mean_gpu_ms": 43.695688,
+      "median_gpu_ms": 43.65048,
+      "median_host_ms": 44.9542,
+      "min_gpu_ms": 43.38312,
+      "p25_gpu_ms": 43.56264,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.273125,
+      "workgroups": 16
+    },
+    "timing-run0-order0.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 14.61736,
+      "mean_gpu_ms": 8.133517,
+      "median_gpu_ms": 7.07316,
+      "median_host_ms": 8.0447,
+      "min_gpu_ms": 6.5984,
+      "p25_gpu_ms": 6.6242,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 2.163528,
+      "workgroups": 1024
+    },
+    "timing-run0-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.74136,
+      "mean_gpu_ms": 1.734162,
+      "median_gpu_ms": 1.73544,
+      "median_host_ms": 2.4715,
+      "min_gpu_ms": 1.72632,
+      "p25_gpu_ms": 1.73116,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.004254,
+      "workgroups": 16
+    },
+    "timing-run0-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.74232,
+      "mean_gpu_ms": 1.73535,
+      "median_gpu_ms": 1.73572,
+      "median_host_ms": 2.448,
+      "min_gpu_ms": 1.7294,
+      "p25_gpu_ms": 1.73272,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.003449,
+      "workgroups": 1024
+    },
+    "timing-run0-order0.log|mha-8q-8kv-control|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 7.93396,
+      "mean_gpu_ms": 6.971147,
+      "median_gpu_ms": 6.85168,
+      "median_host_ms": 8.0944,
+      "min_gpu_ms": 6.77952,
+      "p25_gpu_ms": 6.8192,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.306428,
+      "workgroups": 1024
+    },
+    "timing-run0-order0.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 2.01188,
+      "mean_gpu_ms": 1.98504,
+      "median_gpu_ms": 1.98276,
+      "median_host_ms": 2.8008,
+      "min_gpu_ms": 1.97464,
+      "p25_gpu_ms": 1.97792,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.009583,
+      "workgroups": 16
+    },
+    "timing-run0-order0.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 2.00576,
+      "mean_gpu_ms": 1.987666,
+      "median_gpu_ms": 1.98708,
+      "median_host_ms": 2.8548,
+      "min_gpu_ms": 1.97964,
+      "p25_gpu_ms": 1.98228,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.00676,
+      "workgroups": 1024
+    },
+    "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 6.27552,
+      "mean_gpu_ms": 6.233445,
+      "median_gpu_ms": 6.23228,
+      "median_host_ms": 7.2122,
+      "min_gpu_ms": 6.1962,
+      "p25_gpu_ms": 6.22008,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.019905,
+      "workgroups": 1024
+    },
+    "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.75572,
+      "mean_gpu_ms": 1.735611,
+      "median_gpu_ms": 1.73612,
+      "median_host_ms": 2.4878,
+      "min_gpu_ms": 1.7082,
+      "p25_gpu_ms": 1.7306,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.012669,
+      "workgroups": 16
+    },
+    "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.74808,
+      "mean_gpu_ms": 1.727912,
+      "median_gpu_ms": 1.7282,
+      "median_host_ms": 2.533,
+      "min_gpu_ms": 1.70628,
+      "p25_gpu_ms": 1.72124,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.010187,
+      "workgroups": 1024
+    },
+    "timing-run1-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+      "lanes": 64,
+      "max_gpu_ms": 44.13812,
+      "mean_gpu_ms": 43.624936,
+      "median_gpu_ms": 43.69948,
+      "median_host_ms": 45.0101,
+      "min_gpu_ms": 42.68296,
+      "p25_gpu_ms": 43.51352,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.299783,
+      "workgroups": 16
+    },
+    "timing-run1-order1.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 8.2634,
+      "mean_gpu_ms": 6.839429,
+      "median_gpu_ms": 6.61428,
+      "median_host_ms": 7.5893,
+      "min_gpu_ms": 6.58144,
+      "p25_gpu_ms": 6.60908,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.464783,
+      "workgroups": 1024
+    },
+    "timing-run1-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 2.99852,
+      "mean_gpu_ms": 2.67753,
+      "median_gpu_ms": 2.663,
+      "median_host_ms": 3.5311,
+      "min_gpu_ms": 2.44024,
+      "p25_gpu_ms": 2.54292,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.169638,
+      "workgroups": 16
+    },
+    "timing-run1-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 5.7708,
+      "mean_gpu_ms": 4.277502,
+      "median_gpu_ms": 3.98888,
+      "median_host_ms": 4.8954,
+      "min_gpu_ms": 3.1192,
+      "p25_gpu_ms": 3.44132,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.971632,
+      "workgroups": 1024
+    },
+    "timing-run1-order1.log|mha-8q-8kv-control|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 6.87696,
+      "mean_gpu_ms": 6.83284,
+      "median_gpu_ms": 6.8346,
+      "median_host_ms": 7.8801,
+      "min_gpu_ms": 6.77532,
+      "p25_gpu_ms": 6.8232,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.025227,
+      "workgroups": 1024
+    },
+    "timing-run1-order1.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 2.16004,
+      "mean_gpu_ms": 2.125958,
+      "median_gpu_ms": 2.12908,
+      "median_host_ms": 3.0231,
+      "min_gpu_ms": 2.08564,
+      "p25_gpu_ms": 2.112,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.022017,
+      "workgroups": 16
+    },
+    "timing-run1-order1.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 2.21776,
+      "mean_gpu_ms": 2.195141,
+      "median_gpu_ms": 2.19748,
+      "median_host_ms": 3.0937,
+      "min_gpu_ms": 2.16332,
+      "p25_gpu_ms": 2.1774,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.019373,
+      "workgroups": 1024
+    },
+    "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 6.43084,
+      "mean_gpu_ms": 6.240755,
+      "median_gpu_ms": 6.2344,
+      "median_host_ms": 7.1365,
+      "min_gpu_ms": 6.1848,
+      "p25_gpu_ms": 6.21964,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.047468,
+      "workgroups": 1024
+    },
+    "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.65784,
+      "mean_gpu_ms": 1.634461,
+      "median_gpu_ms": 1.63476,
+      "median_host_ms": 2.4618,
+      "min_gpu_ms": 1.6214,
+      "p25_gpu_ms": 1.62736,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.009765,
+      "workgroups": 16
+    },
+    "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.67716,
+      "mean_gpu_ms": 1.666651,
+      "median_gpu_ms": 1.66684,
+      "median_host_ms": 2.4805,
+      "min_gpu_ms": 1.65728,
+      "p25_gpu_ms": 1.66128,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.006416,
+      "workgroups": 1024
+    },
+    "timing-run2-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+      "lanes": 64,
+      "max_gpu_ms": 44.4544,
+      "mean_gpu_ms": 43.600704,
+      "median_gpu_ms": 43.6226,
+      "median_host_ms": 44.8302,
+      "min_gpu_ms": 43.18036,
+      "p25_gpu_ms": 43.45916,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.249734,
+      "workgroups": 16
+    },
+    "timing-run2-order0.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 14.32928,
+      "mean_gpu_ms": 8.062259,
+      "median_gpu_ms": 6.89624,
+      "median_host_ms": 7.6574,
+      "min_gpu_ms": 6.595,
+      "p25_gpu_ms": 6.64008,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 2.120166,
+      "workgroups": 1024
+    },
+    "timing-run2-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.75124,
+      "mean_gpu_ms": 1.735016,
+      "median_gpu_ms": 1.73308,
+      "median_host_ms": 2.5813,
+      "min_gpu_ms": 1.72472,
+      "p25_gpu_ms": 1.73132,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.007172,
+      "workgroups": 16
+    },
+    "timing-run2-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.76848,
+      "mean_gpu_ms": 1.753074,
+      "median_gpu_ms": 1.75612,
+      "median_host_ms": 2.5335,
+      "min_gpu_ms": 1.73036,
+      "p25_gpu_ms": 1.7474,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.010299,
+      "workgroups": 1024
+    },
+    "timing-run2-order0.log|mha-8q-8kv-control|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 7.7654,
+      "mean_gpu_ms": 6.928346,
+      "median_gpu_ms": 6.83856,
+      "median_host_ms": 7.8132,
+      "min_gpu_ms": 6.80896,
+      "p25_gpu_ms": 6.82184,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.240187,
+      "workgroups": 1024
+    },
+    "timing-run2-order0.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.98756,
+      "mean_gpu_ms": 1.980387,
+      "median_gpu_ms": 1.98024,
+      "median_host_ms": 2.8074,
+      "min_gpu_ms": 1.97528,
+      "p25_gpu_ms": 1.97884,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.002735,
+      "workgroups": 16
+    },
+    "timing-run2-order0.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.98228,
+      "mean_gpu_ms": 1.978898,
+      "median_gpu_ms": 1.97936,
+      "median_host_ms": 2.8005,
+      "min_gpu_ms": 1.97304,
+      "p25_gpu_ms": 1.9784,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.002209,
+      "workgroups": 1024
+    },
+    "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 6.42212,
+      "mean_gpu_ms": 6.237738,
+      "median_gpu_ms": 6.2356,
+      "median_host_ms": 7.1492,
+      "min_gpu_ms": 6.19748,
+      "p25_gpu_ms": 6.21168,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.043308,
+      "workgroups": 1024
+    },
+    "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.7658,
+      "mean_gpu_ms": 1.752394,
+      "median_gpu_ms": 1.75384,
+      "median_host_ms": 2.5827,
+      "min_gpu_ms": 1.68816,
+      "p25_gpu_ms": 1.75244,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.014529,
+      "workgroups": 16
+    },
+    "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.76392,
+      "mean_gpu_ms": 1.748339,
+      "median_gpu_ms": 1.75132,
+      "median_host_ms": 2.5643,
+      "min_gpu_ms": 1.70904,
+      "p25_gpu_ms": 1.74768,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.012915,
+      "workgroups": 1024
+    },
+    "timing-run3-order1.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+      "lanes": 64,
+      "max_gpu_ms": 43.87484,
+      "mean_gpu_ms": 43.645381,
+      "median_gpu_ms": 43.6922,
+      "median_host_ms": 45.0044,
+      "min_gpu_ms": 43.27992,
+      "p25_gpu_ms": 43.54276,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.139417,
+      "workgroups": 16
+    },
+    "timing-run3-order1.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 8.4974,
+      "mean_gpu_ms": 6.895954,
+      "median_gpu_ms": 6.63408,
+      "median_host_ms": 7.5751,
+      "min_gpu_ms": 6.57284,
+      "p25_gpu_ms": 6.61152,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.538909,
+      "workgroups": 1024
+    },
+    "timing-run3-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 3.06164,
+      "mean_gpu_ms": 2.769006,
+      "median_gpu_ms": 2.74396,
+      "median_host_ms": 3.6779,
+      "min_gpu_ms": 2.52768,
+      "p25_gpu_ms": 2.63164,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.161609,
+      "workgroups": 16
+    },
+    "timing-run3-order1.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 5.78296,
+      "mean_gpu_ms": 4.352142,
+      "median_gpu_ms": 4.0648,
+      "median_host_ms": 5.1777,
+      "min_gpu_ms": 3.18984,
+      "p25_gpu_ms": 3.52224,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.951734,
+      "workgroups": 1024
+    },
+    "timing-run3-order1.log|mha-8q-8kv-control|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 6.8936,
+      "mean_gpu_ms": 6.827619,
+      "median_gpu_ms": 6.82596,
+      "median_host_ms": 7.7861,
+      "min_gpu_ms": 6.79072,
+      "p25_gpu_ms": 6.81676,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.023384,
+      "workgroups": 1024
+    },
+    "timing-run3-order1.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 2.13436,
+      "mean_gpu_ms": 2.082771,
+      "median_gpu_ms": 2.08452,
+      "median_host_ms": 2.8634,
+      "min_gpu_ms": 2.02068,
+      "p25_gpu_ms": 2.05144,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.035848,
+      "workgroups": 16
+    },
+    "timing-run3-order1.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 2.20968,
+      "mean_gpu_ms": 2.176432,
+      "median_gpu_ms": 2.1732,
+      "median_host_ms": 3.0063,
+      "min_gpu_ms": 2.1444,
+      "p25_gpu_ms": 2.15636,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.020982,
+      "workgroups": 1024
+    },
+    "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 6.41832,
+      "mean_gpu_ms": 6.242829,
+      "median_gpu_ms": 6.23428,
+      "median_host_ms": 7.124,
+      "min_gpu_ms": 6.18988,
+      "p25_gpu_ms": 6.21804,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.044715,
+      "workgroups": 1024
+    },
+    "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.64304,
+      "mean_gpu_ms": 1.63147,
+      "median_gpu_ms": 1.6314,
+      "median_host_ms": 2.3606,
+      "min_gpu_ms": 1.62224,
+      "p25_gpu_ms": 1.62588,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.006017,
+      "workgroups": 16
+    },
+    "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.64344,
+      "mean_gpu_ms": 1.634642,
+      "median_gpu_ms": 1.6348,
+      "median_host_ms": 2.3997,
+      "min_gpu_ms": 1.62692,
+      "p25_gpu_ms": 1.63128,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.005078,
+      "workgroups": 1024
+    },
+    "timing-run4-order0.log|gqa-8q-2kv-primary-mode0|forward_rowpacked64stream": {
+      "lanes": 64,
+      "max_gpu_ms": 43.79896,
+      "mean_gpu_ms": 43.580717,
+      "median_gpu_ms": 43.6216,
+      "median_host_ms": 44.823,
+      "min_gpu_ms": 43.25032,
+      "p25_gpu_ms": 43.46764,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.149718,
+      "workgroups": 16
+    },
+    "timing-run4-order0.log|gqa-8q-2kv-primary-mode9|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 14.30992,
+      "mean_gpu_ms": 8.142138,
+      "median_gpu_ms": 7.13076,
+      "median_host_ms": 8.3487,
+      "min_gpu_ms": 6.58004,
+      "p25_gpu_ms": 6.61444,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 2.121022,
+      "workgroups": 1024
+    },
+    "timing-run4-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.73948,
+      "mean_gpu_ms": 1.731443,
+      "median_gpu_ms": 1.73208,
+      "median_host_ms": 2.4448,
+      "min_gpu_ms": 1.72352,
+      "p25_gpu_ms": 1.72672,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.0049,
+      "workgroups": 16
+    },
+    "timing-run4-order0.log|gqa-8q-2kv-primary-mode9|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 1.73752,
+      "mean_gpu_ms": 1.729432,
+      "median_gpu_ms": 1.73064,
+      "median_host_ms": 2.4909,
+      "min_gpu_ms": 1.71992,
+      "p25_gpu_ms": 1.72652,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.004049,
+      "workgroups": 1024
+    },
+    "timing-run4-order0.log|mha-8q-8kv-control|forward_generic": {
+      "lanes": 1,
+      "max_gpu_ms": 7.45692,
+      "mean_gpu_ms": 6.919786,
+      "median_gpu_ms": 6.83076,
+      "median_host_ms": 7.9434,
+      "min_gpu_ms": 6.75416,
+      "p25_gpu_ms": 6.81576,
+      "samples": 25,
+      "shader_labels": [
+        "transformer_attention_forward"
+      ],
+      "stdev_gpu_ms": 0.196904,
+      "workgroups": 1024
+    },
+    "timing-run4-order0.log|mha-8q-8kv-control|forward_rowpacked64cached": {
+      "lanes": 64,
+      "max_gpu_ms": 1.98796,
+      "mean_gpu_ms": 1.984486,
+      "median_gpu_ms": 1.98428,
+      "median_host_ms": 2.8493,
+      "min_gpu_ms": 1.9786,
+      "p25_gpu_ms": 1.98308,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.002203,
+      "workgroups": 16
+    },
+    "timing-run4-order0.log|mha-8q-8kv-control|forward_rowpacked64cached_productiongrid": {
+      "lanes": 64,
+      "max_gpu_ms": 2.86484,
+      "mean_gpu_ms": 2.054398,
+      "median_gpu_ms": 1.9822,
+      "median_host_ms": 2.8425,
+      "min_gpu_ms": 1.97588,
+      "p25_gpu_ms": 1.98072,
+      "samples": 25,
+      "shader_labels": [
+        "unknown"
+      ],
+      "stdev_gpu_ms": 0.24174,
+      "workgroups": 1024
+    }
+  },
+  "comparisons": {
+    "mha_mode9_packed_vs_generic": {
+      "baseline_arm": "forward_generic",
+      "candidate_arm": "forward_rowpacked64cached",
+      "ci95": {
+        "df": 4,
+        "high": 3.5117,
+        "low": 3.2228,
+        "t_critical": 2.776
+      },
+      "geomean_paired_ratio": 3.3656,
+      "geometry": "mha-8q-8kv-control",
+      "mean_paired_ratio": 3.3672,
+      "paired_ratios": [
+        3.4556,
+        3.2101,
+        3.4534,
+        3.2746,
+        3.4424
+      ],
+      "per_run": [
+        {
+          "baseline_median_gpu_ms": 6.85168,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.98276,
+          "candidate_samples": 25,
+          "ratio": 3.4556,
+          "run": "timing-run0-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.8346,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 2.12908,
+          "candidate_samples": 25,
+          "ratio": 3.2101,
+          "run": "timing-run1-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.83856,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.98024,
+          "candidate_samples": 25,
+          "ratio": 3.4534,
+          "run": "timing-run2-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.82596,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 2.08452,
+          "candidate_samples": 25,
+          "ratio": 3.2746,
+          "run": "timing-run3-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.83076,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.98428,
+          "candidate_samples": 25,
+          "ratio": 3.4424,
+          "run": "timing-run4-order0.log"
+        }
+      ],
+      "runs": 5,
+      "samples_per_arm_per_run": 25
+    },
+    "primary_mode0_packed_vs_generic": {
+      "baseline_arm": "forward_generic",
+      "candidate_arm": "forward_rowpacked64cached",
+      "ci95": {
+        "df": 4,
+        "high": 3.8705,
+        "low": 3.5519,
+        "t_critical": 2.776
+      },
+      "geomean_paired_ratio": 3.7094,
+      "geometry": "gqa-8q-2kv-primary-mode0",
+      "mean_paired_ratio": 3.7112,
+      "paired_ratios": [
+        3.7759,
+        3.5898,
+        3.8136,
+        3.5554,
+        3.8214
+      ],
+      "per_run": [
+        {
+          "baseline_median_gpu_ms": 6.23296,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.65072,
+          "candidate_samples": 25,
+          "ratio": 3.7759,
+          "run": "timing-run0-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.23228,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.73612,
+          "candidate_samples": 25,
+          "ratio": 3.5898,
+          "run": "timing-run1-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.2344,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.63476,
+          "candidate_samples": 25,
+          "ratio": 3.8136,
+          "run": "timing-run2-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.2356,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.75384,
+          "candidate_samples": 25,
+          "ratio": 3.5554,
+          "run": "timing-run3-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.23428,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.6314,
+          "candidate_samples": 25,
+          "ratio": 3.8214,
+          "run": "timing-run4-order0.log"
+        }
+      ],
+      "runs": 5,
+      "samples_per_arm_per_run": 25
+    },
+    "primary_mode0_stream_vs_generic": {
+      "baseline_arm": "forward_generic",
+      "candidate_arm": "forward_rowpacked64stream",
+      "ci95": {
+        "df": 4,
+        "high": 0.143,
+        "low": 0.1426,
+        "t_critical": 2.776
+      },
+      "geomean_paired_ratio": 0.1428,
+      "geometry": "gqa-8q-2kv-primary-mode0",
+      "mean_paired_ratio": 0.1428,
+      "paired_ratios": [
+        0.1428,
+        0.1426,
+        0.1429,
+        0.1427,
+        0.1429
+      ],
+      "per_run": [
+        {
+          "baseline_median_gpu_ms": 6.23296,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 43.65048,
+          "candidate_samples": 25,
+          "ratio": 0.1428,
+          "run": "timing-run0-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.23228,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 43.69948,
+          "candidate_samples": 25,
+          "ratio": 0.1426,
+          "run": "timing-run1-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.2344,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 43.6226,
+          "candidate_samples": 25,
+          "ratio": 0.1429,
+          "run": "timing-run2-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.2356,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 43.6922,
+          "candidate_samples": 25,
+          "ratio": 0.1427,
+          "run": "timing-run3-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.23428,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 43.6216,
+          "candidate_samples": 25,
+          "ratio": 0.1429,
+          "run": "timing-run4-order0.log"
+        }
+      ],
+      "runs": 5,
+      "samples_per_arm_per_run": 25
+    },
+    "primary_mode9_packed_vs_generic": {
+      "baseline_arm": "forward_generic",
+      "candidate_arm": "forward_rowpacked64cached",
+      "ci95": {
+        "df": 4,
+        "high": 4.5092,
+        "low": 2.3201,
+        "t_critical": 2.776
+      },
+      "geomean_paired_ratio": 3.316,
+      "geometry": "gqa-8q-2kv-primary-mode9",
+      "mean_paired_ratio": 3.4146,
+      "paired_ratios": [
+        4.0757,
+        2.4838,
+        3.9792,
+        2.4177,
+        4.1169
+      ],
+      "per_run": [
+        {
+          "baseline_median_gpu_ms": 7.07316,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.73544,
+          "candidate_samples": 25,
+          "ratio": 4.0757,
+          "run": "timing-run0-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.61428,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 2.663,
+          "candidate_samples": 25,
+          "ratio": 2.4838,
+          "run": "timing-run1-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.89624,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.73308,
+          "candidate_samples": 25,
+          "ratio": 3.9792,
+          "run": "timing-run2-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.63408,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 2.74396,
+          "candidate_samples": 25,
+          "ratio": 2.4177,
+          "run": "timing-run3-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 7.13076,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.73208,
+          "candidate_samples": 25,
+          "ratio": 4.1169,
+          "run": "timing-run4-order0.log"
+        }
+      ],
+      "runs": 5,
+      "samples_per_arm_per_run": 25
+    },
+    "primary_mode9_productiongrid_vs_generic": {
+      "baseline_arm": "forward_generic",
+      "candidate_arm": "forward_rowpacked64cached_productiongrid",
+      "ci95": {
+        "df": 4,
+        "high": 4.714,
+        "low": 1.4511,
+        "t_critical": 2.776
+      },
+      "geomean_paired_ratio": 2.8203,
+      "geometry": "gqa-8q-2kv-primary-mode9",
+      "mean_paired_ratio": 3.0825,
+      "paired_ratios": [
+        4.0751,
+        1.6582,
+        3.927,
+        1.6321,
+        4.1203
+      ],
+      "per_run": [
+        {
+          "baseline_median_gpu_ms": 7.07316,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.73572,
+          "candidate_samples": 25,
+          "ratio": 4.0751,
+          "run": "timing-run0-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.61428,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 3.98888,
+          "candidate_samples": 25,
+          "ratio": 1.6582,
+          "run": "timing-run1-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.89624,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.75612,
+          "candidate_samples": 25,
+          "ratio": 3.927,
+          "run": "timing-run2-order0.log"
+        },
+        {
+          "baseline_median_gpu_ms": 6.63408,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 4.0648,
+          "candidate_samples": 25,
+          "ratio": 1.6321,
+          "run": "timing-run3-order1.log"
+        },
+        {
+          "baseline_median_gpu_ms": 7.13076,
+          "baseline_samples": 25,
+          "candidate_median_gpu_ms": 1.73064,
+          "candidate_samples": 25,
+          "ratio": 4.1203,
+          "run": "timing-run4-order0.log"
+        }
+      ],
+      "runs": 5,
+      "samples_per_arm_per_run": 25
+    }
+  },
+  "runs": [
+    "timing-run0-order0.log",
+    "timing-run1-order1.log",
+    "timing-run2-order0.log",
+    "timing-run3-order1.log",
+    "timing-run4-order0.log"
+  ]
+}

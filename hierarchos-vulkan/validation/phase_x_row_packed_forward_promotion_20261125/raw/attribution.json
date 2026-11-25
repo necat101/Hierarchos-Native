@@ -1,0 +1,262 @@
+{
+  "logs": [
+    {
+      "arm": "generic",
+      "counters": {
+        "forward_generic": 18,
+        "forward_row_packed": 0,
+        "forward_short": 0
+      },
+      "log": "step-profile-generic.log",
+      "measured_steps": 6,
+      "per_step": {
+        "adamw": {
+          "category": "optimizer.adamw",
+          "dispatches_per_step": 4.0,
+          "gpu_ms_per_step": 0.0082
+        },
+        "embedding_forward": {
+          "category": "token.embedding",
+          "dispatches_per_step": 1.0,
+          "gpu_ms_per_step": 0.0191
+        },
+        "falcon_h1_cross_entropy_lanes16": {
+          "category": "other",
+          "dispatches_per_step": 1.0,
+          "gpu_ms_per_step": 1.2627
+        },
+        "linear_forward": {
+          "category": "projection.linear",
+          "dispatches_per_step": 17.0,
+          "gpu_ms_per_step": 7.6931
+        },
+        "linear_forward_lane4": {
+          "category": "projection.linear",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.1981
+        },
+        "linear_input_grad": {
+          "category": "projection.linear",
+          "dispatches_per_step": 17.0,
+          "gpu_ms_per_step": 6.4256
+        },
+        "linear_input_grad_group4_muladd": {
+          "category": "projection.linear",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.1223
+        },
+        "linear_weight_grad": {
+          "category": "projection.linear",
+          "dispatches_per_step": 4.0,
+          "gpu_ms_per_step": 0.0535
+        },
+        "ordered_f32_sum": {
+          "category": "other",
+          "dispatches_per_step": 1.0,
+          "gpu_ms_per_step": 0.0029
+        },
+        "silu_backward": {
+          "category": "elementwise-reduction",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0252
+        },
+        "silu_forward": {
+          "category": "elementwise-reduction",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0412
+        },
+        "transformer_attention_backward_key_rdna3": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 16.1666
+        },
+        "transformer_attention_backward_query_rdna3": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 7.7089
+        },
+        "transformer_attention_forward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 16.4167
+        },
+        "transformer_elementwise_mul_backward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.045
+        },
+        "transformer_elementwise_mul_forward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.026
+        },
+        "transformer_lora_scaled_add": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0296
+        },
+        "transformer_rms_norm_forward": {
+          "category": "other",
+          "dispatches_per_step": 5.0,
+          "gpu_ms_per_step": 1.8036
+        },
+        "transformer_rms_norm_input_grad": {
+          "category": "other",
+          "dispatches_per_step": 5.0,
+          "gpu_ms_per_step": 1.5363
+        },
+        "transformer_rope_backward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0343
+        },
+        "transformer_rope_forward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0454
+        },
+        "transformer_scale_copy": {
+          "category": "other",
+          "dispatches_per_step": 3.0,
+          "gpu_ms_per_step": 0.0445
+        },
+        "vector_add": {
+          "category": "elementwise-reduction",
+          "dispatches_per_step": 16.0,
+          "gpu_ms_per_step": 0.2636
+        }
+      },
+      "profiled_steps": 9,
+      "total_gpu_ms_per_step": 59.9725
+    },
+    {
+      "arm": "production",
+      "counters": {
+        "forward_generic": 0,
+        "forward_row_packed": 18,
+        "forward_short": 0
+      },
+      "log": "step-profile-production.log",
+      "measured_steps": 6,
+      "per_step": {
+        "adamw": {
+          "category": "optimizer.adamw",
+          "dispatches_per_step": 4.0,
+          "gpu_ms_per_step": 0.0081
+        },
+        "embedding_forward": {
+          "category": "token.embedding",
+          "dispatches_per_step": 1.0,
+          "gpu_ms_per_step": 0.0196
+        },
+        "falcon_h1_cross_entropy_lanes16": {
+          "category": "other",
+          "dispatches_per_step": 1.0,
+          "gpu_ms_per_step": 1.4226
+        },
+        "linear_forward": {
+          "category": "projection.linear",
+          "dispatches_per_step": 17.0,
+          "gpu_ms_per_step": 7.8375
+        },
+        "linear_forward_lane4": {
+          "category": "projection.linear",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.1968
+        },
+        "linear_input_grad": {
+          "category": "projection.linear",
+          "dispatches_per_step": 17.0,
+          "gpu_ms_per_step": 6.7893
+        },
+        "linear_input_grad_group4_muladd": {
+          "category": "projection.linear",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.1246
+        },
+        "linear_weight_grad": {
+          "category": "projection.linear",
+          "dispatches_per_step": 4.0,
+          "gpu_ms_per_step": 0.0544
+        },
+        "ordered_f32_sum": {
+          "category": "other",
+          "dispatches_per_step": 1.0,
+          "gpu_ms_per_step": 0.003
+        },
+        "silu_backward": {
+          "category": "elementwise-reduction",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0254
+        },
+        "silu_forward": {
+          "category": "elementwise-reduction",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0437
+        },
+        "transformer_attention_backward_key_rdna3": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 16.9257
+        },
+        "transformer_attention_backward_query_rdna3": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 8.1424
+        },
+        "transformer_attention_forward_rowpacked64_cached_rdna3": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 4.3784
+        },
+        "transformer_elementwise_mul_backward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0447
+        },
+        "transformer_elementwise_mul_forward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0241
+        },
+        "transformer_lora_scaled_add": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0277
+        },
+        "transformer_rms_norm_forward": {
+          "category": "other",
+          "dispatches_per_step": 5.0,
+          "gpu_ms_per_step": 1.8449
+        },
+        "transformer_rms_norm_input_grad": {
+          "category": "other",
+          "dispatches_per_step": 5.0,
+          "gpu_ms_per_step": 1.585
+        },
+        "transformer_rope_backward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.035
+        },
+        "transformer_rope_forward": {
+          "category": "other",
+          "dispatches_per_step": 2.0,
+          "gpu_ms_per_step": 0.0422
+        },
+        "transformer_scale_copy": {
+          "category": "other",
+          "dispatches_per_step": 3.0,
+          "gpu_ms_per_step": 0.0151
+        },
+        "vector_add": {
+          "category": "elementwise-reduction",
+          "dispatches_per_step": 16.0,
+          "gpu_ms_per_step": 0.195
+        }
+      },
+      "profiled_steps": 9,
+      "total_gpu_ms_per_step": 49.7852
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+# Phase X preservation — captured before the first Phase X write
+date=2026-11-25T05:30:26Z
+branch=main
+head=560809eead186f832344c15d1a9b70795da3b75d
+--- git status --short ---
+ M ../RDNA3_WMMA.md
+ M shaders/transformer_attention_backward_key_rdna3.comp
+ M shaders/transformer_attention_backward_key_rdna3.spv
+ M shaders/transformer_attention_backward_query_rdna3.comp
+ M shaders/transformer_attention_backward_query_rdna3.spv
+ M src/bin/held_out_eval.rs
+ M src/bin/hierarchos-vulkan-training-qualification.rs
+ M src/bin/training-stability.rs
+ M src/bin/transformer_train.rs
+ M src/bin/wmma_drift.rs
+ M src/lib.rs
+ M src/transformer.rs
+ M src/vulkan.rs
+?? src/phase_ix_row_packed_forward_tests.rs
+?? src/phase_viii_key_block_tests.rs
+?? validation/gqa_attention_backward_experiment_20261124/
+?? validation/gqa_end_to_end_training_20261124/
+?? validation/gqa_production_promotion_20261124/
+?? validation/mha_attention_backward_closeout_20261124/
+?? validation/phase_ix_row_packed_forward_20261124/
+?? validation/phase_viii_key_blocks/
+?? validation/phase_x_row_packed_forward_promotion_20261125/
+--- git diff --stat ---
+ RDNA3_WMMA.md                                      |   37 +-
+ .../transformer_attention_backward_key_rdna3.comp  |  170 +-
+ .../transformer_attention_backward_key_rdna3.spv   |  Bin 8560 -> 10724 bytes
+ ...transformer_attention_backward_query_rdna3.comp |    7 +-
+ .../transformer_attention_backward_query_rdna3.spv |  Bin 48468 -> 48492 bytes
+ hierarchos-vulkan/src/bin/held_out_eval.rs         |    4 +-
+ .../hierarchos-vulkan-training-qualification.rs    |    4 +-
+ hierarchos-vulkan/src/bin/training-stability.rs    |    4 +-
+ hierarchos-vulkan/src/bin/transformer_train.rs     |   14 +
+ hierarchos-vulkan/src/bin/wmma_drift.rs            |    4 +-
+ hierarchos-vulkan/src/lib.rs                       |    4 +
+ hierarchos-vulkan/src/transformer.rs               | 2760 ++++++++++++++++++--
+ hierarchos-vulkan/src/vulkan.rs                    |   15 +
+ 13 files changed, 2821 insertions(+), 202 deletions(-)
+diff_sha256=2aa3f3c01effff09e3eb8dd73e5688b39e2f3faa8168bad7964e4c31e2d479c1
+diff_bytes=148538
+binary_diff_sha256=c330d0f7a899c2063e5b5de67712f2f2f36a6ade1040c854f8fed7651c57f7b1
+staged_index_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+staged_index_bytes=0
+tracked_files_changed=13
+--- git ls-files -s (index identity) ---
+9220461f849b4e4b066f45127d7bf34df182ab4acebac7a1708376c9f3e445aa *-
+--- git stash list ---
+stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+stash0=831f892774619603c2dd68d0dd654d315f1a8f7e
+stash0_subject=On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+--- untracked ---
+?? src/phase_ix_row_packed_forward_tests.rs
+?? src/phase_viii_key_block_tests.rs
+?? validation/gqa_attention_backward_experiment_20261124/
+?? validation/gqa_end_to_end_training_20261124/
+?? validation/gqa_production_promotion_20261124/
+?? validation/mha_attention_backward_closeout_20261124/
+?? validation/phase_ix_row_packed_forward_20261124/
+?? validation/phase_viii_key_blocks/
+?? validation/phase_x_row_packed_forward_promotion_20261125/

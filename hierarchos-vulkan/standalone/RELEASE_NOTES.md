@@ -1,12 +1,14 @@
-# Hierarchos Native — Windows x64 Portable v0.2.6
+# Hierarchos Native — Windows x64 Portable v0.2.7
 
-v0.2.6 is a runtime-only, extract-and-run Windows x64 package. It ships the
-production Full FP16 WMMA route with the **C1 batched staging schedule** in front
-of the unchanged P3 contract, keeps the v0.2.5 P3 module as the automatic
-fallback, and leaves global WMMA off by default. The executables are linked with
-the static MSVC C runtime, so no Microsoft Visual C++ Redistributable is
-required, and no Rust, Cargo, Python, PyTorch, Visual Studio or shader compiler
-is needed to run them.
+v0.2.7 is a runtime-only, extract-and-run Windows x64 package. It promotes four
+attention-path changes into the default training route — a two-pass MHA backward,
+a narrowly gated grouped-query (GQA) backward key pass, a cached row-packed
+attention forward, and a head-dimension-128 four-channel key pass — while the
+WMMA precision policy is unchanged from v0.2.6: global WMMA stays **off by
+default**, and both the C1 batched-staging module and the P3 contract module are
+still embedded. The executables are linked with the static MSVC C runtime, so no
+Microsoft Visual C++ Redistributable is required, and no Rust, Cargo, Python,
+PyTorch, Visual Studio or shader compiler is needed to run them.
 
 ## Included executables
 
@@ -21,76 +23,136 @@ is needed to run them.
 The GUI and CLI discover one another beside `bin/`. `hierarchos-native-cli` also
 discovers the Vulkan companion binaries in the same directory.
 
-## What changed since v0.2.5
+## What changed since v0.2.6
 
-- **C1 batched staging.** Inside `--wmma-mode full-fp16` the per-slice staging
-  loop used to issue four dependent global-load → shared-store pairs per thread.
-  It now issues the four 32-bit operand loads first and the shared stores after
-  them, so the loads overlap instead of queueing behind stores. That is the whole
-  change: the two-wave workgroup, the K-slice stream, the per-bank binary16
-  accumulation, the float32 sum of the eight bank partials, the single binary16
-  rounding and the barrier placement are P3's, untouched.
-- **The original P3 module is still shipped and still dispatched.** It serves
-  every geometry the C1 contract cannot prove — partial tiles, K not a multiple
-  of 16, odd packed-pair strides, operand buffers too short for the fast path's
-  last element, and indices near the 32-bit ceiling. It is a fallback, not a
-  legacy option, and both modules are embedded in the same executables.
-- **No new mode, flag or variant.** Users still select `full-fp16`; nothing was
-  added that could force one staging schedule or the other. Which one ran is
-  visible in the per-dispatch staging counters of a receipt.
-- **Accuracy.** Eight seeds, 40 receipts, 37/37 gates on the production tile16
-  route at every seed, and all 120 production outputs **bit-identical** to the
-  v0.2.5 P3 baseline. No reference, tolerance, seed, oracle or threshold changed;
-  the `split2` and `rdna3-dot2` diagnostic failures remain recorded as
-  diagnostics.
-- **Performance.** The integrated production selector is `1.33x`–`2.09x` faster
-  than the v0.2.5 P3 route on the four protected shapes, with every corrected
-  95 % confidence lower bound above `1.31`.
+Four attention routes changed. They are **independent kernel and selector
+changes**, measured one at a time on the same host; the ratios below are not
+multiplied into an overall training speedup and no such number is claimed.
 
-## WMMA is opt-in
+1. **Two-pass attention backward is the default for the existing gate.** The
+   scalar fusion-free MHA attention backward was replaced by a query pass that
+   writes softmax and `dS` scratch and a key/value pass that reduces it, for the
+   geometry the gate already admitted (`unfused_qk` 0/9). Attention backward fell
+   from 435.28 ms to 44.43 ms per step (9.7965× on the isolated backward) and the
+   complete optimizer step from 560.78 ms to 171.10 ms, a paired **3.2492×**
+   (95 % CI 3.1146–3.3838, five ABBA rounds, 230 samples per arm). Gradients are
+   bit-exact against the scalar route over four geometries: 6,316,128 of
+   6,316,128 FP32 elements, zero ULP. Scratch is sized exactly to
+   `batch * heads * q_seq * kv_seq` and allocated only for eligible geometry.
+2. **The GQA grouped key pass is promoted for four measured head groupings.**
+   The key pass now owns the grouped reduction for `8q/2kv`, `4q/2kv`, `8q/4kv`
+   and `16q/4kv` at head dimension 128, `q_seq = kv_seq = 64`, causal, and for
+   nothing else. MHA is unchanged bit-for-bit and measured slightly faster with
+   the same artifact. The 8q/2kv complete training step measured **19.76×**
+   (95 % CI 19.64–19.89) against the scalar route. Every other grouped geometry
+   keeps the scalar kernel with a `grouped_query_attention_*` reason and
+   allocates no scratch.
+3. **Attention forward is row-packed and cached for square sequences ≤ 64.** One
+   lane per `(batch, head, query)` keeps its scores in registers and caches the
+   `V` rows it reuses, replacing the generic per-key loop. The rule is
+   `0 < q_seq == kv_seq <= 64`, equal QK/value head widths, `unfused_qk` in
+   `{0, 1, 9}`, plain path only. Forward attention fell from 16.42 ms to
+   4.38 ms per step in the Phase X attribution, and the complete shipped-selector
+   step measured **1.2239×**. Outputs are bit-exact: 1.85 M of 1.85 M words over
+   ten geometries and three arithmetic modes.
+4. **The backward key pass is four-channel tiled at head dimension 128.** One
+   lane owns a four-channel chunk of a single destination key row, so 32 lanes
+   cover one row's 128 channels. Eligibility is `head_dim == value_head_dim ==
+   128` with the compile-time partition `32 × 4 = 128`; head dimensions 16, 32
+   and 64 keep the original key shader. The complete step measured **1.5297×**
+   (43.53 ms → 28.46 ms, 5/5 ABBA rounds), with 20 parity cases over 60 tensors
+   and 5,505,024 elements at zero failures, including an MHA control.
+   `HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0` restores the original key
+   shader for every geometry and is the control arm of the release A/B.
 
-Global WMMA is **off by default**. `--wmma-mode full-fp16` explicitly enables the
-Full FP16 path. Mixed mode is a separate, unchanged arm. The full statement of
-the precision policy is in `README.md`.
+Every one of those routes keeps its original fallback. An ineligible geometry
+dispatches the kernel it had in v0.2.6, the per-dispatch counters in a receipt
+report which route actually ran, and `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0`
+forces the scalar backward (which also disables the channel-tiled pipeline).
+The rejected Phase VIII key-range partitioning is **not** in the production
+path: a split backward submission is explicitly refused the two-pass pair and
+keeps the scalar kernel.
 
-Admission requires AMD RDNA3-or-newer plus the complete cooperative feature
-contract, and at least `WMMA_MIN_PROFITABLE_MACS = 16_000_000` multiply-
-accumulate operations. The hard numerical gate remains `0.03125`; the historical
-25 % tile16 headroom target remains informational and is not met.
+## WMMA is opt-in, and Full FP16 still runs the P3 contract on C1 staging
 
-## Measured performance (per-dispatch kernel timings)
+Unchanged from v0.2.6:
 
-Integrated production selector (C1 where the contract holds, P3 otherwise) vs the
-**v0.2.5 P3 release binary**, 24 paired blocks per shape, position-balanced
-ABBA/BAAB ordering, GPU timestamp queries around the compute dispatch, strictly
-serial execution, identical tensors and dispatch geometry. Ratio = v0.2.5 ms /
-v0.2.6 ms; > 1.0 means v0.2.6 is faster.
+- **Global WMMA is off by default.** No cooperative-matrix dispatch happens
+  unless a mode is requested.
+- **`--wmma-mode full-fp16` explicitly enables the Full FP16 path**; the C1
+  batched-staging module runs when the host can prove every packed load aligned
+  and in bounds, and the 23,280-byte P3 module remains the automatic fallback.
+- **`--wmma-mode mixed` is a separate, opt-in arm** and remains default-off. See
+  the Mixed WMMA section below for its measured result and its limits.
+- Admission still requires AMD RDNA3-or-newer plus the complete cooperative
+  feature contract and at least `WMMA_MIN_PROFITABLE_MACS = 16_000_000`
+  multiply-accumulates; Full FP16 reductions above
+  `FULL_FP16_MAX_REDUCTION = 64` keep their FP32 kernels. The hard numerical gate
+  remains `0.03125`. Full FP16 and Mixed remain distinct precision paths.
 
-| Shape | v0.2.5 ms | v0.2.6 ms | Speedup | Corrected 95 % CI |
-| --- | ---: | ---: | ---: | --- |
-| 2048x768x2048 | 5.0217 | 2.9347 | 1.7074 | [1.6976, 1.7171] |
-| 512x2048x768 | 1.2376 | 0.9316 | 1.3286 | [1.3182, 1.3391] |
-| 512x768x768 | 0.5352 | 0.2570 | 2.0920 | [2.0415, 2.1425] |
-| 128x8192x768 | 1.3955 | 1.0067 | 1.3782 | [1.3580, 1.3983] |
+## Mixed WMMA: requalified, still opt-in
 
-These are **per-dispatch GPU GEMM timings, not end-to-end training-step
-speedups**. No end-to-end training speedup is claimed.
+The Mixed arm was requalified against current source in v0.2.7. It is **not**
+promoted and its default is unchanged.
 
-The aligned 32×32-tile geometries above all dispatched the C1 module; the
-boundary sweep in the validation tree records the same for ten aligned
-neighbours and the original P3 module for seven unaligned ones. Shapes below the
-16M-MAC floor — including the `16x128x32` direct-kernel control — never enter the
-cooperative path at all, because the unchanged profitability predicate refuses
-them.
+| Measurement | Result |
+| --- | ---: |
+| LoRA complete step, Phase XII harness | 28.481 ms → 23.001 ms = **1.2385×** |
+| LoRA complete step, independent counter harness | **1.2288×** |
+| Full-parameter complete step (timing evidence only) | **1.2792×** |
 
-## Hardware scope
+- Mixed remains **opt-in and default-off**. The policy switch is process-wide and
+  cannot distinguish LoRA from full-parameter training, so default-on would
+  promote Mixed to the workload whose numerical qualification is unresolved.
+- The full-parameter numerical result at the fixture learning rate `1e-2` is
+  **not qualified**: the FP32 reference itself diverges at that rate
+  (7.13 → 19.56). The 1.2792× figure is timing evidence only and is not proof of
+  numerical qualification. The separate `1e-4` control remains separate evidence
+  and is not averaged in.
+- The four LoRA adapter tensors show deterministic elementwise drift. Their
+  maximum absolute differences are 0.023203, 0.022338, 0.021156 and 0.025953
+  (nine elements of 32,768 above 0.02), while every tensor's RMS is inside the
+  established `0.003` limit (worst 0.002012). **No per-element adapter-weight
+  parity is claimed.** Every assertion the documented Mixed acceptance contract
+  does make — loss trajectory, gradient norm, adapter RMS, AdamW moments, frozen
+  base parameters, rerun determinism, exact checkpoint resume, the 37 gate rows
+  and the four graph-path tests — passes.
 
-All measurements were taken on one adapter: AMD RDNA3, PCI `1002:15bf`,
-`AMD Radeon Graphics`, driver `32.0.32015.14001`, Windows 11 x64. That is a
-different driver build from v0.2.5's, so absolute milliseconds are not comparable
-between the two release notes; the ratios above are paired measurements inside
-one driver session and are. The qualification does not generalize to other RDNA3
-adapters, RDNA3.5, RDNA4 or non-AMD devices.
+## Measured performance (per-step, one device)
+
+| Change | Isolated kernel | Complete step |
+| --- | ---: | ---: |
+| Two-pass MHA backward | 9.7965× (435.28 → 44.43 ms) | 3.2492× (560.78 → 171.10 ms) |
+| GQA grouped key pass, 8q/2kv | — | 19.76× |
+| Row-packed cached forward | 16.42 → 4.38 ms/step | 1.2239× |
+| Four-channel key pass, head 128 | — | 1.5297× (43.53 → 28.46 ms) |
+| Mixed WMMA, LoRA | — | 1.2385× (28.481 → 23.001 ms) |
+
+Each row is a paired ABBA measurement inside one driver session against the
+route it replaced. **These are independent results, not multiplicative factors.**
+The isolated kernel figures and the complete-step figures answer different
+questions and are never combined.
+
+## Scope and limitations
+
+- **One device.** Every measurement was taken on the integrated AMD RDNA3
+  adapter identified by PCI `1002:15bf` (`AMD Radeon Graphics`), driver
+  `32.0.32015.14001`, Windows 11 x64. No discrete RDNA3, RDNA3.5, RDNA4, NVIDIA
+  or Intel device was measured, and **no universal AMD, NVIDIA, Intel or
+  cross-architecture qualification is implied**.
+- **GQA eligibility is narrow.** Only the four recorded head-count groupings at
+  head dimension 128 with `q_seq = kv_seq = 64` and causal masking are promoted.
+  Other head dimensions keep the original key shader; generalizing to
+  `head_dim % 4 == 0` would need its own qualification.
+- **Channel4 is head-dimension-128 only.** Head dimensions 16/32/64 and
+  non-square or longer-than-64 attention keep their previous routes.
+- **Row-packed forward requires square sequences ≤ 64.** Non-square,
+  sliding-window, sparse, paged, compressed-key, ALiBi, relative-bias, softcap,
+  sink and dropout geometries keep the generic kernel.
+- **Mixed keeps its full-parameter caveat** described above, and WMMA numbers are
+  per-step milliseconds on one machine: no throughput, power or multi-GPU claim.
+- Results, including items that could not be exercised and are reported as
+  **BLOCKED** rather than passed, are in `CLEAN_MACHINE_TEST.md`.
 
 ## Requirements
 
@@ -111,24 +173,3 @@ Windows system DLLs, the GPU driver and its Vulkan loader are the intended
 external runtime dependencies. This package does not include a
 Rust/Cargo/Python/PyTorch toolchain, Visual Studio, an installer, a registry
 step, or a shader compiler.
-
-## Verification status
-
-The v0.2.6 archive was extracted on the available Windows 11 / AMD RDNA3 host and
-tested from the extracted layout, including from a path containing spaces, then
-relocated to a deeper path containing spaces. The local acceptance run covered
-all seven executables, the PE import closure, CLI startup, `doctor`, device
-enumeration, the architecture registry, precision reporting, a real inference
-smoke test, a native Vulkan training and checkpoint-reload smoke test, archive
-checksum verification, and relocation.
-
-The packaged dispatch check passed on the measured adapter, covering both routes:
-an eligible geometry ran the C1 module and an ineligible one fell back to the
-original P3 module, with no override and no threshold change. The exact geometry,
-counters and profile stream are recorded in `CLEAN_MACHINE_TEST.md`.
-
-Results, including items that could not be exercised and are reported as
-**BLOCKED** rather than passed, are in `CLEAN_MACHINE_TEST.md`.
-
-No independent clean Windows installation, second physical CPU/GPU, physical
-network-isolation test, or different-drive relocation was available.

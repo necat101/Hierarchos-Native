@@ -1,0 +1,43 @@
+# Generic attention-forward source map (transformer_attention_forward.comp)
+
+15:layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+22:const uint ROW_CACHE_SIZE = 1024u;
+23:shared float row_cache[ROW_CACHE_SIZE];
+24:shared uint row_visible[(ROW_CACHE_SIZE + 31u) / 32u];
+170:bool key_is_visible(uint batch, uint head, uint query, uint key) {
+201:        uint kv_head = head / heads_per_kv;
+286:float raw_score(uint batch, uint head, uint query, uint key) {
+290:    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+291:    uint kv_head = head / queries_per_kv;
+331:            value = fma(q_values[q_base + d], k_values[k_base + d], value);
+356:float score(uint batch, uint head, uint query, uint key) {
+364:void main() {
+365:    uint query = gl_GlobalInvocationID.x;
+366:    uint head = gl_GlobalInvocationID.y;
+367:    uint batch = gl_GlobalInvocationID.z;
+375:    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+376:    uint kv_head = head / queries_per_kv;
+380:            output_values[out_base + d] = 0.0;
+404:    bool use_cache = last_key >= first_key && last_key - first_key < ROW_CACHE_SIZE;
+411:    float max_score = -3.402823466e+38;
+422:        max_score = found ? max(max_score, s) : s;
+427:            output_values[out_base + d] = 0.0;
+435:    float exp_sum = pc.has_sink != 0u ? attention_exp(sink_values[head] - max_score) : 0.0;
+464:    float inv_sum = deterministic_attention_divider()
+511:                if (use_cache) probability = row_cache[key - first_key];
+514:                    probability = attention_exp(score(batch, head, query, key) - max_score)
+517:                    probability = attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
+534:                if (use_cache) probability = row_cache[key - first_key];
+537:                    probability = attention_exp(score(batch, head, query, key) - max_score)
+540:                    probability = attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
+545:                value = fma(probability, v_values[v_index] * pc.value_scale, value);
+549:        output_values[out_base + d] = short_cpu_sdpa() ? value * inv_sum : value;
+551:        output_values[out_base + d] = value;
+
+# Generic kernel dispatch site
+26447:    kernels.attention_forward.record_dispatch(
+50749:        kernels.attention_forward.record_dispatch(
+54389:        kernels.attention_forward.record_dispatch(
+54674:        kernels.attention_forward.record_dispatch(
+119131:        kernels.attention_forward.record_dispatch(
+119262:        kernels.attention_forward.record_dispatch(

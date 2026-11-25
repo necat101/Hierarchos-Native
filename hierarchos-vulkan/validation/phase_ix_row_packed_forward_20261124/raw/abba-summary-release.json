@@ -1,0 +1,88 @@
+{
+  "arm_a": {
+    "max_ms": 55.7997,
+    "mean_ms": 53.3955,
+    "median_ms": 53.2592,
+    "min_ms": 52.6498,
+    "p25_ms": 53.0698,
+    "p95_ms": 54.3214,
+    "samples": 260,
+    "stdev_ms": 0.4791
+  },
+  "arm_b": {
+    "max_ms": 46.7561,
+    "mean_ms": 43.6288,
+    "median_ms": 43.5271,
+    "min_ms": 42.9578,
+    "p25_ms": 43.3893,
+    "p95_ms": 44.381,
+    "samples": 260,
+    "stdev_ms": 0.4138
+  },
+  "ci95": {
+    "df": 4,
+    "high": 1.2251,
+    "low": 1.2222,
+    "t_critical": 2.776
+  },
+  "geomean_paired_ratio": 1.2236,
+  "harness": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\target\\release\\deps\\hierarchos_vulkan-70a92090d59c92cf.exe",
+  "mean_paired_ratio": 1.2236,
+  "paired_ratios": [
+    1.22355,
+    1.22479,
+    1.2239,
+    1.22422,
+    1.22167
+  ],
+  "per_round": [
+    {
+      "a_median_ms": 53.1882,
+      "b_median_ms": 43.4703,
+      "ratio": 1.22355,
+      "round": 0
+    },
+    {
+      "a_median_ms": 53.27,
+      "b_median_ms": 43.4933,
+      "ratio": 1.22479,
+      "round": 1
+    },
+    {
+      "a_median_ms": 53.3012,
+      "b_median_ms": 43.5503,
+      "ratio": 1.2239,
+      "round": 2
+    },
+    {
+      "a_median_ms": 53.3201,
+      "b_median_ms": 43.5543,
+      "ratio": 1.22422,
+      "round": 3
+    },
+    {
+      "a_median_ms": 53.2109,
+      "b_median_ms": 43.5558,
+      "ratio": 1.22167,
+      "round": 4
+    }
+  ],
+  "protocol": {
+    "arm_a": "generic attention forward + production two-pass GQA backward",
+    "arm_b": "row-packed attention forward + production two-pass GQA backward",
+    "measured_per_process": 26,
+    "order": [
+      "A",
+      "B",
+      "B",
+      "A"
+    ],
+    "processes": "one arm per process, strictly serial",
+    "rounds": 5,
+    "sample_file": "C:\\Users\\User\\Downloads\\Qualcomm\\Hierarchos-Native\\hierarchos-vulkan\\validation\\phase_ix_row_packed_forward_20261124\\raw\\abba-samples.jsonl",
+    "steps_per_process": 29,
+    "warmup_per_process": 3,
+    "wmma_mode": "off"
+  },
+  "ratio_of_medians": 1.2236
+}

@@ -1,0 +1,2 @@
+two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0
+two-pass backward counters: effective=false scalar=4 query=0 key=0 scratch_allocations=0 scratch_bytes=0

@@ -1262,6 +1262,20 @@ fn main() -> Result<()> {
             );
         }
     }
+    // The backward route is a per-geometry decision; report the counters the
+    // dispatch actually recorded so a benchmark or qualification log cannot
+    // claim a fast path that never ran.
+    let attention = hierarchos_vulkan::attention_backward_dispatch_counts();
+    eprintln!(
+        "two-pass backward counters: effective={} scalar={} query={} key={} \
+         scratch_allocations={} scratch_bytes={}",
+        hierarchos_vulkan::attention_backward_two_pass_enabled(),
+        attention.scalar,
+        attention.query,
+        attention.key,
+        attention.scratch_allocations,
+        attention.scratch_bytes
+    );
     let mut report=serde_json::to_value(report)?;
     report["attempted_optimizer_windows"]=serde_json::json!(optimizer_steps);
     report["optimizer_steps"]=serde_json::json!(graph.step()-starting_optimizer_step);

@@ -1,0 +1,110 @@
+# v0.2.7 package acceptance — commands and observed output
+#
+# Host: the packaging host (Windows, AMD Radeon Graphics, pci=1002:15bf).
+# Archive: Hierarchos-Native-Windows-x64-Portable-v0.2.7.zip
+# SHA-256: 82a7baedadf620b026b1a3ca90170fea980c783c203a74b55b0ad462a1537f66
+# Extracted to: "target/v027 acceptance/extracted package/pkg"
+# (a path containing spaces, i.e. the relocation case the v0.2.6 pass could not cover)
+
+=== sha256sum -c SHA256SUMS (beside the archive) ===
+Hierarchos-Native-Windows-x64-Portable-v0.2.7.zip: OK
+BUILD_MANIFEST.json: OK
+
+=== unzip -q <zip> -d pkg ===
+EXTRACT_OK
+
+=== find pkg -type f | sort ===
+BUILD_INFO.txt
+CLEAN_MACHINE_TEST.md
+DEPENDENCIES.txt
+LICENSE
+README.md
+README_ARCHITECTURES.md
+RELEASE_NOTES.md
+THIRD_PARTY_NOTICES.md
+bin/hierarchos-infer.exe
+bin/hierarchos-native-cli.exe
+bin/hierarchos-native.exe
+bin/hierarchos-vulkan-devices.exe
+bin/hierarchos-vulkan-train.exe
+bin/hierarchos-vulkan-transformer-logits.exe
+bin/hierarchos-vulkan-transformer-train.exe
+licenses/Microsoft-STL.txt
+
+(16 entries: 7 executables, 9 documents/licences. No source, Cargo files,
+shader sources, PDBs, fixtures, validation tree or weights.)
+
+=== hierarchos-native-cli.exe doctor ===
+Hierarchos native backend doctor
+  Vulkan compute devices: 1
+    [0] AMD Radeon Graphics (INTEGRATED_GPU, queue family 0)
+  hierarchos-vulkan-train: <pkg>\bin\hierarchos-vulkan-train.exe
+  hierarchos-vulkan-devices: <pkg>\bin\hierarchos-vulkan-devices.exe
+  Transformer registry: 146 canonical + 83 aliases
+exit 0
+
+=== hierarchos-vulkan-devices.exe ===
+[('AMD Radeon Graphics', 'INTEGRATED_GPU', 0)]
+exit 0
+
+=== hierarchos-native-cli.exe precision-info --device-index 0 ===
+{"device":"AMD Radeon Graphics","device_id":5567,"device_index":0,
+ "device_key":"AMD Radeon Graphics [pci=1002:15bf;driver=008001a0]","error":null,
+ "full_fp16_max_reduction":64,"full_fp16_qualified":false,
+ "full_fp16_supported":true,"kind":"precision-capabilities",
+ "mixed_supported":true,"vendor_id":4098}
+exit 0
+
+=== hierarchos-native-cli.exe architectures ===
+Native Vulkan Transformer architectures: 146 canonical + 83 package aliases
+exit 0
+
+# ---------------------------------------------------------------------------
+# Promoted attention routes, exercised from the extracted executables.
+#
+# Fixture: hierarchos-vulkan/target/wmma-fixture (2 layers, hidden 1024,
+# 8 query heads, 8 KV heads, head_dim 128). batch 1 x seq 64, one step.
+# HIERARCHOS_VULKAN_PROFILE_KERNELS=1 for the recorded kernel names.
+# No variant override; only the documented controls were flipped.
+# ---------------------------------------------------------------------------
+
+=== default arm ===
+exit 0
+two-pass backward counters: effective=true scalar=0 query=2 key=0 scratch_allocations=2 scratch_bytes=524288
+      1 shader=transformer_attention_backward_key_channel4_rdna3
+      1 shader=transformer_attention_backward_query_rdna3
+      1 shader=transformer_attention_forward_rowpacked64_cached_rdna3
+
+=== HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0 ===
+exit 0
+two-pass backward counters: effective=true scalar=0 query=2 key=2 scratch_allocations=2 scratch_bytes=524288
+      1 shader=transformer_attention_backward_key_rdna3
+      1 shader=transformer_attention_backward_query_rdna3
+      1 shader=transformer_attention_forward_rowpacked64_cached_rdna3
+
+=== HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0 ===
+exit 0
+two-pass backward counters: effective=false scalar=2 query=0 key=0 scratch_allocations=0 scratch_bytes=0
+      1 shader=transformer_attention_backward
+      1 shader=transformer_attention_forward_rowpacked64_cached_rdna3
+
+=== training_report.json (all three arms) ===
+{'architecture': 'llama', 'device': 'AMD Radeon Graphics',
+ 'final_loss': 6.937828063964844, 'optimizer_step': 1, 'batch_size': 1}
+
+# Two dispatches per kernel = one per layer. scratch_bytes = 1*8*64*64*4*2*2
+# = 524288 exactly (two float buffers per layer, two layers), no padding.
+
+=== executables inside the final archive vs the accepted stage ===
+match hierarchos-infer.exe
+match hierarchos-native-cli.exe
+match hierarchos-native.exe
+match hierarchos-vulkan-devices.exe
+match hierarchos-vulkan-train.exe
+match hierarchos-vulkan-transformer-logits.exe
+match hierarchos-vulkan-transformer-train.exe
+EXE_MATCH_RC=0
+
+# The archive was rebuilt once, after CLEAN_MACHINE_TEST.md was updated with
+# these results. Only that document changed; all seven executables are
+# byte-identical to the set above.

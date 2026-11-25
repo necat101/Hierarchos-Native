@@ -1,11 +1,11 @@
-# Hierarchos Native — Windows x64 Portable v0.2.6
+# Hierarchos Native — Windows x64 Portable v0.2.7
 
 This is the runtime package for the Hierarchos native Transformer backend. It is
 extract-and-run on a supported Windows x64 computer: no installer, no Rust or
 Cargo, no Python or PyTorch, no Visual Studio, no administrator setup, and no
 separate Microsoft Visual C++ Redistributable installation.
 
-Release version **0.2.5**. The package version is independent of the internal
+Release version **0.2.7**. The package version is independent of the internal
 crate versions in `Cargo.toml`, which keep their own established numbering.
 
 The seven release executables are linked with the static MSVC C runtime
@@ -35,7 +35,7 @@ licenses/
 README.md
 README_ARCHITECTURES.md                 # native architecture inventory
 RELEASE_NOTES.md
-CLEAN_MACHINE_TEST.md                   # v0.2.6 local acceptance report
+CLEAN_MACHINE_TEST.md                   # v0.2.7 local acceptance report
 BUILD_INFO.txt                          # source, lockfile, flags, binary hashes
 DEPENDENCIES.txt                        # PE import closure for all seven EXEs
 ```
@@ -63,9 +63,35 @@ or installer is required for ordinary execution. Python, PyTorch, CUDA, a
 Transformers checkout, the Vulkan SDK, and a shader compiler are not runtime
 dependencies.
 
+## Attention paths
+
+v0.2.7 promotes four attention changes into the default training route. They are
+gated by geometry, and every ineligible geometry keeps the kernel it had:
+
+- **Two-pass attention backward** is the default for the gate it already had
+  (`unfused_qk` 0/9). A query pass writes softmax and `dS` scratch; a key pass
+  reduces it. Scratch is sized exactly to `batch * heads * q_seq * kv_seq` and
+  allocated only for eligible geometry. `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0`
+  forces the scalar backward.
+- **The grouped-query backward key pass** is admitted only for `8q/2kv`, `4q/2kv`,
+  `8q/4kv` and `16q/4kv` at head dimension 128 with `q_seq = kv_seq = 64` and
+  causal masking. Every other grouped geometry keeps the scalar kernel with a
+  `grouped_query_attention_*` reason.
+- **The row-packed cached attention forward** owns square sequences up to 64 on
+  the plain path, with equal QK and value head widths and `unfused_qk` in
+  `{0, 1, 9}`. Non-square, windowed, sparse, paged, ALiBi, relative-bias,
+  softcap, sink and dropout geometries keep the generic kernel.
+- **The four-channel backward key pass** is limited to head dimension 128 for
+  both QK and value, with the compile-time partition `32 × 4 = 128`.
+  `HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0` restores the original key shader
+  for every geometry and touches no other kernel.
+
+The named environment variables are diagnostic and control arms. No variable
+selects one of the fast paths; the geometry does.
+
 ## WMMA is opt-in, and Full FP16 runs the P3 contract on C1 staging
 
-This is the precision policy of the v0.2.6 binaries, stated precisely:
+This is the precision policy of the v0.2.7 binaries, stated precisely:
 
 - **Global WMMA is off by default.** The process default is `WmmaMode::Off`; the
   FP32 Vulkan path is unchanged. No cooperative-matrix dispatch happens unless a
@@ -114,7 +140,7 @@ This is the precision policy of the v0.2.6 binaries, stated precisely:
 
 ### Measured hardware scope
 
-The v0.2.6 qualification applies to **one measured adapter**: AMD RDNA3 with PCI
+The v0.2.7 qualification applies to **one measured adapter**: AMD RDNA3 with PCI
 vendor `0x1002`, device `0x15bf` (Phoenix-class integrated RDNA3), Vulkan SDK
 1.4.321, driver `32.0.32015.14001`. It is **not** a claim for every RDNA3 adapter, for RDNA3.5, for
 RDNA4, or for any non-AMD device. On other hardware the run is gated by the
@@ -122,9 +148,16 @@ capability contract and the results are unmeasured.
 
 ### What the performance numbers mean
 
-The released figures are **per-dispatch GPU GEMM kernel timings** taken with
-Vulkan timestamp queries around the compute dispatch. They are **not end-to-end
-training-step speedups**, and no such claim is made.
+The two families of numbers answer different questions and are never combined:
+
+- The **WMMA figures are per-dispatch GPU GEMM kernel timings**, taken with
+  Vulkan timestamp queries around the compute dispatch. No end-to-end WMMA
+training-step speedup is claimed.
+- The **attention figures are complete optimizer-step measurements** on one
+  fixture, each paired against the route it replaced.
+
+Each promotion is its own measurement. The ratios are independent results, not
+multiplicative factors, and no overall speedup is obtained by multiplying them.
 
 ## Quick start
 
@@ -199,10 +232,11 @@ system components is `vulkan-1.dll`. The GPU software stack supplies it.
 
 ## Verification status
 
-The v0.2.6 package is built from the qualified source commit of
-`codex/wmma-v026-optimization`; the exact packaging commit is the checked-out
-HEAD recorded in `BUILD_INFO.txt` and `BUILD_MANIFEST.json`, together with the
-archive and executable hashes.
+The v0.2.7 package is built from the qualified source commit of `release/v0.2.7`;
+the exact packaging commit is the checked-out HEAD recorded in `BUILD_INFO.txt`
+and `BUILD_MANIFEST.json`, together with the archive and executable hashes. The
+attention artifacts it embeds are the ones their receipts qualify; both WMMA
+staging modules are unchanged from v0.2.6.
 
 The archive was extracted into a path containing spaces, relocated to a deeper
 path containing spaces, and exercised from the relocated layout. PE closure,
@@ -224,10 +258,12 @@ route and `0.00079345` / `0.00012087` on the P3 route. Those synthetic geometrie
 are outside the CLI's frontend-qualified 64-wide training profile; the test uses
 the packaged standalone trainer's production path.
 
-Numerical and performance qualification was re-run for this release on the
-measured RDNA3 adapter. The full record — seeds, configurations, 37 gates per
-receipt, raw paired timings, corrected 95 % confidence intervals, source and
-SPIR-V hashes — is `validation/phase_lxxxviii_c1_promotion/` in the repository.
+The attention qualification was recorded on the measured RDNA3 adapter over
+Phases III–XIV: bit-exact gradients for the two-pass pair, four measured GQA
+groupings, ten row-packed geometries and 20 four-channel parity cases, with every
+receipt carrying its own source and SPIR-V hashes and its own `reproduce.sh`. The
+WMMA record — seeds, configurations, 37 gates per receipt, raw paired timings,
+corrected 95 % confidence intervals — is `validation/phase_lxxxviii_c1_promotion/`.
 Exact commands, log excerpts and blocked items are in `CLEAN_MACHINE_TEST.md`.
 
 No independent clean Windows installation, second physical CPU/GPU, physical
@@ -238,15 +274,13 @@ existing runtime feature dispatch.
 
 ## Build from source
 
-The qualified kernel source commit is
-`b165c2994e9ef5929c9e36fca76192db8dd3df35`. The package is built from the final
-PR #9 commit (recorded in `BUILD_INFO.txt` and `BUILD_MANIFEST.json`) with the
-checked-in standalone `Cargo.lock` and `--locked`. The static portable build is
-produced by:
+The package is built from the release commit recorded in `BUILD_INFO.txt` and
+`BUILD_MANIFEST.json` with the checked-in standalone `Cargo.lock` and `--locked`.
+The static portable build is produced by:
 
 ```powershell
 .\hierarchos-vulkan\package-standalone.ps1 `
-  -OutDir C:\path\to\hierarchos-v026-stage `
+  -OutDir C:\path\to\hierarchos-v027-stage `
   -StaticCrt
 ```
 

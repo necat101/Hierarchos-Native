@@ -1,0 +1,235 @@
+{
+  "abba": {
+    "full_parameter_harness": {
+      "arm_a_median_ms": 37.564175,
+      "arm_a_p95_ms": 38.6399,
+      "arm_a_stdev_ms": 0.534283,
+      "arm_b_median_ms": 29.360425,
+      "arm_b_p95_ms": 30.4318,
+      "arm_b_stdev_ms": 0.385005,
+      "mean_round_ratio": 0.781838,
+      "median_round_ratio": 0.781712,
+      "ratio_ci95": [
+        0.7799,
+        0.783777
+      ],
+      "rounds_improved": 5,
+      "rounds_total": 5,
+      "speedup": 1.2792,
+      "verdict": "PASS"
+    },
+    "phase_xii_harness": {
+      "arm_a_median_ms": 28.480525,
+      "arm_a_p95_ms": 29.4062,
+      "arm_a_stdev_ms": 0.410087,
+      "arm_b_median_ms": 23.00105,
+      "arm_b_p95_ms": 24.3619,
+      "arm_b_stdev_ms": 0.735313,
+      "mean_round_ratio": 0.808004,
+      "median_round_ratio": 0.807402,
+      "ratio_ci95": [
+        0.805916,
+        0.810092
+      ],
+      "rounds_improved": 5,
+      "rounds_total": 5,
+      "speedup": 1.2385,
+      "verdict": "PASS"
+    },
+    "stability_harness": {
+      "arm_a_median_ms": 28.31295,
+      "arm_a_p95_ms": 29.765,
+      "arm_a_stdev_ms": 0.645322,
+      "arm_b_median_ms": 23.096575,
+      "arm_b_p95_ms": 27.5396,
+      "arm_b_stdev_ms": 1.645344,
+      "mean_round_ratio": 0.811206,
+      "median_round_ratio": 0.813787,
+      "ratio_ci95": [
+        0.800196,
+        0.822215
+      ],
+      "rounds_improved": 5,
+      "rounds_total": 5,
+      "speedup": 1.2288,
+      "verdict": "PASS"
+    }
+  },
+  "attribution_gpu_ms_per_step": {
+    "delta": -5.86722,
+    "mixed": 29.622787,
+    "off": 35.490007
+  },
+  "dispatch_per_step": {
+    "full": {
+      "forward": 15,
+      "input_grad": 15,
+      "weight_grad": 15
+    },
+    "lora": {
+      "forward": 15,
+      "input_grad": 15,
+      "weight_grad": 0
+    },
+    "steps": {
+      "full": 9,
+      "lora": 3
+    }
+  },
+  "head": "560809eead186f832344c15d1a9b70795da3b75d",
+  "numerics": {
+    "adapter_worst": {
+      "max_abs": 0.025952832773327827,
+      "name": "base_model.model.model.layers.1.self_attn.q_proj.lora_B.weight",
+      "rms": 0.0020093538650263402,
+      "values": 8192,
+      "within_contract": false
+    },
+    "determinism": {
+      "mixed_grad_digests_identical": true,
+      "mixed_loss_bits_identical": true,
+      "mixed_parameter_end_digest": [
+        "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655"
+      ],
+      "off_grad_digests_identical": true,
+      "off_loss_bits_identical": true,
+      "off_parameter_end_digest": [
+        "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655"
+      ]
+    },
+    "full_lr1e2_unstable": {
+      "loss_mixed": [
+        7.1331534,
+        6.71077,
+        7.9711533,
+        7.5445023,
+        16.309526,
+        12.4530325,
+        19.021486,
+        13.542923,
+        13.569559
+      ],
+      "loss_off": [
+        7.133183,
+        6.705532,
+        7.9774933,
+        7.604184,
+        16.804468,
+        12.639851,
+        19.555246,
+        14.0867605,
+        14.379592
+      ]
+    },
+    "full_lr1e4": {
+      "all_within": true,
+      "loss": {
+        "max_abs": 6.799999999973494e-05,
+        "rms": 4.105301450552748e-05,
+        "values": 9,
+        "within_contract": true
+      },
+      "worst_master": {
+        "max_abs": 0.0007986985146999359,
+        "name": "model.embed_tokens.weight",
+        "rms": 6.228090224468745e-06,
+        "values": 1048576,
+        "within_contract": true
+      }
+    },
+    "lora_grad": {
+      "max_abs": 0.007003029766289748,
+      "mixed_range": [
+        0.10928649718232004,
+        1.2027073218996032
+      ],
+      "off_range": [
+        0.1092858372398309,
+        1.201000067137559
+      ],
+      "rms": 0.0018957456765179336,
+      "values": 29,
+      "within_contract": true
+    },
+    "lora_loss": {
+      "first_mixed": 7.1331534,
+      "first_off": 7.133183,
+      "last_mixed": 6.5513897,
+      "last_off": 6.55253,
+      "max_abs": 0.004018700000000486,
+      "per_step_delta": [
+        -2.96e-05,
+        -5.57e-05,
+        0.000119,
+        5.26e-05,
+        -1.9e-06,
+        0.0001149,
+        -0.0003017,
+        -0.0001173,
+        -6.32e-05,
+        -0.0001175,
+        5.73e-05,
+        0.0003352,
+        -0.0003953,
+        0.000504,
+        0.0001224,
+        0.0004067,
+        -0.0002154,
+        0.0018795,
+        -0.000557,
+        0.000653,
+        -1.48e-05,
+        0.001013,
+        0.0040187,
+        -0.0029177,
+        0.0034644,
+        -0.0024213,
+        -0.0021146,
+        9.6e-05,
+        -0.0011403
+      ],
+      "rms": 0.0013710514779440497,
+      "values": 29,
+      "within_contract": true
+    },
+    "resume": {
+      "continuous_parameter_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "grad_digests_identical": true,
+      "loss_bits_identical": true,
+      "parameter_end_digest_identical": true,
+      "resumed_parameter_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+      "steps": 12
+    }
+  },
+  "phase": "XIII \u2014 RDNA3 Mixed WMMA requalification",
+  "predicted_per_step": {
+    "full": {
+      "forward": 15,
+      "input_grad": 15,
+      "weight_grad": 15
+    },
+    "lora": {
+      "forward": 15,
+      "input_grad": 15,
+      "weight_grad": 0
+    }
+  },
+  "preservation": {
+    "binary_only_diff_sha256": "cfa0d1c059d1dab6500f23ec981e2e4fdfc6c47bd43c1d86957ee686f8d7319a",
+    "full_diff_sha256": "3a671c752ccf8bb7ad714781fae3f11e6264cd6085001da9caf9896c7244853f",
+    "staged_index_tree": "4709d4508ca02c854741617b379795929f673760",
+    "stash0": "831f892774619603c2dd68d0dd654d315f1a8f7e",
+    "tracked_files_changed": 0
+  },
+  "shape_fallbacks": {
+    "full": 0,
+    "lora": 0
+  },
+  "status": "GO (LoRA production path); full-parameter numerics unqualified at lr 1e-2",
+  "wmma_gates": {
+    "failed": 0,
+    "gates": 37
+  }
+}

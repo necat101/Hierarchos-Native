@@ -1,0 +1,88 @@
+{
+  "provenance": "Transcribed from the 06:44 console output of run_abba.py on the debug harness; its per-process logs were superseded by the 06:55 release rerun in the same directory.",
+  "harness": "target/debug/deps/hierarchos_vulkan-2e2e303e5aa3d5d6.exe",
+  "protocol": {
+    "arm_a": "generic attention forward + production two-pass GQA backward",
+    "arm_b": "row-packed attention forward + production two-pass GQA backward",
+    "order": [
+      "A",
+      "B",
+      "B",
+      "A"
+    ],
+    "rounds": 5,
+    "warmup_per_process": 3,
+    "measured_per_process": 26,
+    "steps_per_process": 29,
+    "processes": "one arm per process, strictly serial",
+    "wmma_mode": "off"
+  },
+  "arm_a": {
+    "samples": 260,
+    "median_ms": 55.4977,
+    "mean_ms": 55.68,
+    "stdev_ms": 0.7477,
+    "min_ms": 54.222,
+    "p25_ms": 55.2286,
+    "p95_ms": 57.2266,
+    "max_ms": 58.231
+  },
+  "arm_b": {
+    "samples": 260,
+    "median_ms": 45.7888,
+    "mean_ms": 45.9608,
+    "stdev_ms": 0.6881,
+    "min_ms": 44.4274,
+    "p25_ms": 45.551,
+    "p95_ms": 47.5092,
+    "max_ms": 48.6275
+  },
+  "ci95": {
+    "low": 1.2087,
+    "high": 1.2177,
+    "df": 4,
+    "t_critical": 2.776
+  },
+  "mean_paired_ratio": 1.2132,
+  "geomean_paired_ratio": 1.2132,
+  "ratio_of_medians": 1.212,
+  "paired_ratios": [
+    1.21827,
+    1.21502,
+    1.21254,
+    1.2089,
+    1.2112
+  ],
+  "per_round": [
+    {
+      "round": 0,
+      "a_median_ms": 55.6055,
+      "b_median_ms": 45.6431,
+      "ratio": 1.21827
+    },
+    {
+      "round": 1,
+      "a_median_ms": 55.5151,
+      "b_median_ms": 45.6908,
+      "ratio": 1.21502
+    },
+    {
+      "round": 2,
+      "a_median_ms": 55.4773,
+      "b_median_ms": 45.7528,
+      "ratio": 1.21254
+    },
+    {
+      "round": 3,
+      "a_median_ms": 55.4245,
+      "b_median_ms": 45.8472,
+      "ratio": 1.2089
+    },
+    {
+      "round": 4,
+      "a_median_ms": 55.5229,
+      "b_median_ms": 45.8413,
+      "ratio": 1.2112
+    }
+  ]
+}

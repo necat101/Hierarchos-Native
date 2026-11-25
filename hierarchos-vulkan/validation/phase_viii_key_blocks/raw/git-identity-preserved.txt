@@ -1,0 +1,17 @@
+# Phase VIII — PRE-EDIT preservation record, captured before the first Phase VIII write
+branch: main
+head: 560809eead186f832344c15d1a9b70795da3b75d
+head_matches_expected: yes
+git_diff_sha256: 383296d7b58b0664563eda3b3b7ac1fa862beb9d7e804fb2715603a558243d77
+git_diff_binary_sha256: 8290f780928a8c7fa4c12c4979f309f5929d5bd2bafd9e70ae18342865d6995f
+git_diff_cached_binary_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (empty index)
+status_entries: 17 (13 modified tracked + 4 untracked receipt directories)
+diffstat: 13 files changed, 2813 insertions(+), 202 deletions(-)
+stash0: stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+stash0_sha: 831f892774619603c2dd68d0dd654d315f1a8f7e
+
+# Receipts verified present before the phase (file counts):
+mha_attention_backward_closeout_20261124: 36
+gqa_attention_backward_experiment_20261124: 13
+gqa_production_promotion_20261124: 14
+gqa_end_to_end_training_20261124: 178

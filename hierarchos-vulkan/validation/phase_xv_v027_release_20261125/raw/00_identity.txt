@@ -1,0 +1,15 @@
+branch=release/v0.2.7
+head=63a46f30d8ec396532a53fd632682983b490ebb2
+head_subject=Release v0.2.7
+tree=77261c1341d099cdccd853b9a11efbf307d225da
+base_v026=560809eead186f832344c15d1a9b70795da3b75d
+stash0=831f892774619603c2dd68d0dd654d315f1a8f7e
+stash_count=1
+working_tree_status_entries=2
+
+# tracked diff against the v0.2.6 baseline at the release candidate
+ .../phase_xiv_v027_closeout_20261125/reproduce.sh  |    63 +
+ .../summarize_drift.py                             |    42 +
+ .../make_release_zip.py                            |   334 +
+ .../validation/training_shader_manifest.json       |    31 +
+ 476 files changed, 171523 insertions(+), 567 deletions(-)

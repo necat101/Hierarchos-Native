@@ -274,7 +274,12 @@ void main() {
         float ds_q = p * (dp - softmax_dot);
         uint slot = scratch_base + key;
         scratch_probability[slot] = p;
-        scratch_ds[slot] = p * (dp - kv_softmax_dot);
+        // Mode 9's scalar adjoint reduces dK/dV against the `precise` per-key dot
+        // it caches in row_softmax_dot. Mode 0's scalar path keeps no cached
+        // statistics and reduces against the primary plain `softmax_dot`.
+        // Carrying the one the owning scalar path uses keeps dK/dV bit-exact.
+        float kv_dot = pc.unfused_qk == 9u ? float(kv_softmax_dot) : softmax_dot;
+        scratch_ds[slot] = p * (dp - kv_dot);
         if (pc.unfused_qk == 9u) {
             precise float score_scale = pc.scale * 1.0;
             score_scale = score_scale * ds_q;

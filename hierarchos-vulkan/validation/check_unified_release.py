@@ -726,6 +726,18 @@ def verify(path=DEFAULT,*,check_subreceipts=True):
             run=subprocess.run([sys.executable,str(ROOT/'hierarchos-vulkan/validation'/script),'--receipt',str(p)],cwd=ROOT,capture_output=True,text=True)
             require(run.returncode==0,name+' failed: '+(run.stdout+run.stderr)[-600:])
         from phase19w_matrix import validate
+        # The matrix is a sealed component of this receipt, and its source
+        # contract is verified at the revision the matrix declares. That
+        # revision has to belong to the source lineage this receipt seals: a
+        # component built on an unrelated revision could satisfy its own
+        # contract without describing anything the release contains. The matrix
+        # is carried forward while its source is unchanged, so the rule is
+        # ancestry - the same rule the receipt's own ``source_revision`` uses.
+        matrix_revision=components['phase19w'].get('source_contract',{}).get('revision')
+        require(isinstance(matrix_revision,str) and subprocess.run(
+                    ['git','merge-base','--is-ancestor',matrix_revision,document['source_revision']],
+                    cwd=ROOT,capture_output=True).returncode==0,
+                'Phase XIX-W matrix was built outside the sealed release source lineage')
         validate(components['phase19w'])
     return document,components
 

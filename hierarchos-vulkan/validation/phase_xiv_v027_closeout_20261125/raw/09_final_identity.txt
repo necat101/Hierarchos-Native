@@ -1,0 +1,18 @@
+branch=main
+head=560809eead186f832344c15d1a9b70795da3b75d
+staged_index_tree=4709d4508ca02c854741617b379795929f673760
+staged_diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+full_diff_sha256=3a671c752ccf8bb7ad714781fae3f11e6264cd6085001da9caf9896c7244853f
+binary_only_diff_sha256=cfa0d1c059d1dab6500f23ec981e2e4fdfc6c47bd43c1d86957ee686f8d7319a
+tracked_text_diff_sha256=1176e36db6d2542deddc85b28d0070f39ab9ce71bea575e15ba84ee6a8e96db4
+stash0=831f892774619603c2dd68d0dd654d315f1a8f7e
+stash_count=1
+pre_existing_tracked_modifications=14
+modifications_added_by_phase_xiv=0
+
+# the only new untracked path this phase added
+?? hierarchos-vulkan/validation/phase_xiv_v027_closeout_20261125/
+
+# receipt digest over every file except this one (a file cannot contain its
+# own hash); reproducible as recorded, minus 09_final_identity.txt
+aa76f12e9ecf50e6a99fdd28229dc4e8960d25c6eed6a22b2bcf3782e0e7eaf8  validation/phase_xiv_v027_closeout_20261125

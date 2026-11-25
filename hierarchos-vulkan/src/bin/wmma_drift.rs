@@ -771,9 +771,7 @@ fn run(args: Args) -> Result<()> {
         return run_compare_forward(&args);
     }
     let mode = WmmaMode::from_env()?;
-    let two_pass = std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
-        .map(|value| value == "1")
-        .unwrap_or(false);
+    let two_pass = hierarchos_vulkan::attention_backward_two_pass_enabled();
     let device = VulkanDevice::new_for_wmma(mode)?;
     let mut graph = VulkanTransformer::from_hf_package(device, &args.model, args.batch, args.seq)?;
     graph.set_dropout_seed(args.seed as u32 ^ (args.seed >> 32) as u32);

@@ -1,0 +1,12 @@
+ M ../RDNA3_WMMA.md
+ M shaders/transformer_attention_backward_query_rdna3.comp
+ M shaders/transformer_attention_backward_query_rdna3.spv
+ M src/bin/held_out_eval.rs
+ M src/bin/hierarchos-vulkan-training-qualification.rs
+ M src/bin/training-stability.rs
+ M src/bin/transformer_train.rs
+ M src/bin/wmma_drift.rs
+ M src/lib.rs
+ M src/transformer.rs
+ M src/vulkan.rs
+?? validation/mha_attention_backward_closeout_20261124/

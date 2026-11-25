@@ -1,0 +1,48 @@
+# Pre-edit state recorded at the start of this session (before any file was added)
+pre_edit_head=560809eead186f832344c15d1a9b70795da3b75d
+pre_edit_branch=main
+pre_edit_tracked_diff_sha256=71db016eef2b3b16eff03136271522f0874274a1e2f60e4dc07c685b25d818b5
+pre_edit_binary_diff_sha256=cfa0d1c059d1dab6500f23ec981e2e4fdfc6c47bd43c1d86957ee686f8d7319a
+pre_edit_full_diff_sha256=3cfbb8a75bd398e00df8a7fe01ec07cd8739d2d2201ff6179024f7872155e983
+pre_edit_staged_index_tree=4709d4508ca02c854741617b379795929f673760
+pre_edit_staged_diff=empty
+pre_edit_stash0=831f892774619603c2dd68d0dd654d315f1a8f7e
+
+# State at receipt assembly
+head=560809eead186f832344c15d1a9b70795da3b75d
+branch=main
+tracked_diff_sha256=81d73fdf07323b19ece7db4fbfaf069b180f182ce72fe3cca8258099d899cd53
+binary_diff_sha256=cfa0d1c059d1dab6500f23ec981e2e4fdfc6c47bd43c1d86957ee686f8d7319a
+full_diff_sha256=f9a545ff9246a748be4b51f00508bcb6f19be54fc302992358be930f8108b6dd
+staged_index_tree=4709d4508ca02c854741617b379795929f673760
+staged_diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stash0=831f892774619603c2dd68d0dd654d315f1a8f7e
+commits_made_by_this_phase=none
+ M ../RDNA3_WMMA.md
+ M shaders/transformer_attention_backward_key_rdna3.comp
+ M shaders/transformer_attention_backward_key_rdna3.spv
+ M shaders/transformer_attention_backward_query_rdna3.comp
+ M shaders/transformer_attention_backward_query_rdna3.spv
+ M src/bin/held_out_eval.rs
+ M src/bin/hierarchos-vulkan-training-qualification.rs
+ M src/bin/training-stability.rs
+ M src/bin/transformer_train.rs
+ M src/bin/wmma_drift.rs
+ M src/lib.rs
+ M src/transformer.rs
+ M src/vulkan.rs
+ M validation/training_shader_manifest.json
+?? shaders/transformer_attention_forward_rowpacked64_cached_rdna3.comp
+?? shaders/transformer_attention_forward_rowpacked64_cached_rdna3.spv
+?? src/phase_ix_row_packed_forward_tests.rs
+?? src/phase_viii_key_block_tests.rs
+?? src/phase_x_row_packed_promotion_tests.rs
+?? src/phase_xi_channel_tiling_tests.rs
+?? validation/gqa_attention_backward_experiment_20261124/
+?? validation/gqa_end_to_end_training_20261124/
+?? validation/gqa_production_promotion_20261124/
+?? validation/mha_attention_backward_closeout_20261124/
+?? validation/phase_ix_row_packed_forward_20261124/
+?? validation/phase_viii_key_blocks/
+?? validation/phase_x_row_packed_forward_promotion_20261125/
+?? validation/phase_xi_channel_tiling_20261125/

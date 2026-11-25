@@ -1,0 +1,25 @@
+prefix_consistent: {'mixed': True, 'off': True}
+loss_at_steps: {"mixed": {"12": 7.1894417, "29": 6.5513897, "6": 7.1319294}, "off": {"12": 7.1891065, "29": 6.55253, "6": 7.1318145}}
+reproduction: {
+  "absolute_delta": 0.0,
+  "phase_xiii_worst_max_abs": 0.025952832773327827,
+  "phase_xiv_worst_max_abs": 0.025952832773327827,
+  "reproduced": true
+}
+dispatch: {"12": {"mixed": {"wmma_cooperative": 360, "wmma_forward": 180, "wmma_input_grad": 180, "wmma_shape_fallbacks": 0, "wmma_weight_grad": 0}, "off": {"wmma_cooperative": 0, "wmma_forward": 0, "wmma_input_grad": 0, "wmma_shape_fallbacks": 0, "wmma_weight_grad": 0}}, "29": {"mixed": {"wmma_cooperative": 870, "wmma_forward": 435, "wmma_input_grad": 435, "wmma_shape_fallbacks": 0, "wmma_weight_grad": 0}, "off": {"wmma_cooperative": 0, "wmma_forward": 0, "wmma_input_grad": 0, "wmma_shape_fallbacks": 0, "wmma_weight_grad": 0}}, "6": {"mixed": {"wmma_cooperative": 180, "wmma_forward": 90, "wmma_input_grad": 90, "wmma_shape_fallbacks": 0, "wmma_weight_grad": 0}, "off": {"wmma_cooperative": 0, "wmma_forward": 0, "wmma_input_grad": 0, "wmma_shape_fallbacks": 0, "wmma_weight_grad": 0}}}
+worst tensor: base_model.model.model.layers.1.self_attn.q_proj.lora_B.weight monotone: False
+
+tensor         steps    max_abs        rms  n>.02       p99  rel_rms
+--------------------------------------------------------------------
+L0.lora_A          6   0.016764   0.000697      0  0.001402  0.02276
+L0.lora_B          6   0.019133   0.000454      0  0.001821  0.01453
+L1.lora_A          6   0.019037   0.000595      0  0.001185  0.02024
+L1.lora_B          6   0.019630   0.000375      0  0.001414  0.01283
+L0.lora_A         12   0.018235   0.000843      0  0.002452  0.01843
+L0.lora_B         12   0.018838   0.000769      0  0.003176  0.01670
+L1.lora_A         12   0.019117   0.000713      0  0.002028  0.01752
+L1.lora_B         12   0.019240   0.000570      0  0.002103  0.01404
+L0.lora_A         29   0.023203   0.001967      5  0.006071  0.02555
+L0.lora_B         29   0.022338   0.002012      1  0.006500  0.02671
+L1.lora_A         29   0.021156   0.001752      2  0.004705  0.02808
+L1.lora_B         29   0.025953   0.002009      1  0.005719  0.03205

@@ -1,0 +1,5147 @@
+{
+  "full_parameter_harness": {
+    "arm_a_ci95_ms": [
+      37.52359,
+      37.59717
+    ],
+    "arm_a_mean_ms": 37.56038,
+    "arm_a_median_ms": 37.564175,
+    "arm_a_p95_ms": 38.6399,
+    "arm_a_stdev_ms": 0.534283,
+    "arm_b_ci95_ms": [
+      29.339644,
+      29.392426
+    ],
+    "arm_b_mean_ms": 29.366035,
+    "arm_b_median_ms": 29.360425,
+    "arm_b_p95_ms": 30.4318,
+    "arm_b_stdev_ms": 0.385005,
+    "ci_includes_one": false,
+    "max_round_ratio": 0.784396,
+    "mean_round_ratio": 0.781838,
+    "median_round_ratio": 0.781712,
+    "min_round_ratio": 0.780575,
+    "per_round": [
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1087804344,
+          1090471840,
+          1089688954,
+          1099329421,
+          1095384276,
+          1100771621,
+          1096901471,
+          1097208527,
+          1097933695,
+          1101134438,
+          1099621490,
+          1094306888,
+          1094475839,
+          1096267637,
+          1101830482,
+          1098535080,
+          1091499682,
+          1107576606,
+          1103839149,
+          1103031207,
+          1102857305,
+          1100543231,
+          1095917620,
+          1101221955,
+          1099471274,
+          1096695235,
+          1102797726,
+          1100633725
+        ],
+        "arm_a_ms": [
+          37.4551,
+          37.53025
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1087815329,
+          1090458544,
+          1089563792,
+          1099069929,
+          1095188383,
+          1100491777,
+          1096331216,
+          1096359146,
+          1095585053,
+          1099825225,
+          1099124091,
+          1093198147,
+          1101426699,
+          1094166973,
+          1101747352,
+          1097641893,
+          1088306498,
+          1106859643,
+          1103107580,
+          1100910626,
+          1101231474,
+          1092730343,
+          1094118210,
+          1099023473,
+          1099210552,
+          1101007698,
+          1101226288,
+          1099629185
+        ],
+        "arm_b_ms": [
+          29.42765,
+          29.39045
+        ],
+        "arm_b_over_a": [
+          0.785678,
+          0.783114
+        ],
+        "arm_b_over_a_mean": 0.784396,
+        "round": 0
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1087804344,
+          1090471840,
+          1089688954,
+          1099329421,
+          1095384276,
+          1100771621,
+          1096901471,
+          1097208527,
+          1097933695,
+          1101134438,
+          1099621490,
+          1094306888,
+          1094475839,
+          1096267637,
+          1101830482,
+          1098535080,
+          1091499682,
+          1107576606,
+          1103839149,
+          1103031207,
+          1102857305,
+          1100543231,
+          1095917620,
+          1101221955,
+          1099471274,
+          1096695235,
+          1102797726,
+          1100633725
+        ],
+        "arm_a_ms": [
+          37.5485,
+          37.5359
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1087815329,
+          1090458544,
+          1089563792,
+          1099069929,
+          1095188383,
+          1100491777,
+          1096331216,
+          1096359146,
+          1095585053,
+          1099825225,
+          1099124091,
+          1093198147,
+          1101426699,
+          1094166973,
+          1101747352,
+          1097641893,
+          1088306498,
+          1106859643,
+          1103107580,
+          1100910626,
+          1101231474,
+          1092730343,
+          1094118210,
+          1099023473,
+          1099210552,
+          1101007698,
+          1101226288,
+          1099629185
+        ],
+        "arm_b_ms": [
+          29.3217,
+          29.3891
+        ],
+        "arm_b_over_a": [
+          0.780902,
+          0.78296
+        ],
+        "arm_b_over_a_mean": 0.781931,
+        "round": 1
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1087804344,
+          1090471840,
+          1089688954,
+          1099329421,
+          1095384276,
+          1100771621,
+          1096901471,
+          1097208527,
+          1097933695,
+          1101134438,
+          1099621490,
+          1094306888,
+          1094475839,
+          1096267637,
+          1101830482,
+          1098535080,
+          1091499682,
+          1107576606,
+          1103839149,
+          1103031207,
+          1102857305,
+          1100543231,
+          1095917620,
+          1101221955,
+          1099471274,
+          1096695235,
+          1102797726,
+          1100633725
+        ],
+        "arm_a_ms": [
+          37.5034,
+          37.5941
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1087815329,
+          1090458544,
+          1089563792,
+          1099069929,
+          1095188383,
+          1100491777,
+          1096331216,
+          1096359146,
+          1095585053,
+          1099825225,
+          1099124091,
+          1093198147,
+          1101426699,
+          1094166973,
+          1101747352,
+          1097641893,
+          1088306498,
+          1106859643,
+          1103107580,
+          1100910626,
+          1101231474,
+          1092730343,
+          1094118210,
+          1099023473,
+          1099210552,
+          1101007698,
+          1101226288,
+          1099629185
+        ],
+        "arm_b_ms": [
+          29.35905,
+          29.34545
+        ],
+        "arm_b_over_a": [
+          0.782837,
+          0.780587
+        ],
+        "arm_b_over_a_mean": 0.781712,
+        "round": 2
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1087804344,
+          1090471840,
+          1089688954,
+          1099329421,
+          1095384276,
+          1100771621,
+          1096901471,
+          1097208527,
+          1097933695,
+          1101134438,
+          1099621490,
+          1094306888,
+          1094475839,
+          1096267637,
+          1101830482,
+          1098535080,
+          1091499682,
+          1107576606,
+          1103839149,
+          1103031207,
+          1102857305,
+          1100543231,
+          1095917620,
+          1101221955,
+          1099471274,
+          1096695235,
+          1102797726,
+          1100633725
+        ],
+        "arm_a_ms": [
+          37.59865,
+          37.59685
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1087815329,
+          1090458544,
+          1089563792,
+          1099069929,
+          1095188383,
+          1100491777,
+          1096331216,
+          1096359146,
+          1095585053,
+          1099825225,
+          1099124091,
+          1093198147,
+          1101426699,
+          1094166973,
+          1101747352,
+          1097641893,
+          1088306498,
+          1106859643,
+          1103107580,
+          1100910626,
+          1101231474,
+          1092730343,
+          1094118210,
+          1099023473,
+          1099210552,
+          1101007698,
+          1101226288,
+          1099629185
+        ],
+        "arm_b_ms": [
+          29.3618,
+          29.33395
+        ],
+        "arm_b_over_a": [
+          0.780927,
+          0.780224
+        ],
+        "arm_b_over_a_mean": 0.780575,
+        "round": 3
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1087804344,
+          1090471840,
+          1089688954,
+          1099329421,
+          1095384276,
+          1100771621,
+          1096901471,
+          1097208527,
+          1097933695,
+          1101134438,
+          1099621490,
+          1094306888,
+          1094475839,
+          1096267637,
+          1101830482,
+          1098535080,
+          1091499682,
+          1107576606,
+          1103839149,
+          1103031207,
+          1102857305,
+          1100543231,
+          1095917620,
+          1101221955,
+          1099471274,
+          1096695235,
+          1102797726,
+          1100633725
+        ],
+        "arm_a_ms": [
+          37.6612,
+          37.57985
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          },
+          {
+            "wmma_cooperative": 45,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 15
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1087815329,
+          1090458544,
+          1089563792,
+          1099069929,
+          1095188383,
+          1100491777,
+          1096331216,
+          1096359146,
+          1095585053,
+          1099825225,
+          1099124091,
+          1093198147,
+          1101426699,
+          1094166973,
+          1101747352,
+          1097641893,
+          1088306498,
+          1106859643,
+          1103107580,
+          1100910626,
+          1101231474,
+          1092730343,
+          1094118210,
+          1099023473,
+          1099210552,
+          1101007698,
+          1101226288,
+          1099629185
+        ],
+        "arm_b_ms": [
+          29.30535,
+          29.42585
+        ],
+        "arm_b_over_a": [
+          0.778131,
+          0.783022
+        ],
+        "arm_b_over_a_mean": 0.780577,
+        "round": 4
+      }
+    ],
+    "ratio_ci95": [
+      0.7799,
+      0.783777
+    ],
+    "rounds": 5,
+    "rounds_improved": 5,
+    "rounds_total": 5,
+    "series": "full",
+    "speedup": 1.2792,
+    "verdict": "PASS"
+  },
+  "phase_xii_harness": {
+    "arm_a_ci95_ms": [
+      28.457623,
+      28.490467
+    ],
+    "arm_a_mean_ms": 28.474045,
+    "arm_a_median_ms": 28.480525,
+    "arm_a_p95_ms": 29.4062,
+    "arm_a_stdev_ms": 0.410087,
+    "arm_b_ci95_ms": [
+      22.971356,
+      23.042884
+    ],
+    "arm_b_mean_ms": 23.00712,
+    "arm_b_median_ms": 23.00105,
+    "arm_b_p95_ms": 24.3619,
+    "arm_b_stdev_ms": 0.735313,
+    "ci_includes_one": false,
+    "max_round_ratio": 0.810117,
+    "mean_round_ratio": 0.808004,
+    "median_round_ratio": 0.807402,
+    "min_round_ratio": 0.806434,
+    "per_round": [
+      {
+        "arm_a_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_a_ms": [
+          28.49905,
+          28.44485
+        ],
+        "arm_b_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_b_ms": [
+          23.11495,
+          23.0163
+        ],
+        "arm_b_over_a": [
+          0.811078,
+          0.809155
+        ],
+        "arm_b_over_a_mean": 0.810117,
+        "round": 0
+      },
+      {
+        "arm_a_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_a_ms": [
+          28.4368,
+          28.4972
+        ],
+        "arm_b_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_b_ms": [
+          22.9828,
+          22.9858
+        ],
+        "arm_b_over_a": [
+          0.808206,
+          0.806599
+        ],
+        "arm_b_over_a_mean": 0.807402,
+        "round": 1
+      },
+      {
+        "arm_a_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_a_ms": [
+          28.47125,
+          28.501
+        ],
+        "arm_b_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_b_ms": [
+          22.9764,
+          22.96795
+        ],
+        "arm_b_over_a": [
+          0.807004,
+          0.805865
+        ],
+        "arm_b_over_a_mean": 0.806434,
+        "round": 2
+      },
+      {
+        "arm_a_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_a_ms": [
+          28.4414,
+          28.49625
+        ],
+        "arm_b_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_b_ms": [
+          23.0651,
+          23.0231
+        ],
+        "arm_b_over_a": [
+          0.810969,
+          0.807934
+        ],
+        "arm_b_over_a_mean": 0.809452,
+        "round": 3
+      },
+      {
+        "arm_a_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_a_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_a_ms": [
+          28.46285,
+          28.4898
+        ],
+        "arm_b_dispatch": {
+          "backward_key_channel4": "58",
+          "backward_key_original": "0",
+          "backward_query": "58",
+          "backward_scalar": "0",
+          "forward_row_packed": "58"
+        },
+        "arm_b_end_digest": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+        "arm_b_ms": [
+          23.0289,
+          22.9099
+        ],
+        "arm_b_over_a": [
+          0.809086,
+          0.804144
+        ],
+        "arm_b_over_a_mean": 0.806615,
+        "round": 4
+      }
+    ],
+    "ratio_ci95": [
+      0.805916,
+      0.810092
+    ],
+    "rounds": 5,
+    "rounds_improved": 5,
+    "rounds_total": 5,
+    "series": "abba",
+    "speedup": 1.2385,
+    "verdict": "PASS"
+  },
+  "stability_harness": {
+    "arm_a_ci95_ms": [
+      28.181848,
+      28.644062
+    ],
+    "arm_a_mean_ms": 28.412955,
+    "arm_a_median_ms": 28.31295,
+    "arm_a_p95_ms": 29.765,
+    "arm_a_stdev_ms": 0.645322,
+    "arm_b_ci95_ms": [
+      22.958452,
+      23.131378
+    ],
+    "arm_b_mean_ms": 23.044915,
+    "arm_b_median_ms": 23.096575,
+    "arm_b_p95_ms": 27.5396,
+    "arm_b_stdev_ms": 1.645344,
+    "ci_includes_one": false,
+    "max_round_ratio": 0.818494,
+    "mean_round_ratio": 0.811206,
+    "median_round_ratio": 0.813787,
+    "min_round_ratio": 0.79645,
+    "per_round": [
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1088700176,
+          1088619847,
+          1088903084,
+          1088767581,
+          1088698323,
+          1088389522,
+          1088494362,
+          1088576503,
+          1088354074,
+          1088721016,
+          1088818473,
+          1088630575,
+          1087449441,
+          1088502995,
+          1088442245,
+          1086405884,
+          1086401439,
+          1087541172,
+          1087399396,
+          1087531291,
+          1087667066,
+          1086357555,
+          1086620029,
+          1087469255,
+          1086879774,
+          1087719532,
+          1087652802,
+          1087483475
+        ],
+        "arm_a_ms": [
+          28.28855,
+          28.34335
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1088700059,
+          1088620096,
+          1088903194,
+          1088767577,
+          1088698564,
+          1088388889,
+          1088494116,
+          1088576370,
+          1088353828,
+          1088721136,
+          1088819176,
+          1088629746,
+          1087450498,
+          1088503252,
+          1088443098,
+          1086405432,
+          1086405381,
+          1087540004,
+          1087400766,
+          1087531260,
+          1087669191,
+          1086365983,
+          1086613910,
+          1087476520,
+          1086874696,
+          1087715097,
+          1087653003,
+          1087481084
+        ],
+        "arm_b_ms": [
+          23.16425,
+          23.11485
+        ],
+        "arm_b_over_a": [
+          0.818856,
+          0.81553
+        ],
+        "arm_b_over_a_mean": 0.817193,
+        "round": 0
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1088700176,
+          1088619847,
+          1088903084,
+          1088767581,
+          1088698323,
+          1088389522,
+          1088494362,
+          1088576503,
+          1088354074,
+          1088721016,
+          1088818473,
+          1088630575,
+          1087449441,
+          1088502995,
+          1088442245,
+          1086405884,
+          1086401439,
+          1087541172,
+          1087399396,
+          1087531291,
+          1087667066,
+          1086357555,
+          1086620029,
+          1087469255,
+          1086879774,
+          1087719532,
+          1087652802,
+          1087483475
+        ],
+        "arm_a_ms": [
+          28.26875,
+          28.32585
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1088700059,
+          1088620096,
+          1088903194,
+          1088767577,
+          1088698564,
+          1088388889,
+          1088494116,
+          1088576370,
+          1088353828,
+          1088721136,
+          1088819176,
+          1088629746,
+          1087450498,
+          1088503252,
+          1088443098,
+          1086405432,
+          1086405381,
+          1087540004,
+          1087400766,
+          1087531260,
+          1087669191,
+          1086365983,
+          1086613910,
+          1087476520,
+          1086874696,
+          1087715097,
+          1087653003,
+          1087481084
+        ],
+        "arm_b_ms": [
+          22.7469,
+          23.10095
+        ],
+        "arm_b_over_a": [
+          0.804666,
+          0.815543
+        ],
+        "arm_b_over_a_mean": 0.810104,
+        "round": 1
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1088700176,
+          1088619847,
+          1088903084,
+          1088767581,
+          1088698323,
+          1088389522,
+          1088494362,
+          1088576503,
+          1088354074,
+          1088721016,
+          1088818473,
+          1088630575,
+          1087449441,
+          1088502995,
+          1088442245,
+          1086405884,
+          1086401439,
+          1087541172,
+          1087399396,
+          1087531291,
+          1087667066,
+          1086357555,
+          1086620029,
+          1087469255,
+          1086879774,
+          1087719532,
+          1087652802,
+          1087483475
+        ],
+        "arm_a_ms": [
+          28.2201,
+          28.30005
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1088700059,
+          1088620096,
+          1088903194,
+          1088767577,
+          1088698564,
+          1088388889,
+          1088494116,
+          1088576370,
+          1088353828,
+          1088721136,
+          1088819176,
+          1088629746,
+          1087450498,
+          1088503252,
+          1088443098,
+          1086405432,
+          1086405381,
+          1087540004,
+          1087400766,
+          1087531260,
+          1087669191,
+          1086365983,
+          1086613910,
+          1087476520,
+          1086874696,
+          1087715097,
+          1087653003,
+          1087481084
+        ],
+        "arm_b_ms": [
+          23.0922,
+          23.1692
+        ],
+        "arm_b_over_a": [
+          0.818289,
+          0.818698
+        ],
+        "arm_b_over_a_mean": 0.818494,
+        "round": 2
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1088700176,
+          1088619847,
+          1088903084,
+          1088767581,
+          1088698323,
+          1088389522,
+          1088494362,
+          1088576503,
+          1088354074,
+          1088721016,
+          1088818473,
+          1088630575,
+          1087449441,
+          1088502995,
+          1088442245,
+          1086405884,
+          1086401439,
+          1087541172,
+          1087399396,
+          1087531291,
+          1087667066,
+          1086357555,
+          1086620029,
+          1087469255,
+          1086879774,
+          1087719532,
+          1087652802,
+          1087483475
+        ],
+        "arm_a_ms": [
+          29.4462,
+          28.34125
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1088700059,
+          1088620096,
+          1088903194,
+          1088767577,
+          1088698564,
+          1088388889,
+          1088494116,
+          1088576370,
+          1088353828,
+          1088721136,
+          1088819176,
+          1088629746,
+          1087450498,
+          1088503252,
+          1088443098,
+          1086405432,
+          1086405381,
+          1087540004,
+          1087400766,
+          1087531260,
+          1087669191,
+          1086365983,
+          1086613910,
+          1087476520,
+          1086874696,
+          1087715097,
+          1087653003,
+          1087481084
+        ],
+        "arm_b_ms": [
+          22.91415,
+          23.09045
+        ],
+        "arm_b_over_a": [
+          0.77817,
+          0.814729
+        ],
+        "arm_b_over_a_mean": 0.79645,
+        "round": 3
+      },
+      {
+        "arm_a_dispatch_per_step": [
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 0,
+            "wmma_forward": 0,
+            "wmma_input_grad": 0,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_a_loss_bits": [
+          1088701193,
+          1088700176,
+          1088619847,
+          1088903084,
+          1088767581,
+          1088698323,
+          1088389522,
+          1088494362,
+          1088576503,
+          1088354074,
+          1088721016,
+          1088818473,
+          1088630575,
+          1087449441,
+          1088502995,
+          1088442245,
+          1086405884,
+          1086401439,
+          1087541172,
+          1087399396,
+          1087531291,
+          1087667066,
+          1086357555,
+          1086620029,
+          1087469255,
+          1086879774,
+          1087719532,
+          1087652802,
+          1087483475
+        ],
+        "arm_a_ms": [
+          28.3413,
+          28.25415
+        ],
+        "arm_b_dispatch_per_step": [
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          },
+          {
+            "wmma_cooperative": 30,
+            "wmma_forward": 15,
+            "wmma_input_grad": 15,
+            "wmma_shape_fallbacks": 0,
+            "wmma_weight_grad": 0
+          }
+        ],
+        "arm_b_loss_bits": [
+          1088701131,
+          1088700059,
+          1088620096,
+          1088903194,
+          1088767577,
+          1088698564,
+          1088388889,
+          1088494116,
+          1088576370,
+          1088353828,
+          1088721136,
+          1088819176,
+          1088629746,
+          1087450498,
+          1088503252,
+          1088443098,
+          1086405432,
+          1086405381,
+          1087540004,
+          1087400766,
+          1087531260,
+          1087669191,
+          1086365983,
+          1086613910,
+          1087476520,
+          1086874696,
+          1087715097,
+          1087653003,
+          1087481084
+        ],
+        "arm_b_ms": [
+          22.92885,
+          23.12735
+        ],
+        "arm_b_over_a": [
+          0.809026,
+          0.818547
+        ],
+        "arm_b_over_a_mean": 0.813787,
+        "round": 4
+      }
+    ],
+    "ratio_ci95": [
+      0.800196,
+      0.822215
+    ],
+    "rounds": 5,
+    "rounds_improved": 5,
+    "rounds_total": 5,
+    "series": "stab",
+    "speedup": 1.2288,
+    "verdict": "PASS"
+  }
+}

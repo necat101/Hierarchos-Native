@@ -1,0 +1,12 @@
+phase_xii_status=GO
+promoted_spv=f5480ccedce8c2752f7b94b2fe478d9c9e4f496f284344c2140abc3367f7b2c8
+promoted_source=e1373db7ea1e7e0a1ac700ec7a9d464571f8b24f6065dbcc23c7d6df286e78f9
+spirv_val=PASS
+parity_cases=20 tensors=60 elements=5505024 unwritten=0 failures=0
+fallback_head_dim_64=PASS unavailable_tiled=PASS
+optional_loading=PASS
+equivalence_steps=29 diff_bytes=0 parameter_end_digest=d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655
+abba_median_round_ratio=0.653705 speedup=1.5297 rounds_improved=5/5
+abba_arm_a_median_ms=43.53015 arm_b_median_ms=28.460125
+largest_remaining_kernel=transformer_attention_backward_query_rdna3 (8.439 ms/step)
+scope=head_dim_128_only

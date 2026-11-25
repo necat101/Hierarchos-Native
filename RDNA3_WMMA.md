@@ -706,15 +706,37 @@ the correctness harness in `validation/two_pass_backward_equivalence.sh`, whose
 adapter comparison is only meaningful once the dispatch evidence shows both new
 kernels ran.
 
-## Two-pass attention backward (Llama mode 9), measured
+**Update 2026-11-24:** the pair is now wired. Mode-0 and mode-9 gradient parity
+is bit-exact over four geometries, scratch is sized exactly and allocated only
+for eligible geometry, and the path is the default for the existing gate. See
+`validation/mha_attention_backward_closeout_20261124/`.
+
+**Update 2026-11-24 (Phase VI):** the key pass was replaced by the Phase V
+grouped-reduction candidate, whose SPIR-V is byte-identical to the artifact that
+was measured bit-exact for 8q/2kv and 4q/2kv in both arithmetic modes
+(`ccf60984…`). MHA is unchanged by the swap: the full four-geometry matrix is
+still 6,316,128 / 6,316,128 FP32 elements bit-identical with zero ULP, and the
+MHA key pass measured slightly *faster* (1.965 ms vs 2.070 ms GPU median). The
+gate still admits every one-query-head-per-KV-head geometry exactly as before and
+adds four measured grouped shapes — `8q/2kv`, `4q/2kv`, `8q/4kv`, `16q/4kv` at
+head dimension 128, `q_seq = kv_seq = 64`, causal. Every other grouped geometry
+keeps the scalar kernel with a `grouped_query_attention_*` reason and allocates
+no scratch. See
+`validation/gqa_production_promotion_20261124/`.
+
+## Two-pass attention backward (Llama mode 9): historical opt-in measurement
 
 `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1` replaces the scalar Llama attention
 backward with two owned passes: a query pass that writes softmax and `dS`
-scratch, and a key/value pass that reduces it. The default stays scalar; the
-pair is gated to `unfused_qk` 0/9 with `num_heads == num_key_value_heads`.
+scratch, and a key/value pass that reduces it. At the time of this measurement
+the default was scalar; Phase III later made it the default for the same gate
+(`unfused_qk` 0/9, `num_heads == num_key_value_heads`).
 
 Geometry: batch 8, sequence 64, 8 heads / 8 KV heads, head_dim 128, 2 layers.
-Scratch: `rows * query_hidden` floats per layer (8 * 64 * 1024 * 4 B = 2 MiB).
+Scratch at the time: `rows * query_hidden` floats per buffer (8 * 64 * 1024 * 4 B
+= 2 MiB per buffer, 4 MiB per layer). Phase III replaced this with the exact
+`batch * num_heads * query_seq * kv_seq` size (1 MiB per buffer, 2 MiB per layer)
+allocated lazily only for eligible geometry.
 
 Kernel time per step, 12 profiled steps after warmup:
 
@@ -735,6 +757,13 @@ Whole optimizer step, 26 steps per arm, three ABBA rounds:
 exported adapter after two LoRA steps is bit-identical between arms
 (`b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4`), and the
 candidate arm dispatches the scalar backward zero times.
+
+**This 2.88x narrative has no committed benchmark receipt.** It is retained here
+as an unverified historical measurement, not as a verified result. The fresh
+Phase III reproduction of the same protocol measured 3.2492x on the complete
+optimizer step (95% CI 3.1146..3.3838, five paired ABBA rounds) and 9.7965x on
+the attention backward alone; both the fresh reproduction and its raw samples are
+bound in `hierarchos-vulkan/validation/mha_attention_backward_closeout_20261124/`.
 
 ## Native V4.1: numerical qualification, not dispatch evidence
 

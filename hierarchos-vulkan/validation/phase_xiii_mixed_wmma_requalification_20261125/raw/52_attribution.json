@@ -1,0 +1,213 @@
+{
+  "off": {
+    "batches": 9,
+    "gpu_ms_per_step": 35.490007
+  },
+  "mixed": {
+    "batches": 9,
+    "gpu_ms_per_step": 29.622787
+  },
+  "delta_gpu_ms_per_step": -5.86722,
+  "table": [
+    {
+      "shader": "transformer_attention_backward_query_rdna3",
+      "off_ms": 8.411462,
+      "mixed_ms": 9.173289,
+      "delta_ms": 0.761827,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "linear_forward",
+      "off_ms": 8.202751,
+      "mixed_ms": 0.024222,
+      "delta_ms": -8.178529,
+      "off_dispatch": 17.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "linear_input_grad",
+      "off_ms": 7.324476,
+      "mixed_ms": 0.008902,
+      "delta_ms": -7.315574,
+      "off_dispatch": 17.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "transformer_attention_forward_rowpacked64_cached_rdna3",
+      "off_ms": 4.724818,
+      "mixed_ms": 5.022827,
+      "delta_ms": 0.298009,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "transformer_rms_norm_forward",
+      "off_ms": 1.971422,
+      "mixed_ms": 2.057542,
+      "delta_ms": 0.08612,
+      "off_dispatch": 5.0,
+      "mixed_dispatch": 5.0
+    },
+    {
+      "shader": "transformer_rms_norm_input_grad",
+      "off_ms": 1.852511,
+      "mixed_ms": 1.839404,
+      "delta_ms": -0.013107,
+      "off_dispatch": 5.0,
+      "mixed_dispatch": 5.0
+    },
+    {
+      "shader": "falcon_h1_cross_entropy_lanes16",
+      "off_ms": 1.524262,
+      "mixed_ms": 1.6138,
+      "delta_ms": 0.089538,
+      "off_dispatch": 1.0,
+      "mixed_dispatch": 1.0
+    },
+    {
+      "shader": "transformer_attention_backward_key_channel4_rdna3",
+      "off_ms": 0.538053,
+      "mixed_ms": 0.583436,
+      "delta_ms": 0.045383,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "vector_add",
+      "off_ms": 0.232144,
+      "mixed_ms": 0.176676,
+      "delta_ms": -0.055468,
+      "off_dispatch": 16.0,
+      "mixed_dispatch": 16.0
+    },
+    {
+      "shader": "linear_forward_lane4",
+      "off_ms": 0.214009,
+      "mixed_ms": 0.06176,
+      "delta_ms": -0.152249,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 1.5556
+    },
+    {
+      "shader": "linear_input_grad_group4_muladd",
+      "off_ms": 0.132547,
+      "mixed_ms": 0.136667,
+      "delta_ms": 0.00412,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "linear_weight_grad",
+      "off_ms": 0.059009,
+      "mixed_ms": 0.062342,
+      "delta_ms": 0.003333,
+      "off_dispatch": 4.0,
+      "mixed_dispatch": 4.0
+    },
+    {
+      "shader": "silu_forward",
+      "off_ms": 0.046844,
+      "mixed_ms": 0.049742,
+      "delta_ms": 0.002898,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "transformer_rope_forward",
+      "off_ms": 0.045751,
+      "mixed_ms": 0.011831,
+      "delta_ms": -0.03392,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 0.6667
+    },
+    {
+      "shader": "transformer_elementwise_mul_backward",
+      "off_ms": 0.044618,
+      "mixed_ms": 0.044573,
+      "delta_ms": -4.5e-05,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "transformer_rope_backward",
+      "off_ms": 0.038818,
+      "mixed_ms": 0.041724,
+      "delta_ms": 0.002906,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "transformer_lora_scaled_add",
+      "off_ms": 0.031413,
+      "mixed_ms": 0.035244,
+      "delta_ms": 0.003831,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "silu_backward",
+      "off_ms": 0.025147,
+      "mixed_ms": 0.025351,
+      "delta_ms": 0.000204,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "transformer_elementwise_mul_forward",
+      "off_ms": 0.024711,
+      "mixed_ms": 0.024467,
+      "delta_ms": -0.000244,
+      "off_dispatch": 2.0,
+      "mixed_dispatch": 2.0
+    },
+    {
+      "shader": "embedding_forward",
+      "off_ms": 0.01896,
+      "mixed_ms": 0.019453,
+      "delta_ms": 0.000493,
+      "off_dispatch": 1.0,
+      "mixed_dispatch": 1.0
+    },
+    {
+      "shader": "transformer_scale_copy",
+      "off_ms": 0.014556,
+      "mixed_ms": 0.018604,
+      "delta_ms": 0.004048,
+      "off_dispatch": 3.0,
+      "mixed_dispatch": 3.0
+    },
+    {
+      "shader": "adamw",
+      "off_ms": 0.008436,
+      "mixed_ms": 0.008622,
+      "delta_ms": 0.000186,
+      "off_dispatch": 4.0,
+      "mixed_dispatch": 4.0
+    },
+    {
+      "shader": "ordered_f32_sum",
+      "off_ms": 0.003289,
+      "mixed_ms": 0.002196,
+      "delta_ms": -0.001093,
+      "off_dispatch": 1.0,
+      "mixed_dispatch": 0.8889
+    },
+    {
+      "shader": "fp32_to_fp16_native",
+      "off_ms": 0.0,
+      "mixed_ms": 1.168667,
+      "delta_ms": 1.168667,
+      "off_dispatch": 0.0,
+      "mixed_dispatch": 45.0
+    },
+    {
+      "shader": "wmma_gemm_f16_f32acc",
+      "off_ms": 0.0,
+      "mixed_ms": 7.41072,
+      "delta_ms": 7.41072,
+      "off_dispatch": 0.0,
+      "mixed_dispatch": 30.0
+    }
+  ]
+}
