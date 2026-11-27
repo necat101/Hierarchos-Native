@@ -1,0 +1,12 @@
+branch=research/v0.2.8-optimization-discovery
+head=9b0091e02e976441e343d6c445101f9c29395bd6
+tag_v0.2.7_commit=9b0091e02e976441e343d6c445101f9c29395bd6
+main=9b0091e02e976441e343d6c445101f9c29395bd6
+staged_index_tree=9d0e6292840061de32f6b7584a9afe042a88692b
+staged_diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+full_diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stash_count=1
+stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+
+# status
+?? hierarchos-vulkan/validation/phase_xvii_v028_optimization_discovery_20261126/

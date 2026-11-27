@@ -1,0 +1,3 @@
+# spirv-dis(shipped) vs spirv-dis(rebuilt production source, experiment glslc line)
+# lines: shipped=3057 rebuilt=3057
+IDENTICAL: 0 differing lines

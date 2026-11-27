@@ -1,0 +1,377 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+
+// Phase XVII v0.2.8 optimization-discovery candidate: register-resident dQ
+// accumulator at head dimension 128.
+//
+// This is the production pass-1 query shader
+// (`shaders/transformer_attention_backward_query_rdna3.comp`) with exactly one
+// structural change, and no arithmetic change at all:
+//
+//   the private `float dq[MAX_HEAD_DIM]` accumulator is indexed only by
+//   compile-time literals on the admitted geometry, so the backend can promote
+//   it out of function storage into VGPRs.
+//
+// Why that is the change worth testing:
+//
+// * In the production artifact `qk_head_dim` is a push constant, so every
+//   `dq[d]` access is a dynamic index into a 128-float Function-storage array.
+//   The shipped SPIR-V carries exactly that (`OpVariable
+//   %_ptr_Function__arr_float_uint_128 Function` with four dynamic
+//   `OpAccessChain`s into it) and the backend must place it in scratch memory.
+// * The accumulation is inside the per-key loop, so on this fixture the array is
+//   touched 2 * 128 * 64 = 16,384 times per lane. Private-memory accesses are
+//   per-lane strided, so each wave turns one access into 64 separate
+//   transactions rather than the broadcast a shared K/V row gets.
+// * Phase XI/XII already measured the same mechanism on the key pass: the
+//   `u1` (compile-time-expanded channel body) configuration exists in that
+//   experiment specifically so "the accumulator arrays are promoted out of
+//   function storage", and it was the configuration that was promoted.
+//
+// Everything else is statement-for-statement the production text: the four
+// serial traversals of the key sequence, the two deliberately distinct
+// softmax-dot reductions, the mode-0/mode-9 arithmetic trees, the row zeroing,
+// the skipped-row scratch clearing, the visibility tests and the store order.
+// No score or value-gradient dot product is reused or cached here: that is
+// Candidate A and is deliberately NOT part of this experiment, so the measured
+// delta belongs to the accumulator alone.
+//
+// Admission: the specialized body runs only when the query and value head
+// dimensions are both exactly 128. Any other geometry takes the production
+// generic body unchanged, so this artifact is a superset, not a replacement.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+const uint MAX_HEAD_DIM = 128u;
+
+// Literal-index repeat lists. Same idiom as the Phase XI channel-tiling
+// experiment: `M(I)` receives an integer literal, so every expanded step indexes
+// its array with a constant.
+#define QX_R2(M) M(0) M(1)
+#define QX_R4(M) QX_R2(M) M(2) M(3)
+#define QX_R8(M) QX_R4(M) M(4) M(5) M(6) M(7)
+#define QX_R16(M) QX_R8(M) M(8) M(9) M(10) M(11) M(12) M(13) M(14) M(15)
+#define QX_R32(M) QX_R16(M) M(16) M(17) M(18) M(19) M(20) M(21) M(22) M(23) \
+    M(24) M(25) M(26) M(27) M(28) M(29) M(30) M(31)
+#define QX_R64(M) QX_R32(M) M(32) M(33) M(34) M(35) M(36) M(37) M(38) M(39) \
+    M(40) M(41) M(42) M(43) M(44) M(45) M(46) M(47) \
+    M(48) M(49) M(50) M(51) M(52) M(53) M(54) M(55) \
+    M(56) M(57) M(58) M(59) M(60) M(61) M(62) M(63)
+#define QX_R128(M) QX_R64(M) M(64) M(65) M(66) M(67) M(68) M(69) M(70) M(71) \
+    M(72) M(73) M(74) M(75) M(76) M(77) M(78) M(79) \
+    M(80) M(81) M(82) M(83) M(84) M(85) M(86) M(87) \
+    M(88) M(89) M(90) M(91) M(92) M(93) M(94) M(95) \
+    M(96) M(97) M(98) M(99) M(100) M(101) M(102) M(103) \
+    M(104) M(105) M(106) M(107) M(108) M(109) M(110) M(111) \
+    M(112) M(113) M(114) M(115) M(116) M(117) M(118) M(119) \
+    M(120) M(121) M(122) M(123) M(124) M(125) M(126) M(127)
+
+#define QX_INIT(I) dq[(I)] = 0.0;
+// Mode 0: the production expression, unchanged.
+#define QX_ACC0(I) dq[(I)] += pc.scale * ds_q * k_values[k_base + uint(I)];
+// Mode 9: the production materialised product under `precise`, unchanged.
+#define QX_ACC9(I) { precise float contribution = score_scale * k_values[k_base + uint(I)]; \
+    dq[(I)] += contribution; }
+#define QX_STORE(I) grad_q[q_base + uint(I)] = dq[(I)];
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 6, std430) buffer GradQBuffer { float grad_q[]; };
+layout(set = 0, binding = 7, std430) buffer ProbabilityBuffer { float scratch_probability[]; };
+layout(set = 0, binding = 8, std430) buffer DsBuffer { float scratch_ds[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+uint qk_head_dim;
+uint key_hidden_size;
+uint value_head_dim;
+uint output_hidden_size;
+
+// Mode 9 QK: the generic kernel materialises each product under `precise`
+// before adding it, so no fma contraction is allowed here either.
+precise float mode9_score(uint q_base, uint k_base) {
+    precise float value = 0.0;
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        precise float product = q_values[q_base + d] * k_values[k_base + d];
+        value += product;
+    }
+    return value * pc.scale;
+}
+
+float plain_score(uint q_base, uint k_base) {
+    float value = 0.0;
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        value = fma(q_values[q_base + d], k_values[k_base + d], value);
+    }
+    return value * pc.scale;
+}
+
+float score(uint q_base, uint k_base) {
+    return pc.unfused_qk == 9u ? mode9_score(q_base, k_base)
+                               : plain_score(q_base, k_base);
+}
+
+// Mode 9 value projection of the backward pass: same materialised products.
+precise float mode9_value_dot(uint v_base, uint grad_out_base) {
+    precise float value = 0.0;
+    for (uint d = 0; d < value_head_dim; ++d) {
+        precise float scaled_value = v_values[v_base + d] * pc.value_scale;
+        precise float product = grad_output[grad_out_base + d] * scaled_value;
+        value += product;
+    }
+    return value;
+}
+
+float plain_value_dot(uint v_base, uint grad_out_base) {
+    float value = 0.0;
+    for (uint d = 0; d < value_head_dim; ++d) {
+        value = fma(grad_output[grad_out_base + d], v_values[v_base + d] * pc.value_scale, value);
+    }
+    return value;
+}
+
+float value_dot(uint v_base, uint grad_out_base) {
+    return pc.unfused_qk == 9u ? mode9_value_dot(v_base, grad_out_base)
+                               : plain_value_dot(v_base, grad_out_base);
+}
+
+// The generic kernel's attention_exp: SLEEF u10 for mode 9, hardware exp
+// otherwise. causal == 2 is never admitted by the host, so its SLEEF arm is not
+// reachable here.
+float attention_exp(float value) {
+    return pc.unfused_qk == 9u ? sleef_expf_u10_fused(value) : exp(value);
+}
+
+// The generic kernel's attention_reciprocal for the admitted modes.
+float attention_reciprocal(float value) {
+    return pc.unfused_qk == 9u ? fp32_div(1.0, value) : (1.0 / value);
+}
+
+bool key_visible(uint b, uint key) {
+    return key_mask[b * pc.key_value_seq_len + key] > 0.0;
+}
+
+void main() {
+    uint rows = pc.batch_size * pc.num_heads * pc.query_seq_len;
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= rows) return;
+
+    qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    if (qk_head_dim > MAX_HEAD_DIM || value_head_dim > MAX_HEAD_DIM) return;
+
+    key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    output_hidden_size = value_head_dim * pc.num_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+
+    uint query = row % pc.query_seq_len;
+    uint rest = row / pc.query_seq_len;
+    uint head = rest % pc.num_heads;
+    uint b = rest / pc.num_heads;
+    uint kv_head = head / queries_per_kv;
+
+    uint query_row = b * pc.query_seq_len + query;
+    uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+    uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+    uint scratch_base = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+        + query * pc.key_value_seq_len;
+
+    // The generic kernel owns the whole row and zeroes it before accumulating,
+    // including the rows it subsequently skips.
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        grad_q[q_base + d] = 0.0;
+    }
+
+    uint last_key = pc.key_value_seq_len - 1u;
+    if (pc.causal != 0u) {
+        uint absolute_query = pc.query_position_offset + query;
+        last_key = min(absolute_query, pc.key_value_seq_len - 1u);
+    }
+
+    if (query_mask[query_row] <= 0.0) {
+        // A row with no visible key contributes nothing: the generic kernel
+        // leaves its dQ zeroed, stores no statistics, and its adjoint skips it.
+        // The scratch is cleared so pass 2 adds exact zeros rather than a
+        // previous step's values.
+        for (uint key = 0u; key <= last_key; ++key) {
+            uint slot = scratch_base + key;
+            scratch_probability[slot] = 0.0;
+            scratch_ds[slot] = 0.0;
+        }
+        return;
+    }
+
+    bool any_visible = false;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (key_visible(b, key)) { any_visible = true; break; }
+    }
+    if (!any_visible) {
+        for (uint key = 0u; key <= last_key; ++key) {
+            uint slot = scratch_base + key;
+            scratch_probability[slot] = 0.0;
+            scratch_ds[slot] = 0.0;
+        }
+        return;
+    }
+
+    // Row maximum, over the same visible keys and in the same order.
+    bool found = false;
+    float max_score = -3.402823466e+38;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!key_visible(b, key)) continue;
+        float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+            + kv_head * qk_head_dim);
+        max_score = found ? max(max_score, s) : s;
+        found = true;
+    }
+
+    // The normaliser. Mode 9 accumulates the exponentials under `precise`, as the
+    // generic kernel does; the plain path does not.
+    float exp_sum = 0.0;
+    if (pc.unfused_qk == 9u) {
+        precise float precise_exp_sum = 0.0;
+        for (uint key = 0u; key <= last_key; ++key) {
+            if (!key_visible(b, key)) continue;
+            float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+                + kv_head * qk_head_dim);
+            precise_exp_sum += attention_exp(s - max_score);
+        }
+        exp_sum = precise_exp_sum;
+    } else {
+        for (uint key = 0u; key <= last_key; ++key) {
+            if (!key_visible(b, key)) continue;
+            float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+                + kv_head * qk_head_dim);
+            exp_sum += attention_exp(s - max_score);
+        }
+    }
+    float inv_sum = attention_reciprocal(exp_sum);
+
+    // Two dots, deliberately not merged:
+    //   plain  softmax_dot    -> dQ, exactly as the primary loop sums it
+    //   precise kv_softmax_dot -> dK and dV, exactly as the per-key adjoint sums it
+    float softmax_dot = 0.0;
+    precise float kv_softmax_dot = 0.0;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!key_visible(b, key)) continue;
+        uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+            + kv_head * qk_head_dim;
+        uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+            + kv_head * value_head_dim;
+        float p = attention_exp(score(q_base, k_base) - max_score) * inv_sum;
+        float dp = value_dot(v_base, grad_out_base);
+        softmax_dot += p * dp;
+        precise float weighted_dp = p * dp;
+        kv_softmax_dot += weighted_dp;
+    }
+
+    float dq[MAX_HEAD_DIM];
+
+    // The one experimental change: on the admitted geometry every dQ access uses
+    // a literal index, so the accumulator leaves function storage.
+    bool dq_specialized = qk_head_dim == 128u;
+    if (dq_specialized) {
+        QX_R128(QX_INIT)
+        for (uint key = 0u; key <= last_key; ++key) {
+            if (!key_visible(b, key)) continue;
+            uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+                + kv_head * qk_head_dim;
+            uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+                + kv_head * value_head_dim;
+            float s = score(q_base, k_base);
+            float p = attention_exp(s - max_score) * inv_sum;
+            float dp = value_dot(v_base, grad_out_base);
+            float ds_q = p * (dp - softmax_dot);
+            uint slot = scratch_base + key;
+            scratch_probability[slot] = p;
+            float kv_dot = pc.unfused_qk == 9u ? float(kv_softmax_dot) : softmax_dot;
+            scratch_ds[slot] = p * (dp - kv_dot);
+            if (pc.unfused_qk == 9u) {
+                precise float score_scale = pc.scale * 1.0;
+                score_scale = score_scale * ds_q;
+                QX_R128(QX_ACC9)
+            } else {
+                QX_R128(QX_ACC0)
+            }
+        }
+        QX_R128(QX_STORE)
+        return;
+    }
+
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        dq[d] = 0.0;
+    }
+
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!key_visible(b, key)) continue;
+        uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+            + kv_head * qk_head_dim;
+        uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+            + kv_head * value_head_dim;
+        float s = score(q_base, k_base);
+        float p = attention_exp(s - max_score) * inv_sum;
+        float dp = value_dot(v_base, grad_out_base);
+        float ds_q = p * (dp - softmax_dot);
+        uint slot = scratch_base + key;
+        scratch_probability[slot] = p;
+        // Mode 9's scalar adjoint reduces dK/dV against the `precise` per-key dot
+        // it caches in row_softmax_dot. Mode 0's scalar path keeps no cached
+        // statistics and reduces against the primary plain `softmax_dot`.
+        // Carrying the one the owning scalar path uses keeps dK/dV bit-exact.
+        float kv_dot = pc.unfused_qk == 9u ? float(kv_softmax_dot) : softmax_dot;
+        scratch_ds[slot] = p * (dp - kv_dot);
+        if (pc.unfused_qk == 9u) {
+            precise float score_scale = pc.scale * 1.0;
+            score_scale = score_scale * ds_q;
+            for (uint d = 0; d < qk_head_dim; ++d) {
+                precise float contribution = score_scale * k_values[k_base + d];
+                dq[d] += contribution;
+            }
+        } else {
+            for (uint d = 0; d < qk_head_dim; ++d) {
+                dq[d] += pc.scale * ds_q * k_values[k_base + d];
+            }
+        }
+    }
+
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        grad_q[q_base + d] = dq[d];
+    }
+}

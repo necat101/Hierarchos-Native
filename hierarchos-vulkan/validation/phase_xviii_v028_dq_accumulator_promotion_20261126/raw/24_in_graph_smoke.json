@@ -1,0 +1,20 @@
+[
+  {
+    "series": "gqa8q2kv-s64",
+    "arm_a_log": "23_step_smoke_A.log",
+    "arm_b_log": "23_step_smoke_B.log",
+    "steps": 5,
+    "gradient_comparisons": 5,
+    "loss_bits": [
+      "40e44309",
+      "40e43f10",
+      "40e30547",
+      "40e757ac",
+      "40e5465d"
+    ],
+    "mismatches": [],
+    "arm_a_end": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+    "arm_b_end": "d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655",
+    "verdict": "PASS"
+  }
+]

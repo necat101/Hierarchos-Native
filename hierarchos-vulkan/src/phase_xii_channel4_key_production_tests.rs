@@ -446,6 +446,11 @@ fn phase_xii_channel4_key_parity() -> Result<()> {
         return Ok(());
     };
     let _fixed = two_pass_attention_test_hooks::scope(Some(None), None);
+    // Phase XVIII promotes the dq-unroll query pass on by default, which changes
+    // which query counter this route records. This test is about the Phase XII
+    // channel-4 key path, so pin the query pass back to the shipped shader for
+    // the duration of the test instead of relying on the process environment.
+    let _dq = two_pass_attention_test_hooks::scope_dqunroll(Some(Some(false)), false);
     let geometries: [(&'static str, u32, u32); 5] = [
         ("8q-2kv", 8, 2),
         ("4q-2kv", 4, 2),
@@ -803,6 +808,10 @@ fn phase_xii_channel4_key_unavailable_falls_back_to_original() -> Result<()> {
         return Ok(());
     };
     let _fixed = two_pass_attention_test_hooks::scope(Some(None), None);
+    // The promoted dq-unroll query pass is the production default after Phase
+    // XVIII; pin it off here so the assertions below keep describing the Phase
+    // XII channel-4 key route rather than depending on the caller's environment.
+    let _dq = two_pass_attention_test_hooks::scope_dqunroll(Some(Some(false)), false);
     let case = PhaseXiiCase::new("8q-2kv", 8, 2, 9);
     assert_eq!(channel4_key_attention_rejection(&case.push), None);
     let buffers = phase_xii_buffers(&device, &case)?;

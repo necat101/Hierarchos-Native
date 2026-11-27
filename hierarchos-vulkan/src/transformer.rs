@@ -148,6 +148,16 @@ const ATTENTION_BACKWARD_SPV: &[u8] =
 /// Pass 1 of the query/key two-pass backward: one lane per query row.
 const ATTENTION_BACKWARD_QUERY_PARALLEL_SPV: &[u8] =
     include_bytes!("../shaders/transformer_attention_backward_query_rdna3.spv");
+/// Pass 1 variant promoted in Phase XVIII: the production pass-1 body with its
+/// `dq[MAX_HEAD_DIM]` accumulator indexed only by compile-time literals when both
+/// head dimensions are 128.
+///
+/// Byte-identical to the Phase XVII candidate (`f0214b60…` SPIR-V, source
+/// `430492fd…` GLSL). It is a superset artifact, not a replacement: every other
+/// geometry falls through to a statement-for-statement copy of the production
+/// body, and the host never dispatches it outside the admitted head dimension.
+const ATTENTION_BACKWARD_QUERY_DQUNROLL_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_attention_backward_query_rdna3_dqunroll.spv");
 /// Pass 2: one lane per key, reducing dK and dV over queries.
 const ATTENTION_BACKWARD_KEY_PARALLEL_SPV: &[u8] =
     include_bytes!("../shaders/transformer_attention_backward_key_rdna3.spv");
@@ -25940,6 +25950,58 @@ pub fn attention_backward_key_channel4_enabled() -> bool {
     channel4_key_enabled()
 }
 
+/// Opt-out for the promoted literal-index query pass (Phase XVIII).
+///
+/// The promoted route is on by default. `0` restores the shipped qualified
+/// query shader for every geometry, which is the control arm of the release A/B
+/// and of the Phase XVIII complete-step measurement. An unset or unrecognized
+/// value keeps the eligible default.
+pub const HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL_ENV: &str =
+    "HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL";
+
+/// The dq-unroll switch, read once so a dispatch never consults the environment.
+fn dqunroll_query_setting() -> Option<bool> {
+    #[cfg(test)]
+    {
+        if let Some(setting) = two_pass_attention_test_hooks::forced_dqunroll_setting() {
+            return setting;
+        }
+    }
+    use std::sync::OnceLock;
+    static SETTING: OnceLock<Option<bool>> = OnceLock::new();
+    *SETTING.get_or_init(|| {
+        match std::env::var(HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL_ENV) {
+            Ok(value) => match value.trim() {
+                "1" | "true" | "on" => Some(true),
+                "0" | "false" | "off" => Some(false),
+                other => {
+                    eprintln!(
+                        "dq-unroll query pass: unrecognized \
+                         HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL={other:?}; \
+                         using the eligible default"
+                    );
+                    None
+                }
+            },
+            Err(_) => None,
+        }
+    })
+}
+
+/// Whether the literal-index query pass may be selected.
+///
+/// It is a query-pass variant *of the two-pass route*, so it also inherits
+/// `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0`: an operator who forced the scalar
+/// route must not pay for another pipeline either.
+fn dqunroll_query_enabled() -> bool {
+    two_pass_attention_enabled() && dqunroll_query_setting() != Some(false)
+}
+
+/// The effective dq-unroll selection, for binaries that report the route.
+pub fn attention_backward_query_dqunroll_enabled() -> bool {
+    dqunroll_query_enabled()
+}
+
 static ATTENTION_BACKWARD_SCALAR_DISPATCHES: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 static ATTENTION_BACKWARD_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
@@ -25947,6 +26009,8 @@ static ATTENTION_BACKWARD_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
 static ATTENTION_BACKWARD_KEY_DISPATCHES: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 static ATTENTION_BACKWARD_CHANNEL4_KEY_DISPATCHES: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+static ATTENTION_BACKWARD_DQUNROLL_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 static ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
@@ -25957,7 +26021,10 @@ static ATTENTION_BACKWARD_SCRATCH_BYTES: std::sync::atomic::AtomicU64 =
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AttentionBackwardDispatch {
     Scalar,
+    /// The shipped qualified query shader (`query_original`).
     Query,
+    /// The promoted literal-index query pass (`query_dqunroll`).
+    QueryDqUnroll,
     /// The original two-pass key shader (`key_original`).
     Key,
     /// The promoted four-channel key pass (`key_channel4`).
@@ -25975,6 +26042,7 @@ fn record_attention_backward_dispatch(dispatch: AttentionBackwardDispatch) {
     let counter = match dispatch {
         AttentionBackwardDispatch::Scalar => &ATTENTION_BACKWARD_SCALAR_DISPATCHES,
         AttentionBackwardDispatch::Query => &ATTENTION_BACKWARD_QUERY_DISPATCHES,
+        AttentionBackwardDispatch::QueryDqUnroll => &ATTENTION_BACKWARD_DQUNROLL_QUERY_DISPATCHES,
         AttentionBackwardDispatch::Key => &ATTENTION_BACKWARD_KEY_DISPATCHES,
         AttentionBackwardDispatch::KeyChannel4 => &ATTENTION_BACKWARD_CHANNEL4_KEY_DISPATCHES,
     };
@@ -26001,7 +26069,10 @@ fn record_attention_backward_scratch(elements: usize) {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct AttentionBackwardDispatchCounts {
     pub scalar: u64,
+    /// Pass 1 through the shipped qualified query shader (`query_original`).
     pub query: u64,
+    /// Pass 1 through the promoted literal-index query pass (`query_dqunroll`).
+    pub query_dqunroll: u64,
     /// The original two-pass key shader (`key_original`).
     pub key: u64,
     /// The promoted four-channel key pass (`key_channel4`).
@@ -26015,6 +26086,7 @@ pub fn attention_backward_dispatch_counts() -> AttentionBackwardDispatchCounts {
     AttentionBackwardDispatchCounts {
         scalar: ATTENTION_BACKWARD_SCALAR_DISPATCHES.load(Ordering::Relaxed),
         query: ATTENTION_BACKWARD_QUERY_DISPATCHES.load(Ordering::Relaxed),
+        query_dqunroll: ATTENTION_BACKWARD_DQUNROLL_QUERY_DISPATCHES.load(Ordering::Relaxed),
         key: ATTENTION_BACKWARD_KEY_DISPATCHES.load(Ordering::Relaxed),
         key_channel4: ATTENTION_BACKWARD_CHANNEL4_KEY_DISPATCHES.load(Ordering::Relaxed),
         scratch_allocations: ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS.load(Ordering::Relaxed),
@@ -26424,6 +26496,118 @@ fn channel4_key_dispatch_grid(key_rows: u32) -> [u32; 3] {
     ]
 }
 
+/// The promoted literal-index query pass as resolved on this device.
+///
+/// `kernel == None` leaves the shipped qualified query shader in charge of pass
+/// 1 and `reason` records why; `detail` carries the loader's message when the
+/// artifact was refused. Resolved lazily on the first geometry that passes the
+/// head-dimension selector, so an ineligible model never builds it and a failure
+/// is not retried.
+struct DqUnrollQueryBackward {
+    kernel: Option<vulkan::ComputeKernel>,
+    reason: &'static str,
+    detail: Option<String>,
+}
+
+impl DqUnrollQueryBackward {
+    fn is_available(&self) -> bool {
+        self.kernel.is_some()
+    }
+
+    fn absent(reason: &'static str, detail: Option<String>) -> Self {
+        Self {
+            kernel: None,
+            reason,
+            detail,
+        }
+    }
+
+    /// Resolve the artifact for this device.
+    ///
+    /// The geometry selector is the head-dimension pair alone. What is decided
+    /// here is whether this *device* can run the module at all: the shader is a
+    /// plain wave64 compute body, so a 64-wide workgroup is the only structural
+    /// requirement, and the promoted family gate keeps the artifact on the
+    /// adapter family it was measured on. Every refusal is an ordinary fallback
+    /// to the shipped query shader, not a failure of the run.
+    fn load(device: &VulkanDevice) -> Result<Self> {
+        #[cfg(test)]
+        {
+            two_pass_attention_test_hooks::note_optional_kernel_load();
+        }
+        if !vendor::rdna3_module_enabled(device)
+            || !device.supports_compute_work_group_size([64, 1, 1])
+        {
+            return Ok(Self::absent("dqunroll_device_not_qualified", None));
+        }
+        let built = vulkan::ComputeKernel::new(
+            device,
+            dqunroll_query_spirv(),
+            9,
+            std::mem::size_of::<AttentionPush>() as u32,
+        )
+        .with_context(|| "initializing the promoted dq-accumulator attention query kernel");
+        match built {
+            Ok(kernel) => Ok(Self {
+                kernel: Some(kernel),
+                reason: "ready",
+                detail: None,
+            }),
+            Err(error) => {
+                let detail = format!("{error:#}");
+                match classify_optional_kernel_error(device.is_device_lost(), &detail) {
+                    OptionalKernelOutcome::Incompatible => {
+                        Ok(Self::absent("dqunroll_shader_unavailable", Some(detail)))
+                    }
+                    OptionalKernelOutcome::Fatal { reason } => Err(error.context(format!(
+                        "the promoted dq-accumulator query kernel failed for a reason that is not \
+                         specific to the pass ({reason}); the shipped query shader cannot be \
+                         trusted after it"
+                    ))),
+                }
+            }
+        }
+    }
+}
+
+/// The SPIR-V the build ships for the promoted literal-index query pass.
+///
+/// The test seam substitutes bytes the driver cannot decode, which is the
+/// runtime shape of a truncated or foreign-architecture artifact.
+fn dqunroll_query_spirv() -> &'static [u8] {
+    #[cfg(test)]
+    {
+        if two_pass_attention_test_hooks::rejects_dqunroll() {
+            return two_pass_attention_test_hooks::undecodable_spirv();
+        }
+    }
+    ATTENTION_BACKWARD_QUERY_DQUNROLL_SPV
+}
+
+/// Resolve the promoted literal-index query pass on first use and cache it with
+/// the kernel set.
+fn resolve_dqunroll_query_attention_backward<'a>(
+    kernels: &'a TransformerKernels,
+    device: &VulkanDevice,
+) -> Result<&'a DqUnrollQueryBackward> {
+    if kernels
+        .rdna3_dqunroll_attention_backward_query
+        .get()
+        .is_none()
+    {
+        let resolved = DqUnrollQueryBackward::load(device)?;
+        // One recorder owns this kernel set, so `set` only fails when another
+        // thread resolved it first; in that case its answer stands.
+        let _ = kernels
+            .rdna3_dqunroll_attention_backward_query
+            .set(resolved);
+    }
+    kernels
+        .rdna3_dqunroll_attention_backward_query
+        .get()
+        .context("the dq-unroll query kernel was not cached after it was resolved")
+}
+
 /// The buffers both passes of the optional two-pass backward read and write.
 struct TwoPassAttentionBackwardBindings<'a> {
     query: &'a GpuBuffer,
@@ -26437,14 +26621,17 @@ struct TwoPassAttentionBackwardBindings<'a> {
     key_mask: &'a GpuBuffer,
 }
 
-/// Record both passes of the optional two-pass backward, choosing the key pass.
+/// Record both passes of the optional two-pass backward, choosing each pass.
 ///
-/// Pass 1 is always the qualified query shader. The key pass is the promoted
+/// Pass 1 is the promoted literal-index query artifact when
+/// `dqunroll_query_attention_rejection` admits the geometry (both head
+/// dimensions exactly 128) *and* the optional artifact initialized; otherwise
+/// it is the shipped qualified query shader. The key pass is the promoted
 /// four-channel artifact when `channel4_key_attention_rejection` admits the
 /// geometry *and* the optional artifact initialized; otherwise it is the
 /// original qualified two-pass key shader. A pair installed by a harness
-/// (`reason != "ready"`) keeps its own key kernel, so an experimental arm is
-/// never silently replaced by the production artifact.
+/// (`reason != "ready"`) keeps its own kernels, so an experimental arm is never
+/// silently replaced by a production artifact.
 fn record_two_pass_attention_backward_dispatch(
     kernels: &TransformerKernels,
     commands: &mut vulkan::ComputeBatch,
@@ -26460,7 +26647,40 @@ fn record_two_pass_attention_backward_dispatch(
         .context("the two-pass attention pair was dispatched without its kernels")?;
     let query_rows = push.batch_size * push.num_heads * push.query_seq_len;
     let key_rows = push.batch_size * push.num_key_value_heads * push.key_value_seq_len;
-    passes[0].record_dispatch(
+    // A pair installed by a harness (`reason != "ready"`) keeps its own kernels,
+    // so an experimental arm is never silently replaced by a production
+    // artifact. An ordinary production pair lets both promoted selectors decide.
+    let override_reason: Option<&'static str> = if pair.reason == "ready" {
+        None
+    } else {
+        Some("experimental_pair_override")
+    };
+
+    // Pass 1: the promoted literal-index accumulator when both head dimensions
+    // are 128, otherwise the shipped qualified query shader. Grid, bindings,
+    // push block and scratch slots are identical for both, so only the module
+    // changes.
+    let query_rejection = if dqunroll_query_enabled() {
+        dqunroll_query_attention_rejection(push).or(override_reason)
+    } else {
+        Some("disabled_by_environment")
+    };
+    let resolved_query = match query_rejection {
+        None => Some(resolve_dqunroll_query_attention_backward(
+            kernels,
+            commands.device(),
+        )?),
+        Some(_) => None,
+    };
+    let query_specialized = resolved_query.is_some_and(|candidate| candidate.is_available());
+    let query_kernel = match resolved_query.filter(|candidate| candidate.is_available()) {
+        Some(candidate) => candidate
+            .kernel
+            .as_ref()
+            .context("the dq-unroll query kernel was available without a kernel")?,
+        None => &passes[0],
+    };
+    query_kernel.record_dispatch(
         commands,
         &[
             bindings.query,
@@ -26476,13 +26696,27 @@ fn record_two_pass_attention_backward_dispatch(
         bytemuck::bytes_of(push),
         [div_ceil_u32(query_rows as usize, 64), 1, 1],
     )?;
-    record_attention_backward_dispatch(AttentionBackwardDispatch::Query);
-
-    let override_reason: Option<&'static str> = if pair.reason == "ready" {
-        None
+    record_attention_backward_dispatch(if query_specialized {
+        AttentionBackwardDispatch::QueryDqUnroll
     } else {
-        Some("experimental_pair_override")
-    };
+        AttentionBackwardDispatch::Query
+    });
+    let query_reason = query_rejection
+        .or_else(|| resolved_query.map(|candidate| candidate.reason))
+        .unwrap_or("dqunroll_unresolved");
+    report_two_pass_decision(
+        push,
+        pair.is_available(),
+        key_blocks,
+        if query_specialized {
+            "query_dqunroll"
+        } else {
+            "query_original"
+        },
+        true,
+        query_reason,
+        scratch.capacity,
+    );
     let rejection = channel4_key_attention_rejection(push).or(override_reason);
     let resolved = match rejection {
         None => Some(resolve_channel4_key_attention_backward(
@@ -26666,6 +26900,10 @@ mod two_pass_attention_test_hooks {
         channel4_setting: Option<Option<bool>>,
         /// Hand the four-channel loader an artifact no driver can decode.
         reject_channel4: bool,
+        /// `Some(setting)` answers `dqunroll_query_setting` directly.
+        dqunroll_setting: Option<Option<bool>>,
+        /// Hand the dq-unroll loader an artifact no driver can decode.
+        reject_dqunroll: bool,
         optional_kernel_loads: u32,
     }
 
@@ -26694,6 +26932,26 @@ mod two_pass_attention_test_hooks {
 
     pub(super) fn rejects_channel4() -> bool {
         OVERRIDES.with(|overrides| overrides.borrow().reject_channel4)
+    }
+
+    pub(super) fn forced_dqunroll_setting() -> Option<Option<bool>> {
+        OVERRIDES.with(|overrides| overrides.borrow().dqunroll_setting)
+    }
+
+    pub(super) fn rejects_dqunroll() -> bool {
+        OVERRIDES.with(|overrides| overrides.borrow().reject_dqunroll)
+    }
+
+    /// Install the dq-unroll overrides for the duration of one test, leaving the
+    /// two-pass setting, the shader fault and the channel-4 overrides as they are.
+    pub(super) fn scope_dqunroll(setting: Option<Option<bool>>, reject: bool) -> Scope {
+        OVERRIDES.with(|overrides| {
+            let mut overrides = overrides.borrow_mut();
+            let previous = *overrides;
+            overrides.dqunroll_setting = setting;
+            overrides.reject_dqunroll = reject;
+            Scope { previous }
+        })
     }
 
     /// Install the four-channel overrides for the duration of one test, leaving
@@ -26734,6 +26992,7 @@ mod two_pass_attention_test_hooks {
             match dispatch {
                 AttentionBackwardDispatch::Scalar => value.scalar += 1,
                 AttentionBackwardDispatch::Query => value.query += 1,
+                AttentionBackwardDispatch::QueryDqUnroll => value.query_dqunroll += 1,
                 AttentionBackwardDispatch::Key => value.key += 1,
                 AttentionBackwardDispatch::KeyChannel4 => value.key_channel4 += 1,
             }
@@ -26780,6 +27039,8 @@ mod two_pass_attention_test_hooks {
             overrides.fault = fault;
             overrides.channel4_setting = None;
             overrides.reject_channel4 = false;
+            overrides.dqunroll_setting = None;
+            overrides.reject_dqunroll = false;
             overrides.optional_kernel_loads = 0;
             Scope { previous }
         })
@@ -27002,6 +27263,33 @@ fn channel4_key_attention_rejection(push: &AttentionPush) -> Option<&'static str
     }
     if value_head_dim != CHANNEL4_KEY_HEAD_DIM {
         return Some("channel4_value_head_dim_not_128");
+    }
+    None
+}
+
+/// The only head dimension the literal-index query pass was qualified at.
+const DQUNROLL_QUERY_HEAD_DIM: u32 = 128;
+
+/// The first reason the promoted literal-index query pass does not own this
+/// geometry, or `None` when it does.
+///
+/// The production eligibility condition is exactly
+/// `qk_head_dim == 128 && value_head_dim == 128`. It is deliberately narrower
+/// than every other property of the dispatch: arithmetic mode, causal range,
+/// masks, sequence length and the MHA/grouped qualification are settled by the
+/// enclosing two-pass gate and the shader itself, so no second policy lives
+/// here. Anything that is not both dimensions keeps the shipped query shader.
+fn dqunroll_query_attention_rejection(push: &AttentionPush) -> Option<&'static str> {
+    if push.num_heads == 0 || push.num_key_value_heads == 0 {
+        return Some("invalid_geometry");
+    }
+    let head_dim = push.query_hidden_size / push.num_heads;
+    let value_head_dim = push.value_hidden_size / push.num_key_value_heads;
+    if head_dim != DQUNROLL_QUERY_HEAD_DIM {
+        return Some("dqunroll_query_head_dim_not_128");
+    }
+    if value_head_dim != DQUNROLL_QUERY_HEAD_DIM {
+        return Some("dqunroll_query_value_head_dim_not_128");
     }
     None
 }
@@ -27877,6 +28165,10 @@ struct TransformerKernels {
     /// dispatch. Optional: an unavailable artifact, a non-RDNA3 device or an
     /// explicit opt-out keeps the original two-pass key shader.
     rdna3_channel4_attention_backward_key: std::cell::OnceCell<Channel4KeyBackward>,
+    /// The promoted literal-index query pass, resolved on the first eligible
+    /// dispatch. Optional: an unavailable artifact, a non-RDNA3 device or an
+    /// explicit opt-out keeps the shipped query shader.
+    rdna3_dqunroll_attention_backward_query: std::cell::OnceCell<DqUnrollQueryBackward>,
     rdna3_avx512_gpt2: Option<[vulkan::ComputeKernel; 3]>,
     rdna3_avx512_cross_entropy: Option<vulkan::ComputeKernel>,
     attention_backward: vulkan::ComputeKernel,
@@ -28378,6 +28670,7 @@ impl TransformerKernels {
             // kernel set, so no step retries the load.
             rdna3_two_pass_attention_backward: std::cell::OnceCell::new(),
             rdna3_channel4_attention_backward_key: std::cell::OnceCell::new(),
+            rdna3_dqunroll_attention_backward_query: std::cell::OnceCell::new(),
             rdna3_avx512_gpt2: None,
             rdna3_avx512_cross_entropy: None,
             attention_backward: vulkan::ComputeKernel::new(
@@ -139699,3 +139992,11 @@ mod phase_xi_channel_tiling_tests;
 #[cfg(test)]
 #[path = "phase_xii_channel4_key_production_tests.rs"]
 mod phase_xii_channel4_key_production_tests;
+
+#[cfg(test)]
+#[path = "phase_xvii_v028_optimization_discovery_tests.rs"]
+mod phase_xvii_v028_optimization_discovery_tests;
+
+#[cfg(test)]
+#[path = "phase_xviii_dq_accumulator_promotion_tests.rs"]
+mod phase_xviii_dq_accumulator_promotion_tests;

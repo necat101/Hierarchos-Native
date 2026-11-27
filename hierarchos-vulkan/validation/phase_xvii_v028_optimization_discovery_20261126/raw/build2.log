@@ -1,0 +1,921 @@
+   Compiling hierarchos-vulkan v0.1.0 (C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan)
+warning: unused doc comment
+   --> src\phase_xi_channel_tiling_tests.rs:566:1
+    |
+566 | / /// The complete Phase VII/VIII/IX/X training step, with the key pass swapped.
+567 | | ///
+568 | | /// `HIERARCHOS_PHASE_XI_STEP_ARM`   `production` or a candidate label (required)
+569 | | /// `HIERARCHOS_PHASE_XI_FIXTURE`    fixture dir (default `target/gqa-e2e/fixture-8q2kv`)
+...   |
+583 | | /// submits exactly the production grid. The step driver is single-threaded, so a
+584 | | /// thread-local is the narrowest place to carry this.
+    | |_-----------------------------------------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+   --> src\deepseek_v41\mixed_moe_grad.rs:322:13
+    |
+322 |         let push = gate_push(c, rows);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+    --> src\deepseek_v41\backbone.rs:2136:13
+     |
+2136 |         let push = MoeGatePush {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+
+warning: variable does not need to be mutable
+     --> src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+    --> src\transformer\peft_state.rs:1543:21
+     |
+1543 |                     _ => {}
+     |                     ^ no value can reach this
+     |
+note: multiple earlier patterns match some of the same values
+    --> src\transformer\peft_state.rs:1543:21
+     |
+1497 |                       VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+     |                       ---------------------------------------------------------- matches some of the same values
+...
+1502 |                       VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
+     |                       ------------------------------------------------------- matches some of the same values
+...
+1507 | /                     VulkanQwenGatedDeltaProjection::OlmoHybrid {
+1508 | |                         q, k, v, z, b, a, ..
+1509 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1514 | /                     VulkanQwenGatedDeltaProjection::Glm5 {
+1515 | |                         q,
+1516 | |                         k,
+1517 | |                         v,
+...    |
+1523 | |                         ..
+1524 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1543 |                       _ => {}
+     |                       ^ ...and 1 other patterns collectively make this unreachable
+     = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> src\transformer.rs:11781:13
+      |
+11781 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: unused variable: `layer_index`
+     --> src\transformer.rs:68256:5
+      |
+68256 |     layer_index: usize,
+      |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_layer_index`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8215:9
+     |
+8215 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8375:9
+     |
+8375 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `ComputeBatch` is more private than the item `tap`
+    --> src\activation_trace.rs:112:1
+     |
+ 112 | / pub fn tap(
+ 113 | |     commands: &mut ComputeBatch,
+ 114 | |     buffer: &GpuBuffer,
+ 115 | |     len: usize,
+...    |
+ 118 | |     shape: [usize; 3],
+ 119 | | ) -> Result<()> {
+     | |_______________^ function `tap` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `Key` is more private than the item `PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `Key` is more private than the item `PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_conversion`
+    --> src\wmma.rs:1103:5
+     |
+1103 | /     pub fn record_conversion(
+1104 | |         &self,
+1105 | |         batch: &mut vulkan::ComputeBatch,
+1106 | |         source_f32: &GpuBuffer,
+1107 | |         destination_f16: &GpuBuffer,
+1108 | |         len: usize,
+1109 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_conversion` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_gemm`
+    --> src\wmma.rs:1125:5
+     |
+1125 | /     pub fn record_gemm(
+1126 | |         &self,
+1127 | |         batch: &mut vulkan::ComputeBatch,
+1128 | |         arm: WmmaGemmArm,
+...    |
+1135 | |         layout: GemmLayout,
+1136 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_gemm` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_forward`
+    --> src\wmma_linear.rs:316:5
+     |
+ 316 | /     pub fn record_forward(
+ 317 | |         &self,
+ 318 | |         commands: &mut vulkan::ComputeBatch,
+ 319 | |         input: &GpuBuffer,
+...    |
+ 322 | |         rows: usize,
+ 323 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_forward` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_weight_grad`
+    --> src\wmma_linear.rs:359:5
+     |
+ 359 | /     pub fn record_weight_grad(
+ 360 | |         &self,
+ 361 | |         commands: &mut vulkan::ComputeBatch,
+ 362 | |         grad_output: &GpuBuffer,
+...    |
+ 365 | |         rows: usize,
+ 366 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_weight_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_input_grad`
+    --> src\wmma_linear.rs:398:5
+     |
+ 398 | /     pub fn record_input_grad(
+ 399 | |         &self,
+ 400 | |         commands: &mut vulkan::ComputeBatch,
+ 401 | |         grad_output: &GpuBuffer,
+...    |
+ 404 | |         rows: usize,
+ 405 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_input_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\vulkan.rs:5608:9
+     |
+5608 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\vulkan.rs:5582:1
+     |
+5582 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> src\lib.rs:3267:19
+     |
+1130 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3267 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `apply` is never used
+    --> src\deepseek_v41\backbone.rs:2392:8
+     |
+2391 | impl MoeExecution {
+     | ----------------- method in this implementation
+2392 |     fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+     |        ^^^^^
+
+warning: field `directory` is never read
+  --> src\deepseek_v41\model_train.rs:81:5
+   |
+78 | pub struct DeepseekV41ModelTrainer {
+   |            ----------------------- field in this struct
+...
+81 |     directory: PathBuf,
+   |     ^^^^^^^^^
+
+warning: field `alpha` is never read
+   --> src\deepseek_v41\train.rs:103:5
+    |
+101 | struct TrainableFactors {
+    |        ---------------- field in this struct
+102 |     rank: usize,
+103 |     alpha: f64,
+    |     ^^^^^
+    |
+    = note: `TrainableFactors` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `gradient` is never used
+   --> src\multimodal.rs:210:19
+    |
+ 78 | impl<'a> PreparedModalityRows<'a> {
+    | --------------------------------- method in this implementation
+...
+210 |     pub(crate) fn gradient(&self) -> Result<Vec<f32>> {
+    |                   ^^^^^^^^
+
+warning: methods `release_training_state` and `training_state_bytes` are never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- methods in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+465 |     pub(crate) fn training_state_bytes(&self) -> Result<usize> {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `generation_sample_token` is never used
+    --> src\transformer.rs:4041:4
+     |
+4041 | fn generation_sample_token(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `uses_alibi_attention` and `uses_mask_relative_alibi_positions` are never used
+    --> src\transformer.rs:7474:8
+     |
+6088 | impl VulkanTransformerArchitecture {
+     | ---------------------------------- methods in this implementation
+...
+7474 |     fn uses_alibi_attention(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^
+...
+7478 |     fn uses_mask_relative_alibi_positions(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `attention_backward_key_channel4_enabled` is never used
+     --> src\transformer.rs:25939:8
+      |
+25939 | pub fn attention_backward_key_channel4_enabled() -> bool {
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `detail` is never read
+     --> src\transformer.rs:26309:5
+      |
+26306 | struct Channel4KeyBackward {
+      |        ------------------- field in this struct
+...
+26309 |     detail: Option<String>,
+      |     ^^^^^^
+
+warning: function `two_pass_attention_supported` is never used
+     --> src\transformer.rs:27032:4
+      |
+27032 | fn two_pass_attention_supported(push: &AttentionPush) -> bool {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `gated_delta_recurrent` is never read
+     --> src\transformer.rs:27972:5
+      |
+27813 | struct TransformerKernels {
+      |        ------------------ field in this struct
+...
+27972 |     gated_delta_recurrent: vulkan::ComputeKernel,
+      |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: trait `OptionalGpuBufferExt` is never used
+     --> src\transformer.rs:29096:7
+      |
+29096 | trait OptionalGpuBufferExt {
+      |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TIERED_LM_HEAD_MAX_TILE_ROWS` is never used
+     --> src\transformer.rs:29131:7
+      |
+29131 | const TIERED_LM_HEAD_MAX_TILE_ROWS: usize =
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_forward` is never used
+     --> src\transformer.rs:29802:8
+      |
+29175 | impl TieredLmHead {
+      | ----------------- method in this implementation
+...
+29802 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+
+warning: method `training_state_bytes` is never used
+     --> src\transformer.rs:30170:8
+      |
+30060 | impl TrainableParameter {
+      | ----------------------- method in this implementation
+...
+30170 |     fn training_state_bytes(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: method `as_mut` is never used
+     --> src\transformer.rs:30523:8
+      |
+30514 | impl VulkanLoraBank {
+      | ------------------- method in this implementation
+...
+30523 |     fn as_mut(&mut self) -> Option<&mut VulkanLora> {
+      |        ^^^^^^
+
+warning: method `enable_lora` is never used
+     --> src\transformer.rs:30927:8
+      |
+30786 | impl VulkanLinear {
+      | ----------------- method in this implementation
+...
+30927 |     fn enable_lora(
+      |        ^^^^^^^^^^^
+
+warning: field `num_hidden_layers` is never read
+     --> src\transformer.rs:35412:5
+      |
+35411 | struct AlbertTopology {
+      |        -------------- field in this struct
+35412 |     num_hidden_layers: usize,
+      |     ^^^^^^^^^^^^^^^^^
+      |
+      = note: `AlbertTopology` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> src\transformer.rs:38130:4
+      |
+38130 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_gpt2_weights` is never used
+     --> src\transformer.rs:42337:4
+      |
+42337 | fn load_gpt2_weights(
+      |    ^^^^^^^^^^^^^^^^^
+
+warning: function `load_llama_weights` is never used
+     --> src\transformer.rs:46061:4
+      |
+46061 | fn load_llama_weights(
+      |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `load_deepseek_v4_hca_compressors` is never used
+     --> src\transformer.rs:48584:4
+      |
+48584 | fn load_deepseek_v4_hca_compressors(
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> src\transformer.rs:50954:5
+      |
+50884 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+50954 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `input_dim` and `output_dim` are never used
+     --> src\transformer.rs:55927:8
+      |
+55866 | impl VulkanDeepseekV4GroupedLinear {
+      | ---------------------------------- methods in this implementation
+...
+55927 |     fn input_dim(&self) -> usize {
+      |        ^^^^^^^^^
+...
+55931 |     fn output_dim(&self) -> usize {
+      |        ^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:56194:8
+      |
+56092 | impl VulkanDeepseekV4CsaOverlapCompressor {
+      | ----------------------------------------- method in this implementation
+...
+56194 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:56830:8
+      |
+56785 | impl VulkanDeepseekV4CsaCompressor {
+      | ---------------------------------- method in this implementation
+...
+56830 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:57015:8
+      |
+56914 | impl VulkanDeepseekV4HcaCompressor {
+      | ---------------------------------- method in this implementation
+...
+57015 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> src\transformer.rs:57331:8
+      |
+57176 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+57331 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `record_forward` and `record_backward` are never used
+     --> src\transformer.rs:62487:8
+      |
+60893 | impl VulkanTransformerLayer {
+      | --------------------------- methods in this implementation
+...
+62487 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+...
+64242 |     fn record_backward(
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `generation_last_logits_with_layer_count`, `generation_prefill_kv_cache`, `generate_beam_ids_with_context`, `generate_beam_ids_with_kv_cache`, and `generate_beam_ids_full_prefix_with_context` are never used
+     --> src\transformer.rs:81771:8
+      |
+69259 | impl VulkanTransformer {
+      | ---------------------- methods in this implementation
+...
+81771 |     fn generation_last_logits_with_layer_count(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+82208 |     fn generation_prefill_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+84569 |     fn generate_beam_ids_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+85209 |     fn generate_beam_ids_with_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+85343 |     fn generate_beam_ids_full_prefix_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `eps` is never read
+   --> src\transformer\gemma4_vision.rs:921:5
+    |
+903 | pub struct VulkanGemma4Vision {
+    |            ------------------ field in this struct
+...
+921 |     eps: f32,
+    |     ^^^
+
+warning: function `rdna3_vision_capability` is never used
+   --> src\vendor.rs:631:14
+    |
+631 | pub const fn rdna3_vision_capability(vendor_id: u32, device_id: u32) -> bool {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> src\vulkan.rs:38:5
+   |
+35 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+38 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+72 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:64:13
+   |
+64 |         let mut resident = VulkanTransformer::from_hf_package_with_config(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:71:13
+   |
+71 |         let mut streamed = VulkanTransformer::from_hf_package_with_streamed_parameters(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: unused variable: `unwritten`
+   --> src\phase_viii_key_block_tests.rs:684:21
+    |
+684 |                 let unwritten = unwritten_k + unwritten_v;
+    |                     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_unwritten`
+
+warning: type `vulkan::ComputeBatch` is more private than the item `tap`
+    --> src\activation_trace.rs:112:1
+     |
+ 112 | / pub fn tap(
+ 113 | |     commands: &mut ComputeBatch,
+ 114 | |     buffer: &GpuBuffer,
+ 115 | |     len: usize,
+...    |
+ 118 | |     shape: [usize; 3],
+ 119 | | ) -> Result<()> {
+     | |_______________^ function `tap` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma::WmmaGemm::record_conversion`
+    --> src\wmma.rs:1103:5
+     |
+1103 | /     pub fn record_conversion(
+1104 | |         &self,
+1105 | |         batch: &mut vulkan::ComputeBatch,
+1106 | |         source_f32: &GpuBuffer,
+1107 | |         destination_f16: &GpuBuffer,
+1108 | |         len: usize,
+1109 | |     ) -> Result<()> {
+     | |___________________^ method `wmma::WmmaGemm::record_conversion` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma::WmmaGemm::record_gemm`
+    --> src\wmma.rs:1125:5
+     |
+1125 | /     pub fn record_gemm(
+1126 | |         &self,
+1127 | |         batch: &mut vulkan::ComputeBatch,
+1128 | |         arm: WmmaGemmArm,
+...    |
+1135 | |         layout: GemmLayout,
+1136 | |     ) -> Result<()> {
+     | |___________________^ method `wmma::WmmaGemm::record_gemm` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_forward`
+    --> src\wmma_linear.rs:316:5
+     |
+ 316 | /     pub fn record_forward(
+ 317 | |         &self,
+ 318 | |         commands: &mut vulkan::ComputeBatch,
+ 319 | |         input: &GpuBuffer,
+...    |
+ 322 | |         rows: usize,
+ 323 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_forward` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_weight_grad`
+    --> src\wmma_linear.rs:359:5
+     |
+ 359 | /     pub fn record_weight_grad(
+ 360 | |         &self,
+ 361 | |         commands: &mut vulkan::ComputeBatch,
+ 362 | |         grad_output: &GpuBuffer,
+...    |
+ 365 | |         rows: usize,
+ 366 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_weight_grad` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_input_grad`
+    --> src\wmma_linear.rs:398:5
+     |
+ 398 | /     pub fn record_input_grad(
+ 399 | |         &self,
+ 400 | |         commands: &mut vulkan::ComputeBatch,
+ 401 | |         grad_output: &GpuBuffer,
+...    |
+ 404 | |         rows: usize,
+ 405 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_input_grad` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5479:1
+     |
+5479 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `hidden_bits` is never read
+  --> src\deepseek_v41\terminal_tests.rs:27:5
+   |
+14 | struct Fixture {
+   |        ------- field in this struct
+...
+27 |     hidden_bits: Vec<u32>,
+   |     ^^^^^^^^^^^
+
+warning: method `release_training_state` is never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- method in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `gradk_ref` and `gradv_ref` are never read
+   --> src\phase_viii_key_block_tests.rs:177:5
+    |
+174 | struct PhaseViiiBuffers {
+    |        ---------------- fields in this struct
+...
+177 |     gradk_ref: GpuBuffer,
+    |     ^^^^^^^^^
+178 |     gradv_ref: GpuBuffer,
+    |     ^^^^^^^^^
+
+warning: fields `label` and `mode` are never read
+   --> src\phase_viii_key_block_tests.rs:191:5
+    |
+190 | struct PhaseViiiCase {
+    |        ------------- fields in this struct
+191 |     label: &'static str,
+    |     ^^^^^
+...
+194 |     mode: u32,
+    |     ^^^^
+
+warning: fields `label` and `mode` are never read
+   --> src\phase_xi_channel_tiling_tests.rs:205:5
+    |
+204 | struct PhaseXiCase {
+    |        ----------- fields in this struct
+205 |     label: &'static str,
+    |     ^^^^^
+...
+208 |     mode: u32,
+    |     ^^^^
+
+warning: field `label` is never read
+   --> src\phase_xii_channel4_key_production_tests.rs:184:5
+    |
+183 | struct PhaseXiiCase {
+    |        ------------ field in this struct
+184 |     label: &'static str,
+    |     ^^^^^
+
+warning: method `query_grid` is never used
+   --> src\phase_xii_channel4_key_production_tests.rs:230:8
+    |
+191 | impl PhaseXiiCase {
+    | ----------------- method in this implementation
+...
+230 |     fn query_grid(&self) -> [u32; 3] {
+    |        ^^^^^^^^^^
+
+warning: field `label` is never read
+  --> src\phase_xvii_v028_optimization_discovery_tests.rs:71:5
+   |
+70 | struct PhaseXviiCase {
+   |        ------------- field in this struct
+71 |     label: &'static str,
+   |     ^^^^^
+
+warning: `hierarchos-vulkan` (lib) generated 54 warnings (run `cargo fix --lib -p hierarchos-vulkan` to apply 7 suggestions)
+warning: unused import: `collections::BTreeSet`
+  --> src\bin\activation_probe.rs:14:5
+   |
+14 |     collections::BTreeSet,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> src\bin\..\vulkan.rs:8215:9
+     |
+8215 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> src\bin\..\vulkan.rs:8375:9
+     |
+8375 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+rustc-LLVM ERROR: out of memory
+Allocation failed
+error: could not compile `hierarchos-vulkan` (bin "hierarchos-vulkan-rwkv-packed-cell-channel-mix-bench" test)
+
+Caused by:
+  process didn't exit successfully: `C:\Users\User\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name hierarchos_vulkan_rwkv_packed_cell_channel_mix_bench --edition=2021 'src\bin\rwkv_packed_cell_channel_mix_bench.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C opt-level=3 -C lto=thin -C codegen-units=1 --test --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "rdma"))' -C metadata=20393b75962b7b4d -C extra-filename=-437de7a9dcf9b36e --out-dir 'C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps' -C strip=debuginfo -L 'dependency=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps' --extern 'anyhow=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libanyhow-a7cdcc3598848ca5.rlib' --extern 'ash=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libash-03363066c14e68ae.rlib' --extern 'bytemuck=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libbytemuck-d5b5efa214908b5a.rlib' --extern 'hf_hub=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libhf_hub-3f9d9d18c20a7111.rlib' --extern 'hierarchos_inference=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libhierarchos_inference-a1f0694985438f83.rlib' --extern 'hierarchos_vulkan=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libhierarchos_vulkan-209f540d0e4cacef.rlib' --extern 'nalgebra=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libnalgebra-befcc18a695f23d9.rlib' --extern 'peft_rs=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libpeft_rs-713084210f8b89e6.rlib' --extern 'regex=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libregex-acad72eb801fc72b.rlib' --extern 'safetensors=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libsafetensors-e56eac95abbe5df9.rlib' --extern 'serde=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libserde-b0aea1c7cdaba366.rlib' --extern 'serde_json=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libserde_json-a71ec9cfa5ca2211.rlib' --extern 'sha2=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libsha2-392a02209ec60be3.rlib' --extern 'tokenizers=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libtokenizers-5357df3ec820e30c.rlib' --extern 'windows_sys=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\deps\libwindows_sys-7168879563c6b5aa.rlib' -L 'native=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\build\aws-lc-sys-2375f523abf3faa0\out' -L 'native=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\build\blake3-56e39f0fa9b97fde\out' -L 'native=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\build\blake3-56e39f0fa9b97fde\out' -L 'native=C:\Users\User\Downloads\Qualcomm\Hierarchos-Native\hierarchos-vulkan\target\release\build\onig_sys-57cb8402ad7fcc43\out' -L 'native=C:\Users\User\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows_x86_64_msvc-0.52.6\lib'` (exit code: 0xc0000409, STATUS_STACK_BUFFER_OVERRUN)
+warning: build failed, waiting for other jobs to finish...
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\bin\..\vulkan.rs:5608:9
+     |
+5608 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\bin\..\vulkan.rs:5582:1
+     |
+5582 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: `hierarchos-vulkan` (bin "activation_probe" test) generated 1 warning (run `cargo fix --bin "activation_probe" -p hierarchos-vulkan --tests` to apply 1 suggestion)
+warning: `hierarchos-vulkan` (bin "matmul_kernel_validation" test) generated 3 warnings (run `cargo fix --bin "matmul_kernel_validation" -p hierarchos-vulkan --tests` to apply 2 suggestions)

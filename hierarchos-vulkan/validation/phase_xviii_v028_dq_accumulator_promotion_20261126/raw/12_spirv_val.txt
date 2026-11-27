@@ -1,0 +1,6 @@
+$ spirv-val --target-env vulkan1.2 shaders/transformer_attention_backward_query_rdna3_dqunroll.spv
+exit=0
+$ spirv-val --target-env vulkan1.2 shaders/transformer_attention_backward_query_rdna3.spv
+exit=0
+$ spirv-val --target-env vulkan1.2 q_rebuild_phase_xviii.spv
+exit=0
