@@ -1629,6 +1629,17 @@
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "linear_input_grad_output_tile32.spv",
+      "source": "linear_input_grad_output_tile32.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
       "artifact": "linear_input_grad_block8.spv",
       "source": "linear_input_grad_block8.comp",
       "compiler": "glslangValidator",

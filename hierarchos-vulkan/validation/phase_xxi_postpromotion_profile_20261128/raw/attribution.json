@@ -1,0 +1,1312 @@
+{
+  "fp32": {
+    "processes": [
+      {
+        "log": "profile_fp32_r0.log",
+        "device": "AMD",
+        "step_batches": 29,
+        "instrumented_step_ms_median": 28.50165,
+        "instrumented_step_ms_count": 26,
+        "profiled_gpu_ms_per_step": 26.671089,
+        "profiled_dispatch_total_per_step": 98.0,
+        "components_ms_per_step": {
+          "dense_projection": {
+            "ms_per_step": 14.051807,
+            "dispatches_per_step": 42.0
+          },
+          "attention_forward_rowpacked": {
+            "ms_per_step": 3.835393,
+            "dispatches_per_step": 2.0
+          },
+          "rms_norm": {
+            "ms_per_step": 3.282182,
+            "dispatches_per_step": 10.0
+          },
+          "query_backward_scratchreuse": {
+            "ms_per_step": 3.143961,
+            "dispatches_per_step": 2.0
+          },
+          "cross_entropy": {
+            "ms_per_step": 1.259214,
+            "dispatches_per_step": 2.0
+          },
+          "other": {
+            "ms_per_step": 0.575106,
+            "dispatches_per_step": 38.0
+          },
+          "key_backward_channel4": {
+            "ms_per_step": 0.523426,
+            "dispatches_per_step": 2.0
+          }
+        },
+        "shaders_ms_per_step": {
+          "linear_forward": {
+            "ms_per_step": 7.2128,
+            "dispatches_per_step": 17.0,
+            "category": "projection.linear"
+          },
+          "linear_input_grad": {
+            "ms_per_step": 6.457603,
+            "dispatches_per_step": 17.0,
+            "category": "projection.linear"
+          },
+          "transformer_attention_forward_rowpacked64_cached_rdna3": {
+            "ms_per_step": 3.835393,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+            "ms_per_step": 3.143961,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_forward": {
+            "ms_per_step": 1.743331,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_input_grad": {
+            "ms_per_step": 1.538851,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "falcon_h1_cross_entropy_lanes16": {
+            "ms_per_step": 1.256428,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_key_channel4_rdna3": {
+            "ms_per_step": 0.523426,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "vector_add": {
+            "ms_per_step": 0.293987,
+            "dispatches_per_step": 16.0,
+            "category": "elementwise-reduction"
+          },
+          "linear_forward_lane4": {
+            "ms_per_step": 0.173137,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_input_grad_group4_muladd": {
+            "ms_per_step": 0.121452,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_weight_grad": {
+            "ms_per_step": 0.086816,
+            "dispatches_per_step": 4.0,
+            "category": "projection.linear"
+          },
+          "transformer_elementwise_mul_backward": {
+            "ms_per_step": 0.046714,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_forward": {
+            "ms_per_step": 0.038207,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_rope_forward": {
+            "ms_per_step": 0.037121,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rope_backward": {
+            "ms_per_step": 0.035026,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_lora_scaled_add": {
+            "ms_per_step": 0.027943,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_elementwise_mul_forward": {
+            "ms_per_step": 0.025308,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_backward": {
+            "ms_per_step": 0.024789,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "embedding_forward": {
+            "ms_per_step": 0.022026,
+            "dispatches_per_step": 1.0,
+            "category": "token.embedding"
+          },
+          "transformer_scale_copy": {
+            "ms_per_step": 0.015934,
+            "dispatches_per_step": 3.0,
+            "category": "other"
+          },
+          "adamw": {
+            "ms_per_step": 0.00805,
+            "dispatches_per_step": 4.0,
+            "category": "optimizer.adamw"
+          },
+          "ordered_f32_sum": {
+            "ms_per_step": 0.002786,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          }
+        },
+        "scratchreuse_dispatches_per_step": 2.0,
+        "query_fallback_dispatches_per_step": {
+          "transformer_attention_backward_query_rdna3_dqunroll": 0.0,
+          "transformer_attention_backward_query_rdna3": 0.0
+        },
+        "unknown_shader_lines": 0
+      },
+      {
+        "log": "profile_fp32_r1.log",
+        "device": "AMD",
+        "step_batches": 29,
+        "instrumented_step_ms_median": 28.51865,
+        "instrumented_step_ms_count": 26,
+        "profiled_gpu_ms_per_step": 26.531883,
+        "profiled_dispatch_total_per_step": 98.0,
+        "components_ms_per_step": {
+          "dense_projection": {
+            "ms_per_step": 14.011687,
+            "dispatches_per_step": 42.0
+          },
+          "attention_forward_rowpacked": {
+            "ms_per_step": 3.857726,
+            "dispatches_per_step": 2.0
+          },
+          "rms_norm": {
+            "ms_per_step": 3.231865,
+            "dispatches_per_step": 10.0
+          },
+          "query_backward_scratchreuse": {
+            "ms_per_step": 3.140843,
+            "dispatches_per_step": 2.0
+          },
+          "cross_entropy": {
+            "ms_per_step": 1.265132,
+            "dispatches_per_step": 2.0
+          },
+          "other": {
+            "ms_per_step": 0.524493,
+            "dispatches_per_step": 38.0
+          },
+          "key_backward_channel4": {
+            "ms_per_step": 0.500138,
+            "dispatches_per_step": 2.0
+          }
+        },
+        "shaders_ms_per_step": {
+          "linear_forward": {
+            "ms_per_step": 7.206226,
+            "dispatches_per_step": 17.0,
+            "category": "projection.linear"
+          },
+          "linear_input_grad": {
+            "ms_per_step": 6.434364,
+            "dispatches_per_step": 17.0,
+            "category": "projection.linear"
+          },
+          "transformer_attention_forward_rowpacked64_cached_rdna3": {
+            "ms_per_step": 3.857726,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+            "ms_per_step": 3.140843,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_forward": {
+            "ms_per_step": 1.713163,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_input_grad": {
+            "ms_per_step": 1.518702,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "falcon_h1_cross_entropy_lanes16": {
+            "ms_per_step": 1.262375,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_key_channel4_rdna3": {
+            "ms_per_step": 0.500138,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "vector_add": {
+            "ms_per_step": 0.219435,
+            "dispatches_per_step": 16.0,
+            "category": "elementwise-reduction"
+          },
+          "linear_forward_lane4": {
+            "ms_per_step": 0.173189,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_input_grad_group4_muladd": {
+            "ms_per_step": 0.122516,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_weight_grad": {
+            "ms_per_step": 0.075392,
+            "dispatches_per_step": 4.0,
+            "category": "projection.linear"
+          },
+          "transformer_elementwise_mul_backward": {
+            "ms_per_step": 0.047011,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_forward": {
+            "ms_per_step": 0.038193,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_scale_copy": {
+            "ms_per_step": 0.037338,
+            "dispatches_per_step": 3.0,
+            "category": "other"
+          },
+          "transformer_rope_forward": {
+            "ms_per_step": 0.037119,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rope_backward": {
+            "ms_per_step": 0.034756,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_lora_scaled_add": {
+            "ms_per_step": 0.029087,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_elementwise_mul_forward": {
+            "ms_per_step": 0.025019,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_backward": {
+            "ms_per_step": 0.024665,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "embedding_forward": {
+            "ms_per_step": 0.023931,
+            "dispatches_per_step": 1.0,
+            "category": "token.embedding"
+          },
+          "adamw": {
+            "ms_per_step": 0.007939,
+            "dispatches_per_step": 4.0,
+            "category": "optimizer.adamw"
+          },
+          "ordered_f32_sum": {
+            "ms_per_step": 0.002757,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          }
+        },
+        "scratchreuse_dispatches_per_step": 2.0,
+        "query_fallback_dispatches_per_step": {
+          "transformer_attention_backward_query_rdna3_dqunroll": 0.0,
+          "transformer_attention_backward_query_rdna3": 0.0
+        },
+        "unknown_shader_lines": 0
+      },
+      {
+        "log": "profile_fp32_r2.log",
+        "device": "AMD",
+        "step_batches": 29,
+        "instrumented_step_ms_median": 28.5657,
+        "instrumented_step_ms_count": 26,
+        "profiled_gpu_ms_per_step": 26.535976,
+        "profiled_dispatch_total_per_step": 98.0,
+        "components_ms_per_step": {
+          "dense_projection": {
+            "ms_per_step": 13.997642,
+            "dispatches_per_step": 42.0
+          },
+          "attention_forward_rowpacked": {
+            "ms_per_step": 3.867698,
+            "dispatches_per_step": 2.0
+          },
+          "rms_norm": {
+            "ms_per_step": 3.254469,
+            "dispatches_per_step": 10.0
+          },
+          "query_backward_scratchreuse": {
+            "ms_per_step": 3.139914,
+            "dispatches_per_step": 2.0
+          },
+          "cross_entropy": {
+            "ms_per_step": 1.265076,
+            "dispatches_per_step": 2.0
+          },
+          "other": {
+            "ms_per_step": 0.505696,
+            "dispatches_per_step": 38.0
+          },
+          "key_backward_channel4": {
+            "ms_per_step": 0.505481,
+            "dispatches_per_step": 2.0
+          }
+        },
+        "shaders_ms_per_step": {
+          "linear_forward": {
+            "ms_per_step": 7.19653,
+            "dispatches_per_step": 17.0,
+            "category": "projection.linear"
+          },
+          "linear_input_grad": {
+            "ms_per_step": 6.453132,
+            "dispatches_per_step": 17.0,
+            "category": "projection.linear"
+          },
+          "transformer_attention_forward_rowpacked64_cached_rdna3": {
+            "ms_per_step": 3.867698,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+            "ms_per_step": 3.139914,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_forward": {
+            "ms_per_step": 1.730966,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_input_grad": {
+            "ms_per_step": 1.523504,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "falcon_h1_cross_entropy_lanes16": {
+            "ms_per_step": 1.262283,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_key_channel4_rdna3": {
+            "ms_per_step": 0.505481,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "vector_add": {
+            "ms_per_step": 0.221334,
+            "dispatches_per_step": 16.0,
+            "category": "elementwise-reduction"
+          },
+          "linear_forward_lane4": {
+            "ms_per_step": 0.17055,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_input_grad_group4_muladd": {
+            "ms_per_step": 0.122298,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_weight_grad": {
+            "ms_per_step": 0.055132,
+            "dispatches_per_step": 4.0,
+            "category": "projection.linear"
+          },
+          "transformer_elementwise_mul_backward": {
+            "ms_per_step": 0.046319,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_forward": {
+            "ms_per_step": 0.038222,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_rope_forward": {
+            "ms_per_step": 0.038131,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rope_backward": {
+            "ms_per_step": 0.034819,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_lora_scaled_add": {
+            "ms_per_step": 0.030188,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_elementwise_mul_forward": {
+            "ms_per_step": 0.025688,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_backward": {
+            "ms_per_step": 0.024417,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "embedding_forward": {
+            "ms_per_step": 0.022526,
+            "dispatches_per_step": 1.0,
+            "category": "token.embedding"
+          },
+          "transformer_scale_copy": {
+            "ms_per_step": 0.016003,
+            "dispatches_per_step": 3.0,
+            "category": "other"
+          },
+          "adamw": {
+            "ms_per_step": 0.00805,
+            "dispatches_per_step": 4.0,
+            "category": "optimizer.adamw"
+          },
+          "ordered_f32_sum": {
+            "ms_per_step": 0.002793,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          }
+        },
+        "scratchreuse_dispatches_per_step": 2.0,
+        "query_fallback_dispatches_per_step": {
+          "transformer_attention_backward_query_rdna3_dqunroll": 0.0,
+          "transformer_attention_backward_query_rdna3": 0.0
+        },
+        "unknown_shader_lines": 0
+      }
+    ],
+    "median": {
+      "processes": 3,
+      "median_profiled_gpu_ms_per_step": 26.535976,
+      "median_instrumented_step_ms": 28.51865,
+      "median_profiled_dispatch_total_per_step": 98.0,
+      "components": {
+        "attention_forward_rowpacked": {
+          "median_ms_per_step": 3.857726,
+          "median_dispatches_per_step": 2.0
+        },
+        "cross_entropy": {
+          "median_ms_per_step": 1.265076,
+          "median_dispatches_per_step": 2.0
+        },
+        "dense_projection": {
+          "median_ms_per_step": 14.011687,
+          "median_dispatches_per_step": 42.0
+        },
+        "key_backward_channel4": {
+          "median_ms_per_step": 0.505481,
+          "median_dispatches_per_step": 2.0
+        },
+        "other": {
+          "median_ms_per_step": 0.524493,
+          "median_dispatches_per_step": 38.0
+        },
+        "query_backward_scratchreuse": {
+          "median_ms_per_step": 3.140843,
+          "median_dispatches_per_step": 2.0
+        },
+        "rms_norm": {
+          "median_ms_per_step": 3.254469,
+          "median_dispatches_per_step": 10.0
+        }
+      },
+      "shaders": {
+        "adamw": {
+          "median_ms_per_step": 0.00805,
+          "median_dispatches_per_step": 4.0
+        },
+        "embedding_forward": {
+          "median_ms_per_step": 0.022526,
+          "median_dispatches_per_step": 1.0
+        },
+        "falcon_h1_cross_entropy_lanes16": {
+          "median_ms_per_step": 1.262283,
+          "median_dispatches_per_step": 1.0
+        },
+        "linear_forward": {
+          "median_ms_per_step": 7.206226,
+          "median_dispatches_per_step": 17.0
+        },
+        "linear_forward_lane4": {
+          "median_ms_per_step": 0.173137,
+          "median_dispatches_per_step": 2.0
+        },
+        "linear_input_grad": {
+          "median_ms_per_step": 6.453132,
+          "median_dispatches_per_step": 17.0
+        },
+        "linear_input_grad_group4_muladd": {
+          "median_ms_per_step": 0.122298,
+          "median_dispatches_per_step": 2.0
+        },
+        "linear_weight_grad": {
+          "median_ms_per_step": 0.075392,
+          "median_dispatches_per_step": 4.0
+        },
+        "ordered_f32_sum": {
+          "median_ms_per_step": 0.002786,
+          "median_dispatches_per_step": 1.0
+        },
+        "silu_backward": {
+          "median_ms_per_step": 0.024665,
+          "median_dispatches_per_step": 2.0
+        },
+        "silu_forward": {
+          "median_ms_per_step": 0.038207,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_attention_backward_key_channel4_rdna3": {
+          "median_ms_per_step": 0.505481,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+          "median_ms_per_step": 3.140843,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_attention_forward_rowpacked64_cached_rdna3": {
+          "median_ms_per_step": 3.857726,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_elementwise_mul_backward": {
+          "median_ms_per_step": 0.046714,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_elementwise_mul_forward": {
+          "median_ms_per_step": 0.025308,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_lora_scaled_add": {
+          "median_ms_per_step": 0.029087,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_rms_norm_forward": {
+          "median_ms_per_step": 1.730966,
+          "median_dispatches_per_step": 5.0
+        },
+        "transformer_rms_norm_input_grad": {
+          "median_ms_per_step": 1.523504,
+          "median_dispatches_per_step": 5.0
+        },
+        "transformer_rope_backward": {
+          "median_ms_per_step": 0.034819,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_rope_forward": {
+          "median_ms_per_step": 0.037121,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_scale_copy": {
+          "median_ms_per_step": 0.016003,
+          "median_dispatches_per_step": 3.0
+        },
+        "vector_add": {
+          "median_ms_per_step": 0.221334,
+          "median_dispatches_per_step": 16.0
+        }
+      }
+    }
+  },
+  "mixed": {
+    "processes": [
+      {
+        "log": "profile_mixed_r0.log",
+        "device": "AMD",
+        "step_batches": 29,
+        "instrumented_step_ms_median": 23.37145,
+        "instrumented_step_ms_count": 26,
+        "profiled_gpu_ms_per_step": 20.789411,
+        "profiled_dispatch_total_per_step": 143.0,
+        "components_ms_per_step": {
+          "wmma_gemm": {
+            "ms_per_step": 6.397242,
+            "dispatches_per_step": 30.0
+          },
+          "attention_forward_rowpacked": {
+            "ms_per_step": 4.023046,
+            "dispatches_per_step": 2.0
+          },
+          "rms_norm": {
+            "ms_per_step": 3.320777,
+            "dispatches_per_step": 10.0
+          },
+          "query_backward_scratchreuse": {
+            "ms_per_step": 3.308057,
+            "dispatches_per_step": 2.0
+          },
+          "cross_entropy": {
+            "ms_per_step": 1.316519,
+            "dispatches_per_step": 2.0
+          },
+          "fp16_conversion_activations": {
+            "ms_per_step": 1.209049,
+            "dispatches_per_step": 45.0
+          },
+          "key_backward_channel4": {
+            "ms_per_step": 0.512832,
+            "dispatches_per_step": 2.0
+          },
+          "other": {
+            "ms_per_step": 0.465336,
+            "dispatches_per_step": 38.0
+          },
+          "dense_projection": {
+            "ms_per_step": 0.236555,
+            "dispatches_per_step": 12.0
+          }
+        },
+        "shaders_ms_per_step": {
+          "wmma_gemm_f16_f32acc": {
+            "ms_per_step": 6.397242,
+            "dispatches_per_step": 30.0,
+            "category": "other"
+          },
+          "transformer_attention_forward_rowpacked64_cached_rdna3": {
+            "ms_per_step": 4.023046,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+            "ms_per_step": 3.308057,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_forward": {
+            "ms_per_step": 1.712521,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_input_grad": {
+            "ms_per_step": 1.608255,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "falcon_h1_cross_entropy_lanes16": {
+            "ms_per_step": 1.313902,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          },
+          "fp32_to_fp16_native": {
+            "ms_per_step": 1.209049,
+            "dispatches_per_step": 45.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_key_channel4_rdna3": {
+            "ms_per_step": 0.512832,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "vector_add": {
+            "ms_per_step": 0.200421,
+            "dispatches_per_step": 16.0,
+            "category": "elementwise-reduction"
+          },
+          "linear_input_grad_group4_muladd": {
+            "ms_per_step": 0.125352,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_weight_grad": {
+            "ms_per_step": 0.057114,
+            "dispatches_per_step": 4.0,
+            "category": "projection.linear"
+          },
+          "transformer_elementwise_mul_backward": {
+            "ms_per_step": 0.04735,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_lora_scaled_add": {
+            "ms_per_step": 0.040164,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_forward": {
+            "ms_per_step": 0.039983,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_rope_backward": {
+            "ms_per_step": 0.036523,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "linear_forward_lane4": {
+            "ms_per_step": 0.026518,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "silu_backward": {
+            "ms_per_step": 0.025472,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_elementwise_mul_forward": {
+            "ms_per_step": 0.024961,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "embedding_forward": {
+            "ms_per_step": 0.02245,
+            "dispatches_per_step": 1.0,
+            "category": "token.embedding"
+          },
+          "linear_forward": {
+            "ms_per_step": 0.020646,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "transformer_scale_copy": {
+            "ms_per_step": 0.016339,
+            "dispatches_per_step": 3.0,
+            "category": "other"
+          },
+          "adamw": {
+            "ms_per_step": 0.008189,
+            "dispatches_per_step": 4.0,
+            "category": "optimizer.adamw"
+          },
+          "linear_input_grad": {
+            "ms_per_step": 0.006926,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "transformer_rope_forward": {
+            "ms_per_step": 0.003483,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "ordered_f32_sum": {
+            "ms_per_step": 0.002617,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          }
+        },
+        "scratchreuse_dispatches_per_step": 2.0,
+        "query_fallback_dispatches_per_step": {
+          "transformer_attention_backward_query_rdna3_dqunroll": 0.0,
+          "transformer_attention_backward_query_rdna3": 0.0
+        },
+        "unknown_shader_lines": 0
+      },
+      {
+        "log": "profile_mixed_r1.log",
+        "device": "AMD",
+        "step_batches": 29,
+        "instrumented_step_ms_median": 23.44015,
+        "instrumented_step_ms_count": 26,
+        "profiled_gpu_ms_per_step": 20.845513,
+        "profiled_dispatch_total_per_step": 143.0,
+        "components_ms_per_step": {
+          "wmma_gemm": {
+            "ms_per_step": 6.386147,
+            "dispatches_per_step": 30.0
+          },
+          "attention_forward_rowpacked": {
+            "ms_per_step": 4.008811,
+            "dispatches_per_step": 2.0
+          },
+          "rms_norm": {
+            "ms_per_step": 3.35593,
+            "dispatches_per_step": 10.0
+          },
+          "query_backward_scratchreuse": {
+            "ms_per_step": 3.301341,
+            "dispatches_per_step": 2.0
+          },
+          "cross_entropy": {
+            "ms_per_step": 1.315383,
+            "dispatches_per_step": 2.0
+          },
+          "fp16_conversion_activations": {
+            "ms_per_step": 1.20435,
+            "dispatches_per_step": 45.0
+          },
+          "other": {
+            "ms_per_step": 0.525868,
+            "dispatches_per_step": 38.0
+          },
+          "key_backward_channel4": {
+            "ms_per_step": 0.509379,
+            "dispatches_per_step": 2.0
+          },
+          "dense_projection": {
+            "ms_per_step": 0.238303,
+            "dispatches_per_step": 12.0
+          }
+        },
+        "shaders_ms_per_step": {
+          "wmma_gemm_f16_f32acc": {
+            "ms_per_step": 6.386147,
+            "dispatches_per_step": 30.0,
+            "category": "other"
+          },
+          "transformer_attention_forward_rowpacked64_cached_rdna3": {
+            "ms_per_step": 4.008811,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+            "ms_per_step": 3.301341,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_forward": {
+            "ms_per_step": 1.749948,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_input_grad": {
+            "ms_per_step": 1.605982,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "falcon_h1_cross_entropy_lanes16": {
+            "ms_per_step": 1.312803,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          },
+          "fp32_to_fp16_native": {
+            "ms_per_step": 1.20435,
+            "dispatches_per_step": 45.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_key_channel4_rdna3": {
+            "ms_per_step": 0.509379,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "vector_add": {
+            "ms_per_step": 0.196308,
+            "dispatches_per_step": 16.0,
+            "category": "elementwise-reduction"
+          },
+          "linear_input_grad_group4_muladd": {
+            "ms_per_step": 0.125225,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "transformer_lora_scaled_add": {
+            "ms_per_step": 0.080738,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "linear_weight_grad": {
+            "ms_per_step": 0.056458,
+            "dispatches_per_step": 4.0,
+            "category": "projection.linear"
+          },
+          "transformer_elementwise_mul_backward": {
+            "ms_per_step": 0.048408,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_backward": {
+            "ms_per_step": 0.04349,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "silu_forward": {
+            "ms_per_step": 0.039934,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_rope_backward": {
+            "ms_per_step": 0.036381,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "embedding_forward": {
+            "ms_per_step": 0.025345,
+            "dispatches_per_step": 1.0,
+            "category": "token.embedding"
+          },
+          "transformer_elementwise_mul_forward": {
+            "ms_per_step": 0.02504,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "linear_forward": {
+            "ms_per_step": 0.020499,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "transformer_scale_copy": {
+            "ms_per_step": 0.018579,
+            "dispatches_per_step": 3.0,
+            "category": "other"
+          },
+          "linear_forward_lane4": {
+            "ms_per_step": 0.018097,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_input_grad": {
+            "ms_per_step": 0.018024,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "adamw": {
+            "ms_per_step": 0.008121,
+            "dispatches_per_step": 4.0,
+            "category": "optimizer.adamw"
+          },
+          "transformer_rope_forward": {
+            "ms_per_step": 0.003524,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "ordered_f32_sum": {
+            "ms_per_step": 0.002581,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          }
+        },
+        "scratchreuse_dispatches_per_step": 2.0,
+        "query_fallback_dispatches_per_step": {
+          "transformer_attention_backward_query_rdna3_dqunroll": 0.0,
+          "transformer_attention_backward_query_rdna3": 0.0
+        },
+        "unknown_shader_lines": 0
+      },
+      {
+        "log": "profile_mixed_r2.log",
+        "device": "AMD",
+        "step_batches": 29,
+        "instrumented_step_ms_median": 23.4927,
+        "instrumented_step_ms_count": 26,
+        "profiled_gpu_ms_per_step": 20.699701,
+        "profiled_dispatch_total_per_step": 143.0,
+        "components_ms_per_step": {
+          "wmma_gemm": {
+            "ms_per_step": 6.391832,
+            "dispatches_per_step": 30.0
+          },
+          "attention_forward_rowpacked": {
+            "ms_per_step": 4.000535,
+            "dispatches_per_step": 2.0
+          },
+          "rms_norm": {
+            "ms_per_step": 3.303135,
+            "dispatches_per_step": 10.0
+          },
+          "query_backward_scratchreuse": {
+            "ms_per_step": 3.28529,
+            "dispatches_per_step": 2.0
+          },
+          "cross_entropy": {
+            "ms_per_step": 1.305142,
+            "dispatches_per_step": 2.0
+          },
+          "fp16_conversion_activations": {
+            "ms_per_step": 1.214373,
+            "dispatches_per_step": 45.0
+          },
+          "key_backward_channel4": {
+            "ms_per_step": 0.509571,
+            "dispatches_per_step": 2.0
+          },
+          "other": {
+            "ms_per_step": 0.462604,
+            "dispatches_per_step": 38.0
+          },
+          "dense_projection": {
+            "ms_per_step": 0.227219,
+            "dispatches_per_step": 12.0
+          }
+        },
+        "shaders_ms_per_step": {
+          "wmma_gemm_f16_f32acc": {
+            "ms_per_step": 6.391832,
+            "dispatches_per_step": 30.0,
+            "category": "other"
+          },
+          "transformer_attention_forward_rowpacked64_cached_rdna3": {
+            "ms_per_step": 4.000535,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+            "ms_per_step": 3.28529,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_forward": {
+            "ms_per_step": 1.718994,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "transformer_rms_norm_input_grad": {
+            "ms_per_step": 1.584141,
+            "dispatches_per_step": 5.0,
+            "category": "other"
+          },
+          "falcon_h1_cross_entropy_lanes16": {
+            "ms_per_step": 1.302534,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          },
+          "fp32_to_fp16_native": {
+            "ms_per_step": 1.214373,
+            "dispatches_per_step": 45.0,
+            "category": "other"
+          },
+          "transformer_attention_backward_key_channel4_rdna3": {
+            "ms_per_step": 0.509571,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "vector_add": {
+            "ms_per_step": 0.190387,
+            "dispatches_per_step": 16.0,
+            "category": "elementwise-reduction"
+          },
+          "linear_input_grad_group4_muladd": {
+            "ms_per_step": 0.125668,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_weight_grad": {
+            "ms_per_step": 0.056172,
+            "dispatches_per_step": 4.0,
+            "category": "projection.linear"
+          },
+          "transformer_elementwise_mul_backward": {
+            "ms_per_step": 0.048644,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "transformer_lora_scaled_add": {
+            "ms_per_step": 0.042422,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_forward": {
+            "ms_per_step": 0.039873,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_rope_backward": {
+            "ms_per_step": 0.036236,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "silu_backward": {
+            "ms_per_step": 0.031369,
+            "dispatches_per_step": 2.0,
+            "category": "elementwise-reduction"
+          },
+          "transformer_elementwise_mul_forward": {
+            "ms_per_step": 0.025142,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "embedding_forward": {
+            "ms_per_step": 0.020661,
+            "dispatches_per_step": 1.0,
+            "category": "token.embedding"
+          },
+          "linear_forward": {
+            "ms_per_step": 0.020377,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "linear_forward_lane4": {
+            "ms_per_step": 0.018077,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "transformer_scale_copy": {
+            "ms_per_step": 0.014714,
+            "dispatches_per_step": 3.0,
+            "category": "other"
+          },
+          "adamw": {
+            "ms_per_step": 0.008341,
+            "dispatches_per_step": 4.0,
+            "category": "optimizer.adamw"
+          },
+          "linear_input_grad": {
+            "ms_per_step": 0.006926,
+            "dispatches_per_step": 2.0,
+            "category": "projection.linear"
+          },
+          "transformer_rope_forward": {
+            "ms_per_step": 0.004815,
+            "dispatches_per_step": 2.0,
+            "category": "other"
+          },
+          "ordered_f32_sum": {
+            "ms_per_step": 0.002608,
+            "dispatches_per_step": 1.0,
+            "category": "other"
+          }
+        },
+        "scratchreuse_dispatches_per_step": 2.0,
+        "query_fallback_dispatches_per_step": {
+          "transformer_attention_backward_query_rdna3_dqunroll": 0.0,
+          "transformer_attention_backward_query_rdna3": 0.0
+        },
+        "unknown_shader_lines": 0
+      }
+    ],
+    "median": {
+      "processes": 3,
+      "median_profiled_gpu_ms_per_step": 20.789411,
+      "median_instrumented_step_ms": 23.44015,
+      "median_profiled_dispatch_total_per_step": 143.0,
+      "components": {
+        "attention_forward_rowpacked": {
+          "median_ms_per_step": 4.008811,
+          "median_dispatches_per_step": 2.0
+        },
+        "cross_entropy": {
+          "median_ms_per_step": 1.315383,
+          "median_dispatches_per_step": 2.0
+        },
+        "dense_projection": {
+          "median_ms_per_step": 0.236555,
+          "median_dispatches_per_step": 12.0
+        },
+        "fp16_conversion_activations": {
+          "median_ms_per_step": 1.209049,
+          "median_dispatches_per_step": 45.0
+        },
+        "key_backward_channel4": {
+          "median_ms_per_step": 0.509571,
+          "median_dispatches_per_step": 2.0
+        },
+        "other": {
+          "median_ms_per_step": 0.465336,
+          "median_dispatches_per_step": 38.0
+        },
+        "query_backward_scratchreuse": {
+          "median_ms_per_step": 3.301341,
+          "median_dispatches_per_step": 2.0
+        },
+        "rms_norm": {
+          "median_ms_per_step": 3.320777,
+          "median_dispatches_per_step": 10.0
+        },
+        "wmma_gemm": {
+          "median_ms_per_step": 6.391832,
+          "median_dispatches_per_step": 30.0
+        }
+      },
+      "shaders": {
+        "adamw": {
+          "median_ms_per_step": 0.008189,
+          "median_dispatches_per_step": 4.0
+        },
+        "embedding_forward": {
+          "median_ms_per_step": 0.02245,
+          "median_dispatches_per_step": 1.0
+        },
+        "falcon_h1_cross_entropy_lanes16": {
+          "median_ms_per_step": 1.312803,
+          "median_dispatches_per_step": 1.0
+        },
+        "fp32_to_fp16_native": {
+          "median_ms_per_step": 1.209049,
+          "median_dispatches_per_step": 45.0
+        },
+        "linear_forward": {
+          "median_ms_per_step": 0.020499,
+          "median_dispatches_per_step": 2.0
+        },
+        "linear_forward_lane4": {
+          "median_ms_per_step": 0.018097,
+          "median_dispatches_per_step": 2.0
+        },
+        "linear_input_grad": {
+          "median_ms_per_step": 0.006926,
+          "median_dispatches_per_step": 2.0
+        },
+        "linear_input_grad_group4_muladd": {
+          "median_ms_per_step": 0.125352,
+          "median_dispatches_per_step": 2.0
+        },
+        "linear_weight_grad": {
+          "median_ms_per_step": 0.056458,
+          "median_dispatches_per_step": 4.0
+        },
+        "ordered_f32_sum": {
+          "median_ms_per_step": 0.002608,
+          "median_dispatches_per_step": 1.0
+        },
+        "silu_backward": {
+          "median_ms_per_step": 0.031369,
+          "median_dispatches_per_step": 2.0
+        },
+        "silu_forward": {
+          "median_ms_per_step": 0.039934,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_attention_backward_key_channel4_rdna3": {
+          "median_ms_per_step": 0.509571,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse": {
+          "median_ms_per_step": 3.301341,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_attention_forward_rowpacked64_cached_rdna3": {
+          "median_ms_per_step": 4.008811,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_elementwise_mul_backward": {
+          "median_ms_per_step": 0.048408,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_elementwise_mul_forward": {
+          "median_ms_per_step": 0.02504,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_lora_scaled_add": {
+          "median_ms_per_step": 0.042422,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_rms_norm_forward": {
+          "median_ms_per_step": 1.718994,
+          "median_dispatches_per_step": 5.0
+        },
+        "transformer_rms_norm_input_grad": {
+          "median_ms_per_step": 1.605982,
+          "median_dispatches_per_step": 5.0
+        },
+        "transformer_rope_backward": {
+          "median_ms_per_step": 0.036381,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_rope_forward": {
+          "median_ms_per_step": 0.003524,
+          "median_dispatches_per_step": 2.0
+        },
+        "transformer_scale_copy": {
+          "median_ms_per_step": 0.016339,
+          "median_dispatches_per_step": 3.0
+        },
+        "vector_add": {
+          "median_ms_per_step": 0.196308,
+          "median_dispatches_per_step": 16.0
+        },
+        "wmma_gemm_f16_f32acc": {
+          "median_ms_per_step": 6.391832,
+          "median_dispatches_per_step": 30.0
+        }
+      }
+    }
+  }
+}

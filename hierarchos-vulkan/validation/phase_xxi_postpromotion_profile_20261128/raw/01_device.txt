@@ -1,0 +1,10 @@
+# vulkaninfo --summary
+GPU0:
+	apiVersion         = 1.4.359
+	driverVersion      = 2.0.416
+	vendorID           = 0x1002
+	deviceID           = 0x15bf
+	deviceType         = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+	deviceName         = AMD Radeon Graphics
+	driverInfo         = 26.20.15.14 (LLPC)
+	conformanceVersion = 1.4.3.3

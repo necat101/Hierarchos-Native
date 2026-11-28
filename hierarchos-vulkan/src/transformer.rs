@@ -72,6 +72,8 @@ const LORA_A_FORWARD_LANE8_MULADD_SPV: &[u8] =
     include_bytes!("../shaders/lora_a_forward_lane8_muladd.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
+const LINEAR_INPUT_GRAD_OUTPUT_TILE_SPV: &[u8] =
+    include_bytes!("../shaders/linear_input_grad_output_tile32.spv");
 const LINEAR_INPUT_GRAD_MULADD_SPV: &[u8] =
     include_bytes!("../shaders/linear_input_grad_muladd.spv");
 const LINEAR_INPUT_GRAD_GROUP4_MULADD_SPV: &[u8] =
@@ -25963,6 +25965,62 @@ pub fn attention_backward_key_channel4_enabled() -> bool {
     channel4_key_enabled()
 }
 
+/// Opt-out for the promoted Phase XXII output-tiled input-gradient kernel.
+///
+/// The promoted kernel is on by default for 32-aligned shapes. `0` restores the
+/// original 16 x 16 kernel for every shape, which is the control arm of the
+/// Phase XXII complete-step A/B. An unset or unrecognized value keeps the
+/// eligible default.
+pub const HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE_ENV: &str =
+    "HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE";
+
+/// The output-tile switch, read once so a dispatch never consults the
+/// environment.
+fn linear_input_grad_output_tile_setting() -> Option<bool> {
+    static SETTING: OnceLock<Option<bool>> = OnceLock::new();
+    *SETTING.get_or_init(|| {
+        match std::env::var(HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE_ENV) {
+            Ok(value) => match value.trim().to_ascii_lowercase().as_str() {
+                "1" | "true" | "on" => Some(true),
+                "0" | "false" | "off" => Some(false),
+                other => {
+                    eprintln!(
+                        "output-tiled input grad: unrecognized \
+                         HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE={other:?}; \
+                         using the eligible default"
+                    );
+                    None
+                }
+            },
+            Err(_) => None,
+        }
+    })
+}
+
+/// The promoted kernel owns whole 32 x 32 tiles. A shape outside that
+/// partition keeps the original kernel, which is the explicit fallback arm.
+fn linear_input_grad_output_tile_eligible(
+    rows: usize,
+    input_dim: usize,
+    output_dim: usize,
+) -> bool {
+    rows > 0
+        && input_dim > 0
+        && output_dim > 0
+        && rows % 32 == 0
+        && input_dim % 32 == 0
+        && output_dim % 32 == 0
+}
+
+fn linear_input_grad_output_tile_selected(
+    rows: usize,
+    input_dim: usize,
+    output_dim: usize,
+) -> bool {
+    linear_input_grad_output_tile_setting() != Some(false)
+        && linear_input_grad_output_tile_eligible(rows, input_dim, output_dim)
+}
+
 /// Opt-out for the promoted literal-index query pass (Phase XVIII).
 ///
 /// The promoted route is on by default. `0` restores the shipped qualified
@@ -28395,6 +28453,10 @@ struct TransformerKernels {
     cpu_wide_row_gemm: bool,
     linear_weight_grad: vulkan::ComputeKernel,
     linear_input_grad: vulkan::ComputeKernel,
+    /// The promoted Phase XXII output-tiled FP32 input-gradient kernel. Optional:
+    /// an unavailable artifact or a shape outside its 32-aligned partition keeps
+    /// the original 16 x 16 kernel.
+    linear_input_grad_output_tile32: OnceLock<Result<vulkan::ComputeKernel, String>>,
     linear_input_grad_muladd: vulkan::ComputeKernel,
     /// PEFT-only pipeline: ordinary inference must not compile or allocate it.
     linear_input_grad_group4_muladd: OnceLock<Result<vulkan::ComputeKernel, String>>,
@@ -28841,6 +28903,7 @@ impl TransformerKernels {
             cpu_wide_row_gemm: false,
             linear_weight_grad: vulkan::ComputeKernel::new(device, LINEAR_WEIGHT_GRAD_SPV, 3, 12)?,
             linear_input_grad: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_SPV, 3, 12)?,
+            linear_input_grad_output_tile32: OnceLock::new(),
             linear_input_grad_muladd: vulkan::ComputeKernel::new(
                 device,
                 LINEAR_INPUT_GRAD_MULADD_SPV,
@@ -32092,12 +32155,58 @@ impl VulkanLinear {
                 false
             };
             if !via_wmma {
-                kernels.linear_input_grad.record_dispatch(
-                    commands,
-                    &[base_grad_output, &self.weight.values, base_grad_input],
-                    bytemuck::bytes_of(&push),
-                    [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
-                )?;
+                // Phase XXII: the promoted output-tiled kernel for 32-aligned
+                // shapes, with the original 16 x 16 kernel as the fallback.
+                let mut tile32_dispatched = false;
+                if linear_input_grad_output_tile_selected(
+                    rows,
+                    self.input_dim,
+                    self.output_dim,
+                ) {
+                    let kernel = kernels.linear_input_grad_output_tile32.get_or_init(|| {
+                        vulkan::ComputeKernel::new(
+                            &kernels.peft_kernel_device,
+                            LINEAR_INPUT_GRAD_OUTPUT_TILE_SPV,
+                            3,
+                            12,
+                        )
+                        .map_err(|error| error.to_string())
+                    });
+                    if let Ok(kernel) = kernel {
+                        // One line per process, during warmup, so an ABBA log
+                        // proves the candidate seam selected this kernel.
+                        #[cfg(test)]
+                        {
+                            use std::sync::atomic::{AtomicBool, Ordering};
+                            static ANNOUNCED: AtomicBool = AtomicBool::new(false);
+                            if !ANNOUNCED.swap(true, Ordering::Relaxed) {
+                                eprintln!(
+                                    "[phase-xxii-tile] dispatch rows={} input_dim={} output_dim={}",
+                                    rows, self.input_dim, self.output_dim
+                                );
+                            }
+                        }
+                        kernel.record_dispatch(
+                            commands,
+                            &[base_grad_output, &self.weight.values, base_grad_input],
+                            bytemuck::bytes_of(&push),
+                            [
+                                div_ceil_u32(self.input_dim, 32),
+                                div_ceil_u32(rows, 32),
+                                1,
+                            ],
+                        )?;
+                        tile32_dispatched = true;
+                    }
+                }
+                if !tile32_dispatched {
+                    kernels.linear_input_grad.record_dispatch(
+                        commands,
+                        &[base_grad_output, &self.weight.values, base_grad_input],
+                        bytemuck::bytes_of(&push),
+                        [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
+                    )?;
+                }
             }
         }
         if let Some(lora) = self.lora.as_ref() {
@@ -140298,3 +140407,7 @@ mod phase_xix_query_scratch_reuse_tests;
 #[cfg(test)]
 #[path = "phase_xx_query_scratchreuse_promotion_tests.rs"]
 mod phase_xx_query_scratchreuse_promotion_tests;
+
+#[cfg(test)]
+#[path = "phase_xxii_linear_input_grad_tile_tests.rs"]
+mod phase_xxii_linear_input_grad_tile_tests;

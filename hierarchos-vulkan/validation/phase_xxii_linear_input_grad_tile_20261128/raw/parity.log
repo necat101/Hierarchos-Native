@@ -1,0 +1,12 @@
+
+running 1 test
+test transformer::phase_xxii_linear_input_grad_tile_tests::phase_xxii_linear_input_grad_output_tile_parity ... [phase-xxii-parity] case=measured-128x1024x1024 rows=128 input_dim=1024 output_dim=1024 elements=131072 bitwise=131072 sentinel=0 non_finite=0 first_divergence=None verdict=PASS
+[phase-xxii-parity] case=head-1024x1024x256 rows=128 input_dim=1024 output_dim=256 elements=131072 bitwise=131072 sentinel=0 non_finite=0 first_divergence=None verdict=PASS
+[phase-xxii-parity] case=square-64x128x128 rows=64 input_dim=128 output_dim=128 elements=8192 bitwise=8192 sentinel=0 non_finite=0 first_divergence=None verdict=PASS
+[phase-xxii-parity] case=boundary-33x37x45 rows=33 input_dim=37 output_dim=45 elements=1221 bitwise=1221 sentinel=0 non_finite=0 first_divergence=None verdict=PASS
+[phase-xxii-parity] case=narrow-5x96x160 rows=5 input_dim=96 output_dim=160 elements=480 bitwise=480 sentinel=0 non_finite=0 first_divergence=None verdict=PASS
+[phase-xxii-parity] case=degenerate-1x1x1 rows=1 input_dim=1 output_dim=1 elements=1 bitwise=1 sentinel=0 non_finite=0 first_divergence=None verdict=PASS
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1272 filtered out; finished in 0.35s
+
