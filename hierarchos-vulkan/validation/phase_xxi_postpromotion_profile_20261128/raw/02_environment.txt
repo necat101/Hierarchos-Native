@@ -1,0 +1,38 @@
+# compiler and build identity
+rustc 1.93.0 (254b59607 2026-01-19)
+binary: rustc
+commit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c
+commit-date: 2026-01-19
+host: x86_64-pc-windows-msvc
+release: 1.93.0
+LLVM version: 21.1.8
+cargo 1.93.0 (083ac5135 2025-12-15)
+release: 1.93.0
+commit-hash: 083ac5135f967fd9dc906ab057a2315861c7a80d
+commit-date: 2025-12-15
+host: x86_64-pc-windows-msvc
+libgit2: 1.9.1 (sys:0.20.2 vendored)
+libcurl: 8.15.0-DEV (sys:0.4.83+curl-8.15.0 vendored ssl:Schannel)
+os: Windows 10.0.26300 (Windows 11 Enterprise) [64-bit]
+
+# release test binary
+8c356f4f18c7e0ee029d8e43a94391fc551a5918ec4dd4e599ca563c3ae59e82 *target/release/deps/hierarchos_vulkan-70a92090d59c92cf.exe
+-rwxr-xr-x 1 User 197121 257336320 Nov 28 04:10 target/release/deps/hierarchos_vulkan-70a92090d59c92cf.exe
+
+# production shader identities
+2e3f5720da27ca6d31567f4734b140e8b9c768afa2e287333f617817fad7eb56 *shaders/transformer_attention_backward_query_rdna3.comp
+f9652f525cbc9256188d9c998fc602ad1eff43c68bbbc6b88650697584104256 *shaders/transformer_attention_backward_query_rdna3.spv
+430492fd8ab9a1955fc89c5c37c4cc4a145bf03c009b00fedb3cd05e4a88dffc *shaders/transformer_attention_backward_query_rdna3_dqunroll.comp
+f0214b60fac0b5fe420b846f89f43fd3cb3229f4a12d30fc2e5ad80e25c9d237 *shaders/transformer_attention_backward_query_rdna3_dqunroll.spv
+219167927214d96a16f72d0ba755ee879a55eaf4b1e054233ce924d7b0ccef2a *shaders/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.comp
+a6b3d6c6d7bd2911e61f81181d79cb41a3c4be2762cd9a0b6ee636e57d6057ee *shaders/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.spv
+
+# sealed Phase XIX receipt digest (must be unchanged)
+078ef22eee85c82f34cbc0de62ee594d458464353fc7a2fb1cc84723af571392  files=195  bytes=2091594  validation/phase_xix_query_scratch_reuse_20261127
+
+# environment at capture
+HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL=<unset>
+HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE=<unset>
+HIERARCHOS_WMMA_MODE=<unset>
+HIERARCHOS_VULKAN_PROFILE_KERNELS=<unset>
+HIERARCHOS_VULKAN_PROFILE_SAMPLE_STRIDE=<unset>

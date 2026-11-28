@@ -1,14 +1,17 @@
-# Hierarchos Native — Windows x64 Portable v0.2.7
+# Hierarchos Native — Windows x64 Portable v0.2.8
 
-v0.2.7 is a runtime-only, extract-and-run Windows x64 package. It promotes four
-attention-path changes into the default training route — a two-pass MHA backward,
-a narrowly gated grouped-query (GQA) backward key pass, a cached row-packed
-attention forward, and a head-dimension-128 four-channel key pass — while the
-WMMA precision policy is unchanged from v0.2.6: global WMMA stays **off by
-default**, and both the C1 batched-staging module and the P3 contract module are
-still embedded. The executables are linked with the static MSVC C runtime, so no
-Microsoft Visual C++ Redistributable is required, and no Rust, Cargo, Python,
-PyTorch, Visual Studio or shader compiler is needed to run them.
+v0.2.8 is a runtime-only, extract-and-run Windows x64 package. It promotes two
+qualified query-pass changes and one FP32 input-gradient kernel into the default
+RDNA3 training route: the Phase XVIII literal-index dQ accumulator, the Phase XX
+scratch-reuse variant, and the Phase XXII output-tiled `linear_input_grad`
+kernel. The original query shader and the original input-gradient kernel remain
+the fallbacks. The WMMA precision
+policy is unchanged from v0.2.7: global WMMA stays **off by default**, Mixed WMMA
+stays **opt-in and default-off**, and both the C1 batched-staging module and the
+P3 contract module remain embedded. The executables are linked with the static
+MSVC C runtime, so no Microsoft Visual C++ Redistributable is required, and no
+Rust, Cargo, Python, PyTorch, Visual Studio or shader compiler is needed to run
+them.
 
 ## Included executables
 
@@ -23,136 +26,94 @@ PyTorch, Visual Studio or shader compiler is needed to run them.
 The GUI and CLI discover one another beside `bin/`. `hierarchos-native-cli` also
 discovers the Vulkan companion binaries in the same directory.
 
-## What changed since v0.2.6
+## What changed since v0.2.7
 
-Four attention routes changed. They are **independent kernel and selector
-changes**, measured one at a time on the same host; the ratios below are not
+Three kernel changes are promoted. They are **independent complete-step
+measurements**, taken one at a time on the same host; the ratios are not
 multiplied into an overall training speedup and no such number is claimed.
 
-1. **Two-pass attention backward is the default for the existing gate.** The
-   scalar fusion-free MHA attention backward was replaced by a query pass that
-   writes softmax and `dS` scratch and a key/value pass that reduces it, for the
-   geometry the gate already admitted (`unfused_qk` 0/9). Attention backward fell
-   from 435.28 ms to 44.43 ms per step (9.7965× on the isolated backward) and the
-   complete optimizer step from 560.78 ms to 171.10 ms, a paired **3.2492×**
-   (95 % CI 3.1146–3.3838, five ABBA rounds, 230 samples per arm). Gradients are
-   bit-exact against the scalar route over four geometries: 6,316,128 of
-   6,316,128 FP32 elements, zero ULP. Scratch is sized exactly to
-   `batch * heads * q_seq * kv_seq` and allocated only for eligible geometry.
-2. **The GQA grouped key pass is promoted for four measured head groupings.**
-   The key pass now owns the grouped reduction for `8q/2kv`, `4q/2kv`, `8q/4kv`
-   and `16q/4kv` at head dimension 128, `q_seq = kv_seq = 64`, causal, and for
-   nothing else. MHA is unchanged bit-for-bit and measured slightly faster with
-   the same artifact. The 8q/2kv complete training step measured **19.76×**
-   (95 % CI 19.64–19.89) against the scalar route. Every other grouped geometry
-   keeps the scalar kernel with a `grouped_query_attention_*` reason and
-   allocates no scratch.
-3. **Attention forward is row-packed and cached for square sequences ≤ 64.** One
-   lane per `(batch, head, query)` keeps its scores in registers and caches the
-   `V` rows it reuses, replacing the generic per-key loop. The rule is
-   `0 < q_seq == kv_seq <= 64`, equal QK/value head widths, `unfused_qk` in
-   `{0, 1, 9}`, plain path only. Forward attention fell from 16.42 ms to
-   4.38 ms per step in the Phase X attribution, and the complete shipped-selector
-   step measured **1.2239×**. Outputs are bit-exact: 1.85 M of 1.85 M words over
-   ten geometries and three arithmetic modes.
-4. **The backward key pass is four-channel tiled at head dimension 128.** One
-   lane owns a four-channel chunk of a single destination key row, so 32 lanes
-   cover one row's 128 channels. Eligibility is `head_dim == value_head_dim ==
-   128` with the compile-time partition `32 × 4 = 128`; head dimensions 16, 32
-   and 64 keep the original key shader. The complete step measured **1.5297×**
-   (43.53 ms → 28.46 ms, 5/5 ABBA rounds), with 20 parity cases over 60 tensors
-   and 5,505,024 elements at zero failures, including an MHA control.
-   `HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0` restores the original key
-   shader for every geometry and is the control arm of the release A/B.
+1. **Phase XVIII literal-index dQ accumulator.** On the geometry the existing
+   query selector already admitted (QK and value head dimension 128), the query
+   pass indexes its dQ accumulator with literals instead of a runtime chain.
+   The Phase XVIII campaign measured eight independent geometry/mode series,
+   every one 5/5 ABBA rounds improved, **1.042×–1.124×** on the complete step
+   with a 95 % CI excluding 1.0 in every series. The original query shader is
+   the fallback, selected by `HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL=0`.
+2. **Phase XX scratch reuse is the default on that qualified path.** The query
+   pass now reuses its softmax/dS scratch instead of rewriting it. The Phase XIX
+   five-round, 160-process campaign measured the complete step at **1.088×**
+   FP32 (26.799 → 24.643 ms, 95 % CI 0.9176–0.9210) and **1.120×** Mixed
+   (21.386 → 19.111 ms, 95 % CI 0.8874–0.8977), 5/5 rounds improved in both.
+   The six additional regression series improved 1.071×–1.148×.
+   `HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE=0` selects the Phase XVIII
+   dQ-unroll module instead.
+3. **The FP32 input gradient is output-tiled for 32-aligned shapes.** The new
+   kernel owns a 32 x 32 output tile with four outputs per thread, preserving
+   each output's ascending-`k` single-`fma` reduction. The five-round ABBA
+   measured the complete step at **1.1462×** (24.875 → 21.716 ms, 95 % CI
+   0.8706–0.8742, 5/5 rounds), with 272,038 of 272,038 output words bitwise
+   equal over six shapes. Shapes outside the 32-aligned partition keep the
+   original kernel; `HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE=0` restores it for
+   every shape.
 
-Every one of those routes keeps its original fallback. An ineligible geometry
-dispatches the kernel it had in v0.2.6, the per-dispatch counters in a receipt
-report which route actually ran, and `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0`
-forces the scalar backward (which also disables the channel-tiled pipeline).
-The rejected Phase VIII key-range partitioning is **not** in the production
-path: a split backward submission is explicitly refused the two-pass pair and
-keeps the scalar kernel.
+Selector order for pass 1:
 
-## WMMA is opt-in, and Full FP16 still runs the P3 contract on C1 staging
+| order | condition | route |
+| ---: | --- | --- |
+| 1 | Phase XVIII selector admits, scratch reuse enabled, artifact loads | `query_dqunroll_scratchreuse` |
+| 2 | scratch reuse disabled or its pipeline refused | `query_dqunroll` |
+| 3 | dQ-unroll disabled or geometry not admitted | original `query_rdna3` |
 
-Unchanged from v0.2.6:
+The enclosing two-pass gate is unchanged: modes 0/9, one key-range block, no
+window, softcap, ALiBi, bias, dropout, sink, offset, sparse or compressed keys,
+paged KV or value scale; `head_dim <= 128`, `kv_seq <= head_dim`; grouped
+geometries remain limited to `8q/2kv`, `4q/2kv`, `8q/4kv` and `16q/4kv` at head
+dimension 128 with `q_seq == kv_seq == 64` and causal masking. No eligibility
+allowlist was widened. A module-specific load refusal is an ordinary fallback;
+device-lost, out-of-memory and poisoned-layout failures stay fatal.
+
+## Numerical qualification
+
+- Phase XIX parity: 28 cases, 140 tensor comparisons of `dQ`,
+  `scratch_probability`, `scratch_ds`, `dK` and `dV`; **140/140 bitwise equal**,
+  zero non-finite values.
+- Phase XX in-graph equivalence: 29 complete steps, 87 comparisons, zero
+  mismatches; 29/29 loss bits, LoRA gradient digests and parameter digests
+  equal; `parameter_end_digest = d79a12d8…9c4655` in both arms, through the real
+  production selector, buffers and dispatch.
+- Phase XVIII fallback matrix re-read with scratch reuse pinned off: 30 cases,
+  150 tensor comparisons, zero failures. No campaign was re-run and no tolerance
+  moved.
+
+## WMMA and Mixed are unchanged
 
 - **Global WMMA is off by default.** No cooperative-matrix dispatch happens
   unless a mode is requested.
-- **`--wmma-mode full-fp16` explicitly enables the Full FP16 path**; the C1
-  batched-staging module runs when the host can prove every packed load aligned
-  and in bounds, and the 23,280-byte P3 module remains the automatic fallback.
-- **`--wmma-mode mixed` is a separate, opt-in arm** and remains default-off. See
-  the Mixed WMMA section below for its measured result and its limits.
-- Admission still requires AMD RDNA3-or-newer plus the complete cooperative
-  feature contract and at least `WMMA_MIN_PROFITABLE_MACS = 16_000_000`
-  multiply-accumulates; Full FP16 reductions above
-  `FULL_FP16_MAX_REDUCTION = 64` keep their FP32 kernels. The hard numerical gate
-  remains `0.03125`. Full FP16 and Mixed remain distinct precision paths.
-
-## Mixed WMMA: requalified, still opt-in
-
-The Mixed arm was requalified against current source in v0.2.7. It is **not**
-promoted and its default is unchanged.
-
-| Measurement | Result |
-| --- | ---: |
-| LoRA complete step, Phase XII harness | 28.481 ms → 23.001 ms = **1.2385×** |
-| LoRA complete step, independent counter harness | **1.2288×** |
-| Full-parameter complete step (timing evidence only) | **1.2792×** |
-
-- Mixed remains **opt-in and default-off**. The policy switch is process-wide and
-  cannot distinguish LoRA from full-parameter training, so default-on would
-  promote Mixed to the workload whose numerical qualification is unresolved.
-- The full-parameter numerical result at the fixture learning rate `1e-2` is
-  **not qualified**: the FP32 reference itself diverges at that rate
-  (7.13 → 19.56). The 1.2792× figure is timing evidence only and is not proof of
-  numerical qualification. The separate `1e-4` control remains separate evidence
-  and is not averaged in.
-- The four LoRA adapter tensors show deterministic elementwise drift. Their
-  maximum absolute differences are 0.023203, 0.022338, 0.021156 and 0.025953
-  (nine elements of 32,768 above 0.02), while every tensor's RMS is inside the
-  established `0.003` limit (worst 0.002012). **No per-element adapter-weight
-  parity is claimed.** Every assertion the documented Mixed acceptance contract
-  does make — loss trajectory, gradient norm, adapter RMS, AdamW moments, frozen
-  base parameters, rerun determinism, exact checkpoint resume, the 37 gate rows
-  and the four graph-path tests — passes.
-
-## Measured performance (per-step, one device)
-
-| Change | Isolated kernel | Complete step |
-| --- | ---: | ---: |
-| Two-pass MHA backward | 9.7965× (435.28 → 44.43 ms) | 3.2492× (560.78 → 171.10 ms) |
-| GQA grouped key pass, 8q/2kv | — | 19.76× |
-| Row-packed cached forward | 16.42 → 4.38 ms/step | 1.2239× |
-| Four-channel key pass, head 128 | — | 1.5297× (43.53 → 28.46 ms) |
-| Mixed WMMA, LoRA | — | 1.2385× (28.481 → 23.001 ms) |
-
-Each row is a paired ABBA measurement inside one driver session against the
-route it replaced. **These are independent results, not multiplicative factors.**
-The isolated kernel figures and the complete-step figures answer different
-questions and are never combined.
+- **`--wmma-mode full-fp16`** still runs the C1 batched-staging module when the
+  host proves every packed load aligned and in bounds; the 23,280-byte P3 module
+  remains the automatic fallback.
+- **`--wmma-mode mixed`** remains a separate, opt-in arm and remains default-off.
+  Its thresholds, full-parameter learning-rate caveat and adapter elementwise
+  drift observations are unchanged from v0.2.7. No per-element adapter-weight
+  parity is claimed.
+- `FULL_FP16_MAX_REDUCTION = 64`, `WMMA_MIN_PROFITABLE_MACS = 16_000_000` and the
+  hard numerical gate `0.03125` are unchanged.
 
 ## Scope and limitations
 
 - **One device.** Every measurement was taken on the integrated AMD RDNA3
   adapter identified by PCI `1002:15bf` (`AMD Radeon Graphics`), driver
-  `32.0.32015.14001`, Windows 11 x64. No discrete RDNA3, RDNA3.5, RDNA4, NVIDIA
-  or Intel device was measured, and **no universal AMD, NVIDIA, Intel or
-  cross-architecture qualification is implied**.
-- **GQA eligibility is narrow.** Only the four recorded head-count groupings at
-  head dimension 128 with `q_seq = kv_seq = 64` and causal masking are promoted.
-  Other head dimensions keep the original key shader; generalizing to
-  `head_dim % 4 == 0` would need its own qualification.
-- **Channel4 is head-dimension-128 only.** Head dimensions 16/32/64 and
-  non-square or longer-than-64 attention keep their previous routes.
-- **Row-packed forward requires square sequences ≤ 64.** Non-square,
-  sliding-window, sparse, paged, compressed-key, ALiBi, relative-bias, softcap,
-  sink and dropout geometries keep the generic kernel.
-- **Mixed keeps its full-parameter caveat** described above, and WMMA numbers are
-  per-step milliseconds on one machine: no throughput, power or multi-GPU claim.
-- Results, including items that could not be exercised and are reported as
-  **BLOCKED** rather than passed, are in `CLEAN_MACHINE_TEST.md`.
+  `32.0.32015.14001`, Windows 11 x64. **No universal AMD, NVIDIA, Intel or
+  cross-architecture qualification is implied.**
+- Query-pass eligibility is head dimension 128 inside the existing two-pass
+  gate. Other head dimensions keep the original query shader.
+- The Phase XII four-channel key pass, row-packed forward and GQA grouped key
+  pass keep their existing artifacts, gates and control arms.
+- The original FP32 input-gradient kernel remains the fallback for shapes
+  outside the 32-aligned partition and for the explicit opt-out.
+- Timings are per-step milliseconds on one machine: no throughput, power or
+  multi-GPU claim. Results, including items reported as **BLOCKED** rather than
+  passed, are in `CLEAN_MACHINE_TEST.md`.
 
 ## Requirements
 

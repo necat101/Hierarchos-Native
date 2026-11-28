@@ -1,11 +1,11 @@
-# Hierarchos Native — Windows x64 Portable v0.2.7
+# Hierarchos Native — Windows x64 Portable v0.2.8
 
 This is the runtime package for the Hierarchos native Transformer backend. It is
 extract-and-run on a supported Windows x64 computer: no installer, no Rust or
 Cargo, no Python or PyTorch, no Visual Studio, no administrator setup, and no
 separate Microsoft Visual C++ Redistributable installation.
 
-Release version **0.2.7**. The package version is independent of the internal
+Release version **0.2.8**. The package version is independent of the internal
 crate versions in `Cargo.toml`, which keep their own established numbering.
 
 The seven release executables are linked with the static MSVC C runtime
@@ -35,7 +35,7 @@ licenses/
 README.md
 README_ARCHITECTURES.md                 # native architecture inventory
 RELEASE_NOTES.md
-CLEAN_MACHINE_TEST.md                   # v0.2.7 local acceptance report
+CLEAN_MACHINE_TEST.md                   # v0.2.8 local acceptance report
 BUILD_INFO.txt                          # source, lockfile, flags, binary hashes
 DEPENDENCIES.txt                        # PE import closure for all seven EXEs
 ```
@@ -65,33 +65,38 @@ dependencies.
 
 ## Attention paths
 
-v0.2.7 promotes four attention changes into the default training route. They are
-gated by geometry, and every ineligible geometry keeps the kernel it had:
+v0.2.8 promotes two query-pass changes into the default training route. They are
+gated by the existing two-pass gate and the unchanged head-dimension-128 query
+selector, and every ineligible geometry keeps the kernel it had. It also
+promotes a 32 x 32 output tile for the FP32 `linear_input_grad` kernel when the
+rows, input dimension and output dimension are all multiples of 32;
+`HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE=0` restores the original 16 x 16 kernel
+for every shape.
 
-- **Two-pass attention backward** is the default for the gate it already had
-  (`unfused_qk` 0/9). A query pass writes softmax and `dS` scratch; a key pass
-  reduces it. Scratch is sized exactly to `batch * heads * q_seq * kv_seq` and
-  allocated only for eligible geometry. `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0`
-  forces the scalar backward.
-- **The grouped-query backward key pass** is admitted only for `8q/2kv`, `4q/2kv`,
-  `8q/4kv` and `16q/4kv` at head dimension 128 with `q_seq = kv_seq = 64` and
-  causal masking. Every other grouped geometry keeps the scalar kernel with a
-  `grouped_query_attention_*` reason.
-- **The row-packed cached attention forward** owns square sequences up to 64 on
-  the plain path, with equal QK and value head widths and `unfused_qk` in
-  `{0, 1, 9}`. Non-square, windowed, sparse, paged, ALiBi, relative-bias,
-  softcap, sink and dropout geometries keep the generic kernel.
-- **The four-channel backward key pass** is limited to head dimension 128 for
-  both QK and value, with the compile-time partition `32 × 4 = 128`.
-  `HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0` restores the original key shader
-  for every geometry and touches no other kernel.
+- **The scratch-reuse query pass is the default on its qualified path.** It is
+  selected when the Phase XVIII selector admits the geometry, scratch reuse is
+  enabled and the artifact loads. `HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE=0`
+  selects the Phase XVIII dQ-unroll module instead.
+- **The Phase XVIII dQ-unroll query pass remains the intermediate fallback.** It
+  is selected when scratch reuse is disabled or its pipeline is refused.
+  `HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL=0` selects the original query
+  shader and wins over either scratch-reuse value.
+- **The original query shader remains the overall fallback** for an ineligible
+  geometry, a refused dQ-unroll pipeline or an explicit `…_DQUNROLL=0`.
+- The two-pass attention backward remains the default for the gate it already
+  had (`unfused_qk` 0/9); `HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0` forces the
+  scalar backward.
+- The grouped-query backward key pass, the row-packed cached forward and the
+  four-channel backward key pass keep their v0.2.7 artifacts, gates and control
+  arms. `HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0` restores the original key
+  shader for every geometry and touches no other kernel.
 
 The named environment variables are diagnostic and control arms. No variable
 selects one of the fast paths; the geometry does.
 
 ## WMMA is opt-in, and Full FP16 runs the P3 contract on C1 staging
 
-This is the precision policy of the v0.2.7 binaries, stated precisely:
+This is the precision policy of the v0.2.8 binaries, stated precisely:
 
 - **Global WMMA is off by default.** The process default is `WmmaMode::Off`; the
   FP32 Vulkan path is unchanged. No cooperative-matrix dispatch happens unless a
@@ -140,7 +145,7 @@ This is the precision policy of the v0.2.7 binaries, stated precisely:
 
 ### Measured hardware scope
 
-The v0.2.7 qualification applies to **one measured adapter**: AMD RDNA3 with PCI
+The v0.2.8 qualification applies to **one measured adapter**: AMD RDNA3 with PCI
 vendor `0x1002`, device `0x15bf` (Phoenix-class integrated RDNA3), Vulkan SDK
 1.4.321, driver `32.0.32015.14001`. It is **not** a claim for every RDNA3 adapter, for RDNA3.5, for
 RDNA4, or for any non-AMD device. On other hardware the run is gated by the
@@ -232,7 +237,7 @@ system components is `vulkan-1.dll`. The GPU software stack supplies it.
 
 ## Verification status
 
-The v0.2.7 package is built from the qualified source commit of `release/v0.2.7`;
+The v0.2.8 package is built from the qualified source commit of `release/v0.2.8`;
 the exact packaging commit is the checked-out HEAD recorded in `BUILD_INFO.txt`
 and `BUILD_MANIFEST.json`, together with the archive and executable hashes. The
 attention artifacts it embeds are the ones their receipts qualify; both WMMA
@@ -259,8 +264,9 @@ are outside the CLI's frontend-qualified 64-wide training profile; the test uses
 the packaged standalone trainer's production path.
 
 The attention qualification was recorded on the measured RDNA3 adapter over
-Phases III–XIV: bit-exact gradients for the two-pass pair, four measured GQA
-groupings, ten row-packed geometries and 20 four-channel parity cases, with every
+Phases III–XX: bit-exact gradients for the two-pass pair, four measured GQA
+groupings, ten row-packed geometries, 20 four-channel parity cases and 140/140
+bitwise query-pass tensor comparisons, with every
 receipt carrying its own source and SPIR-V hashes and its own `reproduce.sh`. The
 WMMA record — seeds, configurations, 37 gates per receipt, raw paired timings,
 corrected 95 % confidence intervals — is `validation/phase_lxxxviii_c1_promotion/`.
@@ -280,7 +286,7 @@ The static portable build is produced by:
 
 ```powershell
 .\hierarchos-vulkan\package-standalone.ps1 `
-  -OutDir C:\path\to\hierarchos-v027-stage `
+  -OutDir C:\path\to\hierarchos-v028-stage `
   -StaticCrt
 ```
 

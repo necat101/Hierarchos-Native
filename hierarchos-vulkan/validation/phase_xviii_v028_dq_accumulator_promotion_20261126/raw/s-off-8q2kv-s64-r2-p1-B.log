@@ -1,0 +1,42 @@
+
+running 1 test
+test transformer::phase_xviii_dq_accumulator_promotion_tests::phase_xviii_dq_accumulator_full_step ... [phase-xviii-step-run] arm=dqunroll fixture=target/gqa-e2e/fixture-8q2kv sequences=32 batches_per_epoch=16 batch=2 seq=64 steps=29 warmup=3 lora=true lr=0.01 seed=7 digest=false expected_route=dqunroll device=AMD Radeon Graphics row_packed_installed=true two_pass_enabled=true dqunroll_enabled=true parameter_start_digest=d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655 parameter_elements=13636608
+two-pass backward scratch: layer=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 elements=65536 bytes=524288
+two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_channel4 eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward scratch: layer=0 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 elements=65536 bytes=524288
+[phase-xviii-step] arm=dqunroll step=0 epoch=0 batch=0 measured=false step_ms=76.236200 loss_bits=40e44309 loss=7.133183e0
+[phase-xviii-step] arm=dqunroll step=1 epoch=0 batch=1 measured=false step_ms=41.248800 loss_bits=40e43f10 loss=7.132698e0
+[phase-xviii-step] arm=dqunroll step=2 epoch=0 batch=2 measured=false step_ms=32.752800 loss_bits=40e30547 loss=7.094394e0
+[phase-xviii-step] arm=dqunroll step=3 epoch=0 batch=3 measured=true step_ms=28.406700 loss_bits=40e757ac loss=7.229452e0
+[phase-xviii-step] arm=dqunroll step=4 epoch=0 batch=4 measured=true step_ms=26.968800 loss_bits=40e5465d loss=7.1648393e0
+[phase-xviii-step] arm=dqunroll step=5 epoch=0 batch=5 measured=true step_ms=26.848800 loss_bits=40e437d3 loss=7.1318145e0
+[phase-xviii-step] arm=dqunroll step=6 epoch=0 batch=6 measured=true step_ms=26.624400 loss_bits=40df8192 loss=6.9845667e0
+[phase-xviii-step] arm=dqunroll step=7 epoch=0 batch=7 measured=true step_ms=26.704300 loss_bits=40e11b1a loss=7.0345583e0
+[phase-xviii-step] arm=dqunroll step=8 epoch=0 batch=8 measured=true step_ms=27.042500 loss_bits=40e25bf7 loss=7.073726e0
+[phase-xviii-step] arm=dqunroll step=9 epoch=0 batch=9 measured=true step_ms=27.461500 loss_bits=40def71a loss=6.967664e0
+[phase-xviii-step] arm=dqunroll step=10 epoch=0 batch=10 measured=true step_ms=26.861400 loss_bits=40e49078 loss=7.1426353e0
+[phase-xviii-step] arm=dqunroll step=11 epoch=0 batch=11 measured=true step_ms=26.978800 loss_bits=40e60d29 loss=7.1891065e0
+[phase-xviii-step] arm=dqunroll step=12 epoch=0 batch=12 measured=true step_ms=26.560400 loss_bits=40e32f2f loss=7.0995097e0
+[phase-xviii-step] arm=dqunroll step=13 epoch=0 batch=13 measured=true step_ms=26.452200 loss_bits=40d12961 loss=6.536301e0
+[phase-xviii-step] arm=dqunroll step=14 epoch=0 batch=14 measured=true step_ms=26.907400 loss_bits=40e13cd3 loss=7.038675e0
+[phase-xviii-step] arm=dqunroll step=15 epoch=0 batch=15 measured=true step_ms=26.824200 loss_bits=40e04f85 loss=7.009707e0
+[phase-xviii-step] arm=dqunroll step=16 epoch=1 batch=0 measured=true step_ms=26.887000 loss_bits=40c13cfc loss=6.0386944e0
+[phase-xviii-step] arm=dqunroll step=17 epoch=1 batch=1 measured=true step_ms=26.720000 loss_bits=40c12b9f loss=6.036575e0
+[phase-xviii-step] arm=dqunroll step=18 epoch=1 batch=2 measured=true step_ms=26.749400 loss_bits=40d28fb4 loss=6.580042e0
+[phase-xviii-step] arm=dqunroll step=19 epoch=1 batch=3 measured=true step_ms=26.959800 loss_bits=40d065e4 loss=6.512438e0
+[phase-xviii-step] arm=dqunroll step=20 epoch=1 batch=4 measured=true step_ms=26.674700 loss_bits=40d2691b loss=6.5753303e0
+[phase-xviii-step] arm=dqunroll step=21 epoch=1 batch=5 measured=true step_ms=26.765400 loss_bits=40d47b7a loss=6.640073e0
+[phase-xviii-step] arm=dqunroll step=22 epoch=1 batch=6 measured=true step_ms=27.017600 loss_bits=40c08033 loss=6.0156493e0
+[phase-xviii-step] arm=dqunroll step=23 epoch=1 batch=7 measured=true step_ms=26.614800 loss_bits=40c4817d loss=6.1408067e0
+[phase-xviii-step] arm=dqunroll step=24 epoch=1 batch=8 measured=true step_ms=27.245300 loss_bits=40d176c7 loss=6.545749e0
+[phase-xviii-step] arm=dqunroll step=25 epoch=1 batch=9 measured=true step_ms=26.660000 loss_bits=40c8781e loss=6.2646627e0
+[phase-xviii-step] arm=dqunroll step=26 epoch=1 batch=10 measured=true step_ms=26.817300 loss_bits=40d5486c loss=6.6650906e0
+[phase-xviii-step] arm=dqunroll step=27 epoch=1 batch=11 measured=true step_ms=26.883700 loss_bits=40d443c2 loss=6.633271e0
+[phase-xviii-step] arm=dqunroll step=28 epoch=1 batch=12 measured=true step_ms=26.797100 loss_bits=40d1ae53 loss=6.55253e0
+[phase-xviii-step-run-end] arm=dqunroll parameter_end_digest=d79a12d882fd780deaada83a940374ab753b0a3bc5586a7ca348735ed29c4655 parameter_elements=13636608 parameter_end_norm=1.02808900754167652e2 forward_generic=0 forward_row_packed=58 forward_short=0 forward_total=58 backward_scalar=0 backward_query_original=0 backward_query_dqunroll=58 backward_key_original=0 backward_key_channel4=58 scratch_allocations=2 scratch_bytes=1048576
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1259 filtered out; finished in 1.84s
+

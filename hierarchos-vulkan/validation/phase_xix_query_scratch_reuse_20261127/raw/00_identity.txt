@@ -1,0 +1,22 @@
+date=2026-11-27T07:45:45Z
+branch=research/v0.2.8-optimization-discovery
+head=b3cfc70675734b789b5e54061064b3dc8229b1ab
+tag_v0.2.7_object=85b64a1eb9be1e925e791c1c29b69ced74e23404
+tag_v0.2.7_commit=9b0091e02e976441e343d6c445101f9c29395bd6
+main=9b0091e02e976441e343d6c445101f9c29395bd6
+release_v0.2.7=a32d09eba62f74c9876eef81312986eba0b42492
+stash_count=1
+stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+stash0=831f892774619603c2dd68d0dd654d315f1a8f7e
+tracked_diff_sha256=7328f016bc1e3f736cc15c3a6d1156372c63e66f356869118b405aa025fed6ba
+staged_diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+# status (porcelain, untracked collapsed)
+ M hierarchos-vulkan/src/transformer.rs
+?? hierarchos-vulkan/src/phase_xix_query_scratch_reuse_tests.rs
+?? hierarchos-vulkan/validation/phase_xix_query_scratch_reuse_20261127/
+
+# status (short)
+ M src/transformer.rs
+?? src/phase_xix_query_scratch_reuse_tests.rs
+?? validation/phase_xix_query_scratch_reuse_20261127/

@@ -1,0 +1,225 @@
+{
+ "release_version": "0.2.8",
+ "source_commit": "77b0b006760171207d6a8e3054fd2070e4bd49c0",
+ "source_state_at_packaging": "clean",
+ "build_timestamp_utc": "2026-11-28T10:46:31Z",
+ "target_triple": "x86_64-pc-windows-msvc",
+ "rust_version": "",
+ "cargo_version": "",
+ "release_flags": {
+  "profile": "release (opt-level=3, thin LTO, codegen-units=1)",
+  "rustflags": "-C target-feature=+crt-static --remap-path-prefix=C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-v028-stage-clean=hierarchos-native --remap-path-prefix=C:\\Users\\User\\.cargo=cargo --remap-path-prefix=C:\\Users\\User\\.rustup=rustup",
+  "target_cpu_native": false,
+  "dependency_scan": "enabled (no -SkipDependencyScan)"
+ },
+ "static_crt": true,
+ "standalone_cargo_lock_sha256": "f4360adfc4a2127c0be817c71c08659c181f7ff04813b5f8bc882a23ca7132d7",
+ "modules": {
+  "p3_contract_fallback": {
+   "source": "shaders/wmma_gemm_f16_f16acc_twowave_p3.comp",
+   "source_sha256": "4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12",
+   "spirv": "shaders/wmma_gemm_f16_f16acc_twowave_p3.spv",
+   "spirv_sha256": "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2",
+   "spirv_bytes": 23280,
+   "variant": "P3",
+   "spirv_fnv1a64": "0x076216ad97d7605f"
+  },
+  "c1_batched_staging": {
+   "source": "shaders/wmma_gemm_f16_f16acc_twowave_p3_c1.comp",
+   "source_sha256": "9857a8ad457f3b119e0465dde7c4bb36635053e9ee25522bce0a208452953da4",
+   "spirv": "shaders/wmma_gemm_f16_f16acc_twowave_p3_c1.spv",
+   "spirv_sha256": "b072242034ba7bd0f53690c38c03b11ed587b538480c04ed13ecf19fe2a8b27d",
+   "spirv_bytes": 36912,
+   "variant": "P3 (staged_spirv)",
+   "spirv_fnv1a64": "0xfecb2a74c4bbbce4"
+  }
+ },
+ "attention_modules": {
+  "forward_rowpacked64_cached": {
+   "source": "shaders/transformer_attention_forward_rowpacked64_cached_rdna3.comp",
+   "source_sha256": "8f7bf06f65291793b12c81a9b0bd733a5ce656ffbd4a3689fea5fabf3439e6ed",
+   "spirv": "shaders/transformer_attention_forward_rowpacked64_cached_rdna3.spv",
+   "spirv_sha256": "c053503e267ede432cd174e887d800640ce854aad186f8b71390e8c4543764fd",
+   "spirv_bytes": 22472,
+   "eligibility": "0 < q_seq == kv_seq <= 64; equal QK/value head widths; unfused_qk in {0,1,9}; plain path only",
+   "fallback": "generic attention forward"
+  },
+  "backward_query_two_pass": {
+   "source": "shaders/transformer_attention_backward_query_rdna3.comp",
+   "source_sha256": "2e3f5720da27ca6d31567f4734b140e8b9c768afa2e287333f617817fad7eb56",
+   "spirv": "shaders/transformer_attention_backward_query_rdna3.spv",
+   "spirv_sha256": "f9652f525cbc9256188d9c998fc602ad1eff43c68bbbc6b88650697584104256",
+   "spirv_bytes": 48492,
+   "eligibility": "the existing two-pass gate (unfused_qk 0/9, MHA or a qualified grouped geometry)",
+   "fallback": "scalar attention backward"
+  },
+  "backward_query_dqunroll": {
+   "source": "shaders/transformer_attention_backward_query_rdna3_dqunroll.comp",
+   "source_sha256": "430492fd8ab9a1955fc89c5c37c4cc4a145bf03c009b00fedb3cd05e4a88dffc",
+   "spirv": "shaders/transformer_attention_backward_query_rdna3_dqunroll.spv",
+   "spirv_sha256": "f0214b60fac0b5fe420b846f89f43fd3cb3229f4a12d30fc2e5ad80e25c9d237",
+   "spirv_bytes": 109300,
+   "eligibility": "QK and value head dimension 128 inside the existing two-pass gate",
+   "fallback": "the original query shader; opt out with HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL=0"
+  },
+  "backward_query_scratchreuse": {
+   "source": "shaders/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.comp",
+   "source_sha256": "219167927214d96a16f72d0ba755ee879a55eaf4b1e054233ce924d7b0ccef2a",
+   "spirv": "shaders/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.spv",
+   "spirv_sha256": "a6b3d6c6d7bd2911e61f81181d79cb41a3c4be2762cd9a0b6ee636e57d6057ee",
+   "spirv_bytes": 89340,
+   "eligibility": "the Phase XVIII query selector at head dimension 128; default on the qualified path",
+   "fallback": "the Phase XVIII dQ-unroll shader, then the original query shader; opt out with HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE=0"
+  },
+  "backward_key_grouped": {
+   "source": "shaders/transformer_attention_backward_key_rdna3.comp",
+   "source_sha256": "e417935459e49dee1bc56db400f321496a2c04ad05392e8b14aef40d6c92ff78",
+   "spirv": "shaders/transformer_attention_backward_key_rdna3.spv",
+   "spirv_sha256": "ccf609843be2a37d33bb6df3b1ab490b7b3fa6a52e5816975c21524af71cd925",
+   "spirv_bytes": 10724,
+   "eligibility": "MHA, plus 8q/2kv, 4q/2kv, 8q/4kv and 16q/4kv at head dimension 128",
+   "fallback": "scalar attention backward"
+  },
+  "backward_key_channel4": {
+   "source": "shaders/transformer_attention_backward_key_channel4_rdna3.comp",
+   "source_sha256": "e1373db7ea1e7e0a1ac700ec7a9d464571f8b24f6065dbcc23c7d6df286e78f9",
+   "spirv": "shaders/transformer_attention_backward_key_channel4_rdna3.spv",
+   "spirv_sha256": "f5480ccedce8c2752f7b94b2fe478d9c9e4f496f284344c2140abc3367f7b2c8",
+   "spirv_bytes": 12872,
+   "eligibility": "head_dim == value_head_dim == 128, partition 32 * 4 == 128",
+   "fallback": "the original two-pass key shader; opt out with HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0"
+  }
+ },
+ "linear_modules": {
+  "input_grad_output_tile32": {
+   "source": "shaders/linear_input_grad_output_tile32.comp",
+   "source_sha256": "fb94829731afe81a1d77f8b62f9c937b5f767059b38e6cff3c3d900bed7c983d",
+   "spirv": "shaders/linear_input_grad_output_tile32.spv",
+   "spirv_sha256": "9316501e88a97a41da7a30c21e68eb31e80fd328cc6c8626790a7c8bbbb12c45",
+   "spirv_bytes": 4992,
+   "eligibility": "rows, input_dim and output_dim all multiples of 32",
+   "fallback": "the original linear_input_grad kernel; opt out with HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE=0"
+  }
+ },
+ "production_route": {
+  "attention": {
+   "mode": "on by default, per-geometry",
+   "selector": "hierarchos-vulkan/src/transformer.rs",
+   "two_pass_requires": [
+    "HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS is unset or truthy",
+    "one key-range block (a split backward submission keeps the scalar kernel)",
+    "unfused_qk in {0, 9} for MHA, or one of the four measured grouped shapes at head dimension 128",
+    "exact scratch size representable"
+   ],
+   "channel4_requires": [
+    "the two-pass gate admitted the geometry",
+    "head_dim == value_head_dim == 128",
+    "HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4 is unset or truthy"
+   ],
+   "row_packed_requires": [
+    "0 < q_seq == kv_seq <= 64",
+    "equal QK and value head widths",
+    "unfused_qk in {0, 1, 9}",
+    "no window, softcap, ALiBi, relative bias, dropout, sink, sparse mask, compressed keys, paged KV or value scale"
+   ],
+   "query_order": [
+    "query_dqunroll_scratchreuse when the Phase XVIII selector admits the geometry and the artifact loads",
+    "query_dqunroll when scratch reuse is disabled or its pipeline is refused",
+    "the original query shader when the dQ-unroll path is disabled or the geometry is not admitted"
+   ],
+   "fallback": "the scalar backward and the generic forward for every ineligible geometry",
+   "control_arms": {
+    "HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0": "scalar attention backward",
+    "HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0": "original two-pass key shader",
+    "HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE=0": "Phase XVIII dQ-unroll query shader",
+    "HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL=0": "original query shader"
+   }
+  },
+  "linear_input_grad": {
+   "mode": "output-tiled 32 x 32, on by default for 32-aligned shapes",
+   "selector": "hierarchos-vulkan/src/transformer.rs",
+   "requires": [
+    "rows % 32 == 0 and input_dim % 32 == 0 and output_dim % 32 == 0",
+    "the promoted artifact loads",
+    "HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE is unset, 1 or unrecognized"
+   ],
+   "fallback": "the original 16 x 16 linear_input_grad kernel for every other shape or an explicit 0",
+   "control_arm": {
+    "HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE=0": "original linear_input_grad kernel"
+   }
+  },
+  "wmma": {
+   "mode": "full-fp16 (opt-in; global WMMA off by default)",
+   "selector": "hierarchos-vulkan/src/wmma.rs::batched_staging_eligible",
+   "c1_requires": [
+    "rows % 32 == 0 and columns % 32 == 0 and reduction % 16 == 0",
+    "lda % 2 == 0 and ldb % 2 == 0",
+    "packed element indices inside the 32-bit ceiling with one element of headroom",
+    "both bound operands cover every element the fast path reads"
+   ],
+   "fallback": "P3 module, selected automatically when any condition is unproven",
+   "override": "none; no flag, environment variable or variant name selects a staging module"
+  }
+ },
+ "qualification": {
+  "attention": {
+   "two_pass_backward": "bit-exact over four geometries, 6316128/6316128 elements, zero ULP; 3.2492x complete step (95% CI 3.1146-3.3838)",
+   "gqa_key_pass": "bit-exact for 8q/2kv and 4q/2kv in both modes; 19.76x complete step at 8q/2kv (95% CI 19.64-19.89)",
+   "row_packed_forward": "1.85M/1.85M words bit-exact over ten geometries and three modes; 1.2239x on the shipped selector",
+   "channel4_key_pass": "20 parity cases, 60 tensors, 5505024 elements, zero failures; 1.5297x complete step (5/5 rounds)",
+   "query_dqunroll": "8 ABBA series, 5/5 rounds improved, 1.042x-1.124x complete step, CI excludes 1.0 in every series",
+   "query_scratchreuse": "140/140 bitwise tensor comparisons over 28 cases; 29/29 in-graph loss, gradient and parameter digests; 1.088x FP32 and 1.120x Mixed complete step (5/5 rounds)",
+   "evidence": "hierarchos-vulkan/validation/phase_ix_row_packed_forward_20261124, phase_x_row_packed_forward_promotion_20261125, phase_xii_channel4_key_production_20261125, mha_attention_backward_closeout_20261124, gqa_production_promotion_20261124, gqa_end_to_end_training_20261124, phase_xviii_v028_dq_accumulator_promotion_20261126, phase_xix_query_scratch_reuse_20261127, phase_xx_query_scratchreuse_promotion_20261127"
+  },
+  "linear_input_grad": "6 shapes, 272038/272038 words bitwise equal; 5-round ABBA 24.875 -> 21.716 ms, 1.1462x, 5/5 rounds, 95% CI 0.8706-0.8742",
+  "mixed_wmma": "1.2385x / 1.2288x LoRA complete step, 1.2792x full-parameter timing only; opt-in, default off; adapter elementwise drift reported",
+  "evidence": "hierarchos-vulkan/validation/phase_xiii_mixed_wmma_requalification_20261125",
+  "device": "AMD Radeon Graphics, PCI 1002:15bf, driver 32.0.32015.14001"
+ },
+ "executables": {
+  "hierarchos-native.exe": {
+   "bytes": 5594624,
+   "sha256": "34cf72fee23e08b404ae4647185643d87da6e2171a7a3fb45a838c6eab380683"
+  },
+  "hierarchos-native-cli.exe": {
+   "bytes": 40308224,
+   "sha256": "98377e4f1c947060844d855bb2878885dbf64631690a488d693e1bac92b72da4"
+  },
+  "hierarchos-infer.exe": {
+   "bytes": 1108992,
+   "sha256": "6c35e3869d03fdaa43505049615d231dac84c6a6fa31570f467f69c1e51ee7b5"
+  },
+  "hierarchos-vulkan-train.exe": {
+   "bytes": 16420352,
+   "sha256": "077864930e31aa54a38eb698ba3b2a09dcfc251e1225d0688c8739d89cf3654a"
+  },
+  "hierarchos-vulkan-devices.exe": {
+   "bytes": 942080,
+   "sha256": "362b720a25164ce67270b116a9156a071bb992e369024fd40fb9dfba0cba43c8"
+  },
+  "hierarchos-vulkan-transformer-train.exe": {
+   "bytes": 28686848,
+   "sha256": "ae9afba58e202cdd715ef3d55e394a860bd42646e69c12fbcd3c3a6b3878dc50"
+  },
+  "hierarchos-vulkan-transformer-logits.exe": {
+   "bytes": 19325952,
+   "sha256": "0b5f57a5abb555e0bf88d03a4370890d394a884afee78e23047af94912dd8622"
+  }
+ },
+ "pe_dependency_verification": {
+  "result": "PASS",
+  "report": "DEPENDENCIES.txt",
+  "expected_external_gpu_runtime": "vulkan-1.dll (not bundled)"
+ },
+ "package": {
+  "file": "Hierarchos-Native-Windows-x64-Portable-v0.2.8.zip",
+  "bytes": 34294807,
+  "sha256": "aa2d8d7feda9b106120d9abb4b0be28986d554ad6d915af000a0be89db0ec61c",
+  "entries": 16
+ },
+ "reports": {
+  "release_note": "RDNA3_V028_RELEASE.md",
+  "qualification": "hierarchos-vulkan/validation/phase_xx_query_scratchreuse_promotion_20261127/README.md",
+  "package_acceptance": "CLEAN_MACHINE_TEST.md"
+ }
+}

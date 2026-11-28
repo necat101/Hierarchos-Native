@@ -1,0 +1,29 @@
+# v0.2.8 shader and layout verification
+# Source commit: 77b0b006760171207d6a8e3054fd2070e4bd49c0
+# Working tree at verification: clean
+
+$ python -m json.tool validation/training_shader_manifest.json > /dev/null
+MANIFEST_JSON_OK
+
+$ glslc -fshader-stage=compute --target-env=vulkan1.1 -O \
+    shaders/linear_input_grad_output_tile32.comp -o /tmp/rebuild_tile32.spv
+$ cmp /tmp/rebuild_tile32.spv shaders/linear_input_grad_output_tile32.spv
+SHADER_REBUILD_IDENTICAL
+
+$ spirv-val --target-env vulkan1.1 shaders/linear_input_grad_output_tile32.spv
+SPIRV_VAL_OK
+
+$ python validation/check_push_constant_layouts.py
+checked 534 shader push blocks, 112 host structs
+PASS: push-constant blocks agree across SPIR-V, GLSL and host structs
+
+$ cargo check --lib --bins
+Finished `dev` profile [unoptimized + debuginfo] target(s)
+EXIT=0
+
+# Artifact identities
+shaders/linear_input_grad_output_tile32.comp
+fb94829731afe81a1d77f8b62f9c937b5f767059b38e6cff3c3d900bed7c983d
+shaders/linear_input_grad_output_tile32.spv
+9316501e88a97a41da7a30c21e68eb31e80fd328cc6c8626790a7c8bbbb12c45
+4992 bytes

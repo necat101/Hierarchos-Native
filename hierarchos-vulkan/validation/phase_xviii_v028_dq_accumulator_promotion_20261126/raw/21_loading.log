@@ -1,0 +1,11 @@
+
+running 1 test
+test transformer::phase_xviii_dq_accumulator_promotion_tests::phase_xviii_dq_accumulator_optional_loading ... two-pass backward: route=query_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-loading] setting=0 route=query_original resolved=false
+two-pass backward: route=query_original eligible=true reason=dqunroll_shader_unavailable kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-loading] setting=default refused=true route=query_original reason=dqunroll_shader_unavailable
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1259 filtered out; finished in 0.21s
+

@@ -1,0 +1,7 @@
+$ glslc -fshader-stage=compute --target-env=vulkan1.2 --target-spv=spv1.4 -O -Ishaders shaders/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.comp -o <scratch>/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.spv
+compile_exit=0
+shaderc v2023.8 v2025.3
+spirv-tools v2025.3 v2022.4-833-g33e02568
+glslang 11.1.0-1253-gefd24d75
+
+Target: SPIR-V 1.0

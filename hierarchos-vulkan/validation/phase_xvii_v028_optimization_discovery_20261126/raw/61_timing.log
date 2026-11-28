@@ -1,0 +1,23 @@
+
+running 1 test
+test transformer::phase_xvii_v028_optimization_discovery_tests::phase_xvii_query_dqunroll_timing ... [phase-xvii-timing] device=AMD Radeon Graphics
+[phase-xvii-timing] mode=0 round=0 production_ms=8.5903 candidate_ms=3.7837 ratio=0.4405
+[phase-xvii-timing] mode=0 round=1 production_ms=4.3180 candidate_ms=3.4385 ratio=0.7963
+[phase-xvii-timing] mode=0 round=2 production_ms=3.7711 candidate_ms=2.4105 ratio=0.6392
+[phase-xvii-timing] mode=0 round=3 production_ms=3.4516 candidate_ms=2.4546 ratio=0.7111
+[phase-xvii-timing] mode=0 round=4 production_ms=3.3706 candidate_ms=2.2724 ratio=0.6742
+[phase-xvii-timing] mode=0 round=5 production_ms=3.0894 candidate_ms=2.1762 ratio=0.7044
+[phase-xvii-timing] mode=0 round=6 production_ms=3.0900 candidate_ms=2.1790 ratio=0.7052
+[phase-xvii-timing] mode=0 rounds=7 repeats=8 median_ratio=0.7044 speedup=1.4197 rows=1024 workgroups=16
+[phase-xvii-timing] mode=9 round=0 production_ms=3.4828 candidate_ms=2.6039 ratio=0.7476
+[phase-xvii-timing] mode=9 round=1 production_ms=3.4672 candidate_ms=2.5951 ratio=0.7485
+[phase-xvii-timing] mode=9 round=2 production_ms=3.3934 candidate_ms=2.6252 ratio=0.7736
+[phase-xvii-timing] mode=9 round=3 production_ms=3.4252 candidate_ms=2.5660 ratio=0.7492
+[phase-xvii-timing] mode=9 round=4 production_ms=3.4328 candidate_ms=2.5907 ratio=0.7547
+[phase-xvii-timing] mode=9 round=5 production_ms=3.4165 candidate_ms=2.6872 ratio=0.7866
+[phase-xvii-timing] mode=9 round=6 production_ms=3.5275 candidate_ms=2.6843 ratio=0.7610
+[phase-xvii-timing] mode=9 rounds=7 repeats=8 median_ratio=0.7547 speedup=1.3251 rows=1024 workgroups=16
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1255 filtered out; finished in 1.18s
+

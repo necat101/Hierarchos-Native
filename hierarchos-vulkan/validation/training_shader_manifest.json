@@ -1629,6 +1629,17 @@
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "linear_input_grad_output_tile32.spv",
+      "source": "linear_input_grad_output_tile32.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
       "artifact": "linear_input_grad_block8.spv",
       "source": "linear_input_grad_block8.comp",
       "compiler": "glslangValidator",
@@ -3681,6 +3692,34 @@
     {
       "artifact": "transformer_attention_backward_query_rdna3.spv",
       "source": "transformer_attention_backward_query_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.2"
+    },
+    {
+      "artifact": "transformer_attention_backward_query_rdna3_dqunroll.spv",
+      "source": "transformer_attention_backward_query_rdna3_dqunroll.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.2"
+    },
+    {
+      "artifact": "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.spv",
+      "source": "transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.comp",
       "compiler": "glslc",
       "compiler_version": "2023.8",
       "flags": [

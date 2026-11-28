@@ -1,0 +1,28 @@
+=== SHIPPED (control) ===
+artifact=shipped_transformer_attention_backward_query_rdna3
+file=13_shipped.dis.txt
+instructions_total=1806
+function_storage_float_arrays=1
+private_storage_float_array_pointers=0
+function_storage_array_variables=1
+access_chains_with_any_runtime_index_module_wide=49
+  variable=%1297 storage=Function array=%_arr_float_uint_128[128] constant_access_chains=0 runtime_index_access_chains=4
+    runtime_index_sources=%5820:OpPhi
+    runtime_index_sources=%5824:OpPhi
+    runtime_index_sources=%5900:OpPhi
+    runtime_index_sources=%5901:OpPhi
+
+=== CANDIDATE (promoted) ===
+artifact=transformer_attention_backward_query_rdna3_dqunroll
+file=14_dqunroll.dis.txt
+instructions_total=4430
+function_storage_float_arrays=1
+private_storage_float_array_pointers=0
+function_storage_array_variables=1
+access_chains_with_any_runtime_index_module_wide=444
+  variable=%1294 storage=Function array=%_arr_float_uint_128[128] constant_access_chains=128 runtime_index_access_chains=4
+    constant_index_count=128 distinct_constants=128 range=0..127
+    runtime_index_sources=%11053:OpPhi
+    runtime_index_sources=%11057:OpPhi
+    runtime_index_sources=%11133:OpPhi
+    runtime_index_sources=%11134:OpPhi

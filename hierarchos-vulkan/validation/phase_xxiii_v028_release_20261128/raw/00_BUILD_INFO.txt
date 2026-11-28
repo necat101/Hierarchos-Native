@@ -1,0 +1,20 @@
+Hierarchos Native Windows x64 release candidate
+Source commit: 77b0b006760171207d6a8e3054fd2070e4bd49c0
+Source state at packaging: clean
+Build timestamp (UTC): 2026-11-28T10:46:31Z
+Target: x86_64-pc-windows-msvc
+Profile: release (opt-level=3, thin LTO, codegen-units=1)
+CRT linkage: static (+crt-static)
+Effective build flags: -C target-feature=+crt-static --remap-path-prefix=C:\Users\User\AppData\Local\Temp\hierarchos-v028-stage-clean=hierarchos-native --remap-path-prefix=C:\Users\User\.cargo=cargo --remap-path-prefix=C:\Users\User\.rustup=rustup
+Cargo.lock SHA-256: f4360adfc4a2127c0be817c71c08659c181f7ff04813b5f8bc882a23ca7132d7
+Portable dependency scan: PASS (DEPENDENCIES.txt)
+cargo 1.93.0 (083ac5135 2025-12-15)
+rustc 1.93.0 (254b59607 2026-01-19)
+Binaries:
+  hierarchos-infer.exe  sha256=6c35e3869d03fdaa43505049615d231dac84c6a6fa31570f467f69c1e51ee7b5
+  hierarchos-native.exe  sha256=34cf72fee23e08b404ae4647185643d87da6e2171a7a3fb45a838c6eab380683
+  hierarchos-native-cli.exe  sha256=98377e4f1c947060844d855bb2878885dbf64631690a488d693e1bac92b72da4
+  hierarchos-vulkan-devices.exe  sha256=362b720a25164ce67270b116a9156a071bb992e369024fd40fb9dfba0cba43c8
+  hierarchos-vulkan-train.exe  sha256=077864930e31aa54a38eb698ba3b2a09dcfc251e1225d0688c8739d89cf3654a
+  hierarchos-vulkan-transformer-logits.exe  sha256=0b5f57a5abb555e0bf88d03a4370890d394a884afee78e23047af94912dd8622
+  hierarchos-vulkan-transformer-train.exe  sha256=ae9afba58e202cdd715ef3d55e394a860bd42646e69c12fbcd3c3a6b3878dc50

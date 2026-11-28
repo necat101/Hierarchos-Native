@@ -1,0 +1,28 @@
+# v0.2.8 PR #13 CI status
+# Head: c5192fd9575eadd9bc47ec8283139aa7b5007a10
+# Repository: necat101/Hierarchos-Native, base main
+
+Required gates:
+
+candidate-a                    pass   27s / 24s (push and pull_request runs)
+current-candidate              pass   22s / 24s
+digest-guard (evidence)        pass   45s / 47s
+phase-lxv-gate                 pass   33s / 23s
+workspace-check                pass   6m43s
+
+Additional gates:
+
+Phase LXXXI manifest gate (ubuntu-latest)   pass  28s / 26s
+Phase LXXXI manifest gate (windows-latest)  pass  49s / 1m0s
+p3-release-historical                       pass  25s / 27s
+phase-lxiv-historical                       pass  25s / 31s
+phase19t-historical                         pass  50s / 1m12s
+workflow-validation                         pass  17s / 19s
+
+Not completed at merge time:
+
+cross-adapter-ab    pending (self-hosted runner)
+producer-ab         pending (self-hosted runner)
+
+These two are not among the release's required gates; v0.2.7 merged with the
+same self-hosted jobs queued. No required check was skipped or bypassed.

@@ -1,0 +1,22 @@
+date=2026-11-26T07:12:27Z
+branch=research/v0.2.8-optimization-discovery
+head=9b0091e02e976441e343d6c445101f9c29395bd6
+tag_v0.2.7_object=85b64a1eb9be1e925e791c1c29b69ced74e23404
+tag_v0.2.7_commit=9b0091e02e976441e343d6c445101f9c29395bd6
+main=9b0091e02e976441e343d6c445101f9c29395bd6
+stash_count=1
+stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+staged_index_tree=9d0e6292840061de32f6b7584a9afe042a88692b
+staged_diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+full_diff_sha256=68b192bbe9b14d6d1fd5a515598a64e1bd8e03253af230b1e6ded6cbded5407a
+
+# status
+ M hierarchos-vulkan/src/transformer.rs
+ M hierarchos-vulkan/validation/training_shader_manifest.json
+?? hierarchos-vulkan/examples/amd_shader_resource_probe.rs
+?? hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3_dqunroll.comp
+?? hierarchos-vulkan/shaders/transformer_attention_backward_query_rdna3_dqunroll.spv
+?? hierarchos-vulkan/src/phase_xvii_v028_optimization_discovery_tests.rs
+?? hierarchos-vulkan/src/phase_xviii_dq_accumulator_promotion_tests.rs
+?? hierarchos-vulkan/validation/phase_xvii_v028_optimization_discovery_20261126/
+?? hierarchos-vulkan/validation/phase_xviii_v028_dq_accumulator_promotion_20261126/

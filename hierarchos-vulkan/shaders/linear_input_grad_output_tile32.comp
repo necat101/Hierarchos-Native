@@ -1,0 +1,105 @@
+#version 450
+
+// Phase XXII candidate: FP32 `grad_input = grad_output @ weight` with a
+// 32-row x 32-input-column output tile.
+//
+// Every output element keeps the production kernel's reduction exactly:
+// `sum = fma(grad_output[row][k], weight[k][col], sum)` for k in increasing
+// order, in FP32, with no reassociation. The candidate changes only how many
+// outputs a workgroup owns and how the operands are staged:
+//
+//   * production: 16 rows x 16 input columns per workgroup, one output/thread;
+//   * candidate:  32 rows x 32 input columns per workgroup, four outputs/thread
+//                 (rows ly and ly+16, columns lx and lx+16).
+//
+// Both shared tiles are padded by one float per row, so the 16 rows a wave
+// reads for a fixed reduction column land on distinct banks instead of
+// serialising on one. No arithmetic is moved, shared or reassociated.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const uint TILE = 32u;
+
+// One padding float per row removes the stride-32 bank conflict.
+shared float grad_tile[TILE][TILE + 1u];
+shared float weight_tile[TILE][TILE + 1u];
+
+void main() {
+    uint lx = gl_LocalInvocationID.x;
+    uint ly = gl_LocalInvocationID.y;
+    uint tid = ly * 16u + lx;
+    uint row_base = gl_WorkGroupID.y * TILE;
+    uint col_base = gl_WorkGroupID.x * TILE;
+
+    float acc00 = 0.0;
+    float acc01 = 0.0;
+    float acc10 = 0.0;
+    float acc11 = 0.0;
+
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += TILE) {
+        // 32 x 32 elements per tile, 256 threads, four elements each.
+        for (uint stage = 0u; stage < 4u; ++stage) {
+            uint index = tid + stage * 256u;
+            uint tile_row = index >> 5u;
+            uint tile_col = index & 31u;
+
+            uint grad_row = row_base + tile_row;
+            uint grad_col = vocab_base + tile_col;
+            grad_tile[tile_row][tile_col] =
+                grad_row < pc.rows && grad_col < pc.output_dim
+                    ? grad_output[grad_row * pc.output_dim + grad_col]
+                    : 0.0;
+
+            uint weight_row = vocab_base + tile_row;
+            uint weight_col = col_base + tile_col;
+            weight_tile[tile_row][tile_col] =
+                weight_row < pc.output_dim && weight_col < pc.input_dim
+                    ? weight[weight_row * pc.input_dim + weight_col]
+                    : 0.0;
+        }
+
+        barrier();
+
+        uint tile_count = min(TILE, pc.output_dim - vocab_base);
+        for (uint k = 0u; k < tile_count; ++k) {
+            float g0 = grad_tile[ly][k];
+            float g1 = grad_tile[ly + 16u][k];
+            float w0 = weight_tile[k][lx];
+            float w1 = weight_tile[k][lx + 16u];
+            // The four outputs of this thread, each reducing k in ascending
+            // order with the production kernel's single fused operation.
+            acc00 = fma(g0, w0, acc00);
+            acc01 = fma(g0, w1, acc01);
+            acc10 = fma(g1, w0, acc10);
+            acc11 = fma(g1, w1, acc11);
+        }
+
+        barrier();
+    }
+
+    uint row0 = row_base + ly;
+    uint row1 = row0 + 16u;
+    uint col0 = col_base + lx;
+    uint col1 = col0 + 16u;
+    if (row0 < pc.rows && col0 < pc.input_dim) {
+        grad_input[row0 * pc.input_dim + col0] = acc00;
+    }
+    if (row0 < pc.rows && col1 < pc.input_dim) {
+        grad_input[row0 * pc.input_dim + col1] = acc01;
+    }
+    if (row1 < pc.rows && col0 < pc.input_dim) {
+        grad_input[row1 * pc.input_dim + col0] = acc10;
+    }
+    if (row1 < pc.rows && col1 < pc.input_dim) {
+        grad_input[row1 * pc.input_dim + col1] = acc11;
+    }
+}

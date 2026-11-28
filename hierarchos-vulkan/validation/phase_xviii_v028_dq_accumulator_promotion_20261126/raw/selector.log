@@ -1,0 +1,7 @@
+
+running 1 test
+test transformer::phase_xviii_dq_accumulator_promotion_tests::phase_xviii_dq_accumulator_selector ... [phase-xviii-selector] eligible=3 rejected=6 fallback_reason=exact_head_dim_pair promoted_bytes=109300 shipped_bytes=48492 workgroup=64 bindings=9 push_bytes=120
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1259 filtered out; finished in 0.00s
+

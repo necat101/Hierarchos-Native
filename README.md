@@ -73,13 +73,13 @@ those textual session deltas are not promoted. [Sealed receipt](hierarchos-vulka
 
 ## Quick start
 
-**Download a prebuilt package:** the **v0.2.7** Windows x64 package is published
-with `Hierarchos-Native-Windows-x64-Portable-v0.2.7.zip`, `BUILD_MANIFEST.json`
+**Download a prebuilt package:** the **v0.2.8** Windows x64 package ships as
+`Hierarchos-Native-Windows-x64-Portable-v0.2.8.zip` with `BUILD_MANIFEST.json`
 and `SHA256SUMS`. It contains the CLI, the GUI and the Vulkan companion
 executables. Extract it and run `bin\hierarchos-native-cli.exe doctor`. No Rust,
 Python or Visual C++ Redistributable is required at runtime — only Windows x64
 and a Vulkan 1.x compute driver.
-[Jump to the package details](#windows-x64-portable-v027).
+[Jump to the package details](#windows-x64-portable-v028).
 
 Or install Rust/Cargo and a Vulkan compute driver and build from source:
 
@@ -400,12 +400,12 @@ and **72-request generation** matrices.
 
 ## RDNA3 WMMA (opt-in)
 
-`v0.2.7` promotes four **attention** changes into the default training route — a
-two-pass MHA backward, a narrowly gated GQA backward key pass, a cached
-row-packed forward, and a head-dimension-128 four-channel key pass — and leaves
-the v0.2.6 **opt-in cooperative-matrix (WMMA) path for RDNA3** unchanged, with the
-P3 Full FP16 contract and the **C1 batched staging schedule** as the production
-route inside that mode. C1 changes only the staging schedule — four
+`v0.2.8` promotes two **query-pass** changes and one FP32 **input-gradient**
+kernel into the default training route — the Phase XVIII literal-index dQ
+accumulator, the Phase XX scratch-reuse variant, and the Phase XXII 32 x 32
+output tile for 32-aligned `linear_input_grad` shapes — and leaves the v0.2.6
+**opt-in cooperative-matrix (WMMA) path for RDNA3** unchanged, with the P3 Full FP16 contract and the **C1 batched staging
+schedule** as the production route inside that mode. C1 changes only the staging schedule — four
 32-bit operand loads are issued before the shared-memory stores that consume
 them — and is selected per dispatch only when the host can prove every packed
 load aligned and in bounds; every other geometry keeps the P3 module as its
@@ -413,11 +413,13 @@ fallback. WMMA remains off by default, and the default FP32 path keeps its
 bit-identical logits and its previous-`main` performance (worst paired ratio
 `1.0007` across seven workloads, all FP32 logits byte-identical).
 
-Each attention promotion is its own paired measurement on one device: two-pass
-backward 3.2492× complete step, GQA key pass 19.76× at 8q/2kv, row-packed
-forward 1.2239×, four-channel key pass 1.5297×. **They are independent results,
-not multiplicative factors**, and no overall training speedup is claimed. The
-full scope and its limits are in [the v0.2.7 release note](RDNA3_V027_RELEASE.md).
+Each promotion is its own paired measurement on one device: the Phase XVIII
+series measured 1.042×–1.124× across eight geometries and modes, scratch reuse
+measured 1.088× FP32 and 1.120× Mixed on the primary 8q/2kv complete step, and
+the Phase XXII input-gradient tile measured 1.1462× with 272,038/272,038 output
+words bitwise equal. **They are independent results, not multiplicative
+factors**, and no overall training speedup is claimed. The full scope and its limits are in
+[the v0.2.8 release note](RDNA3_V028_RELEASE.md).
 
 ```powershell
 # Default: FP32, no cooperative-matrix feature queried.
@@ -692,17 +694,18 @@ The documented device qualification is Windows-based. The backend uses Rust and
 Vulkan; non-Windows builds use their platform's driver and executable conventions.
 Availability on a Vulkan device is separate from recorded numerical qualification.
 
-### Windows x64 portable v0.2.7
+### Windows x64 portable v0.2.8
 
-**Status: published.** It is built from the qualified source commit of
-`release/v0.2.7`. `BUILD_MANIFEST.json` records the exact packaging
-commit, toolchain, flags, per-executable hashes, the promoted attention artifact
-hashes and the P3 and C1 WMMA artifact hashes. The v0.2.5 and v0.2.6 assets
-remain published and unchanged.
+**Status: v0.2.8 release.** It is built from the qualified source commit of
+`release/v0.2.8`; the publication record is the
+[v0.2.8 release receipt](hierarchos-vulkan/validation/phase_xxiii_v028_release_20261128/README.md).
+`BUILD_MANIFEST.json` records the exact packaging commit, toolchain, flags,
+per-executable hashes, the three promoted module hashes, the retained attention
+artifact hashes and the P3 and C1 WMMA artifact hashes. The v0.2.5, v0.2.6 and v0.2.7 assets remain published and unchanged.
 
 | Asset | Platform | Contents |
 | --- | --- | --- |
-| `Hierarchos-Native-Windows-x64-Portable-v0.2.7.zip` | Windows x64 (`x86_64-pc-windows-msvc`) | `bin\` with `hierarchos-native.exe` (GUI), `hierarchos-native-cli.exe`, `hierarchos-infer.exe`, `hierarchos-vulkan-train.exe`, `hierarchos-vulkan-devices.exe`, `hierarchos-vulkan-transformer-train.exe`, `hierarchos-vulkan-transformer-logits.exe`; `licenses\`, `README.md`, `README_ARCHITECTURES.md`, `RELEASE_NOTES.md`, `CLEAN_MACHINE_TEST.md`, `THIRD_PARTY_NOTICES.md`, `BUILD_INFO.txt`, `DEPENDENCIES.txt` |
+| `Hierarchos-Native-Windows-x64-Portable-v0.2.8.zip` | Windows x64 (`x86_64-pc-windows-msvc`) | `bin\` with `hierarchos-native.exe` (GUI), `hierarchos-native-cli.exe`, `hierarchos-infer.exe`, `hierarchos-vulkan-train.exe`, `hierarchos-vulkan-devices.exe`, `hierarchos-vulkan-transformer-train.exe`, `hierarchos-vulkan-transformer-logits.exe`; `licenses\`, `README.md`, `README_ARCHITECTURES.md`, `RELEASE_NOTES.md`, `CLEAN_MACHINE_TEST.md`, `THIRD_PARTY_NOTICES.md`, `BUILD_INFO.txt`, `DEPENDENCIES.txt` |
 | `BUILD_MANIFEST.json` | any | Exact source commit, target triple, toolchain, flags, executable hashes and the attention and WMMA module identities |
 | `SHA256SUMS` | any | SHA-256 of the archive and the manifest |
 
@@ -719,13 +722,13 @@ let it download a public one (`--hf-model`).
 
 ```powershell
 # Verify the archive against the sidecar before extracting.
-$zip = ".\Hierarchos-Native-Windows-x64-Portable-v0.2.7.zip"
+$zip = ".\Hierarchos-Native-Windows-x64-Portable-v0.2.8.zip"
 $expected = (Select-String -Path .\SHA256SUMS -Pattern ([regex]::Escape((Split-Path $zip -Leaf))) |
   Select-Object -First 1).Line.Split()[0]
 $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
 if ($actual -ne $expected) { throw "SHA-256 mismatch: $actual" }
-Expand-Archive $zip -DestinationPath .\hierarchos-v027
-cd .\hierarchos-v027
+Expand-Archive $zip -DestinationPath .\hierarchos-v028
+cd .\hierarchos-v028
 
 .\bin\hierarchos-native-cli.exe --help
 .\bin\hierarchos-native-cli.exe doctor

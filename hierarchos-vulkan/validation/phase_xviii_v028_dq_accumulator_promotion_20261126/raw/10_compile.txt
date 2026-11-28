@@ -1,0 +1,4 @@
+$ glslc -fshader-stage=compute --target-env=vulkan1.2 --target-spv=spv1.4 -O -Ishaders shaders/transformer_attention_backward_query_rdna3_dqunroll.comp -o shaders/transformer_attention_backward_query_rdna3_dqunroll.spv
+exit=0
+$ glslc ... shaders/transformer_attention_backward_query_rdna3.comp -o validation/phase_xviii_v028_dq_accumulator_promotion_20261126/shaders/q_rebuild_phase_xviii.spv
+exit=0

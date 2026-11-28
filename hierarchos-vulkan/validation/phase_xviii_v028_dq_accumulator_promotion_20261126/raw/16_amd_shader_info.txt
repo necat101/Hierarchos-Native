@@ -1,0 +1,4 @@
+probe device="AMD Radeon Graphics" physical_devices=1 push_bytes=120 storage_bindings=9 shader_info_type=statistics
+shaders/transformer_attention_backward_query_rdna3.spv driver_struct_bytes=72 vgpr=27 sgpr=61 physical_vgpr=1024 physical_sgpr=2048 available_vgpr=256 available_sgpr=106 scratch_bytes=528 lds_bytes=0 lds_per_workgroup=65536 workgroup=64x1x1 physical_devices=0 stage_mask=0x20
+shaders/transformer_attention_backward_query_rdna3_dqunroll.spv driver_struct_bytes=72 vgpr=36 sgpr=62 physical_vgpr=1024 physical_sgpr=2048 available_vgpr=256 available_sgpr=106 scratch_bytes=528 lds_bytes=0 lds_per_workgroup=65536 workgroup=64x1x1 physical_devices=0 stage_mask=0x20
+shaders/transformer_attention_backward_key_channel4_rdna3.spv driver_struct_bytes=72 vgpr=35 sgpr=88 physical_vgpr=1024 physical_sgpr=2048 available_vgpr=256 available_sgpr=106 scratch_bytes=0 lds_bytes=0 lds_per_workgroup=65536 workgroup=64x1x1 physical_devices=0 stage_mask=0x20

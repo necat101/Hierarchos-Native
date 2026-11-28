@@ -1,0 +1,13 @@
+date=2026-11-28T09:15:00Z
+branch=research/v0.2.8-optimization-discovery
+head=468a7ceada598dd613162323604f4240f1b411c6
+head_subject=Promote RDNA3 query scratch-reuse attention path
+head_parent=b3cfc70675734b789b5e54061064b3dc8229b1ab
+main=9b0091e02e976441e343d6c445101f9c29395bd6
+origin_main=9b0091e02e976441e343d6c445101f9c29395bd6
+tag_v0.2.7_commit=9b0091e02e976441e343d6c445101f9c29395bd6
+stash_count=1
+stash@{0}: On main: pre-v0.2.6 untracked validation evidence (preserved, not deleted)
+
+# status (short)
+?? validation/phase_xxi_postpromotion_profile_20261128/

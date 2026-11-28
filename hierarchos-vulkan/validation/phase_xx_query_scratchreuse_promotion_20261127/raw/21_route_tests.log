@@ -1,0 +1,32 @@
+
+running 8 tests
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_dqunroll_disable_precedence ... two-pass backward: route=query_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_channel4 eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xx-disabled] route=query_original query_original=1 query_dqunroll=0 query_dqunroll_scratchreuse=0 scalar=0
+ok
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_ineligible_geometry_unchanged ... two-pass backward: route=query_original eligible=true reason=dqunroll_query_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=64 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=channel4_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=64 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xx-ineligible] case=mha_head_dim_64 head_dim=64 value_head_dim=64 route=query_original query_original=1 query_dqunroll=0 query_dqunroll_scratchreuse=0
+two-pass backward: route=query_original eligible=true reason=dqunroll_query_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=32 kv_seq=32 head_dim=32 causal=1 unfused_qk=0 scratch_elements=16384 scratch_bytes=131072
+two-pass backward: route=key_original eligible=true reason=channel4_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=32 kv_seq=32 head_dim=32 causal=1 unfused_qk=0 scratch_elements=16384 scratch_bytes=131072
+[phase-xx-ineligible] case=mha_head_dim_32 head_dim=32 value_head_dim=32 route=query_original query_original=1 query_dqunroll=0 query_dqunroll_scratchreuse=0
+ok
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_production_gates_not_broadened ... ok
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_production_route_ab ... phase-xx route A/B: status=SKIP reason=not_requested (set HIERARCHOS_PHASE_XX_ROUTE_AB=1)
+ok
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_profiler_identities_distinct ... [phase-xx-identity] artifact=scratchreuse signature=0x4d636e560c2d18a7 name=Some("transformer_attention_backward_query_rdna3_dqunroll_scratchreuse")
+[phase-xx-identity] artifact=dqunroll signature=0x0d0f9e255b0bc914 name=Some("transformer_attention_backward_query_rdna3_dqunroll")
+[phase-xx-identity] artifact=original signature=0xd02953248179151d name=Some("transformer_attention_backward_query_rdna3")
+ok
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_scratch_reuse_default_route ... two-pass backward: route=query_dqunroll_scratchreuse eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xx-default] route=query_dqunroll_scratchreuse query_original=0 query_dqunroll=0 query_dqunroll_scratchreuse=1 scalar=0 key_channel4=1
+ok
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_scratch_reuse_opt_out_selects_dqunroll ... two-pass backward: route=query_dqunroll eligible=true reason=scratch_reuse_disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xx-opt-out] route=query_dqunroll query_original=0 query_dqunroll=1 query_dqunroll_scratchreuse=0 scalar=0
+ok
+test transformer::phase_xx_query_scratchreuse_promotion_tests::phase_xx_scratch_reuse_refused_falls_back_to_dqunroll ... two-pass backward: route=query_dqunroll eligible=true reason=scratchreuse_shader_unavailable kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xx-fallback] route=query_dqunroll reason=scratchreuse_shader_unavailable query_original=0 query_dqunroll=1 query_dqunroll_scratchreuse=0 scalar=0
+ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1263 filtered out; finished in 0.58s
+

@@ -1,0 +1,12 @@
+
+running 7 tests
+test transformer::phase_xii_channel4_key_production_tests::phase_xii_channel4_key_full_step ... ok
+test transformer::phase_xii_channel4_key_production_tests::phase_xii_channel4_key_head_dim_gate ... ok
+test transformer::phase_xii_channel4_key_production_tests::phase_xii_channel4_key_optional_loading ... ok
+test transformer::phase_xii_channel4_key_production_tests::phase_xii_channel4_key_original_fallback ... ok
+test transformer::phase_xii_channel4_key_production_tests::phase_xii_channel4_key_ownership ... ok
+test transformer::phase_xii_channel4_key_production_tests::phase_xii_channel4_key_parity ... ok
+test transformer::phase_xii_channel4_key_production_tests::phase_xii_channel4_key_unavailable_falls_back_to_original ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1264 filtered out; finished in 4.91s
+

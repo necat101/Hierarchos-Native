@@ -1,0 +1,288 @@
+
+running 1 test
+test transformer::phase_xviii_dq_accumulator_promotion_tests::phase_xviii_dq_accumulator_parity ... two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=gqa8q2kv_m0_seq64_causal heads=8 kv_heads=2 mode=0 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m0_seq64_causal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_causal tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_causal tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_causal tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_causal tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=gqa8q2kv_m9_seq64_causal heads=8 kv_heads=2 mode=9 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m9_seq64_causal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_causal tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_causal tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_causal tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_causal tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=gqa8q2kv_m0_seq64_noncausal heads=8 kv_heads=2 mode=0 seq=64 head_dim=128 value_head_dim=128 causal=0 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m0_seq64_noncausal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_noncausal tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_noncausal tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_noncausal tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_noncausal tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=gqa8q2kv_m9_seq64_noncausal heads=8 kv_heads=2 mode=9 seq=64 head_dim=128 value_head_dim=128 causal=0 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m9_seq64_noncausal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_noncausal tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_noncausal tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_noncausal tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_noncausal tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] case=gqa8q2kv_m0_seq64_masked heads=8 kv_heads=2 mode=0 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m0_seq64_masked tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_masked tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_masked tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_masked tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq64_masked tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] case=gqa8q2kv_m9_seq64_masked heads=8 kv_heads=2 mode=9 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m9_seq64_masked tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_masked tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_masked tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_masked tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq64_masked tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=gqa8q2kv_m0_seq128_causal heads=8 kv_heads=2 mode=0 seq=128 head_dim=128 value_head_dim=128 causal=1 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m0_seq128_causal tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_causal tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_causal tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_causal tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_causal tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=gqa8q2kv_m9_seq128_causal heads=8 kv_heads=2 mode=9 seq=128 head_dim=128 value_head_dim=128 causal=1 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m9_seq128_causal tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_causal tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_causal tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_causal tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_causal tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=gqa8q2kv_m0_seq128_noncausal heads=8 kv_heads=2 mode=0 seq=128 head_dim=128 value_head_dim=128 causal=0 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m0_seq128_noncausal tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_noncausal tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_noncausal tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_noncausal tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_seq128_noncausal tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=gqa8q2kv_m9_seq128_masked heads=8 kv_heads=2 mode=9 seq=128 head_dim=128 value_head_dim=128 causal=0 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa8q2kv_m9_seq128_masked tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_masked tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_masked tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_masked tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_seq128_masked tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=mha8q8kv_m0_seq64_causal heads=8 kv_heads=8 mode=0 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m0_seq64_causal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_causal tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_causal tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_causal tensor=dk elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_causal tensor=dv elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=mha8q8kv_m9_seq64_causal heads=8 kv_heads=8 mode=9 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m9_seq64_causal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_causal tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_causal tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_causal tensor=dk elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_causal tensor=dv elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=mha8q8kv_m0_seq64_noncausal heads=8 kv_heads=8 mode=0 seq=64 head_dim=128 value_head_dim=128 causal=0 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m0_seq64_noncausal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_noncausal tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_noncausal tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_noncausal tensor=dk elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq64_noncausal tensor=dv elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] case=mha8q8kv_m9_seq64_masked heads=8 kv_heads=8 mode=9 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m9_seq64_masked tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_masked tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_masked tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_masked tensor=dk elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq64_masked tensor=dv elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=mha8q8kv_m0_seq128_causal heads=8 kv_heads=8 mode=0 seq=128 head_dim=128 value_head_dim=128 causal=1 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m0_seq128_causal tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_causal tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_causal tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_causal tensor=dk elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_causal tensor=dv elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=mha8q8kv_m9_seq128_causal heads=8 kv_heads=8 mode=9 seq=128 head_dim=128 value_head_dim=128 causal=1 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m9_seq128_causal tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_causal tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_causal tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_causal tensor=dk elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_causal tensor=dv elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=mha8q8kv_m0_seq128_noncausal heads=8 kv_heads=8 mode=0 seq=128 head_dim=128 value_head_dim=128 causal=0 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m0_seq128_noncausal tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_noncausal tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_noncausal tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_noncausal tensor=dk elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m0_seq128_noncausal tensor=dv elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=8 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=262144 scratch_bytes=2097152
+[phase-xviii-parity] case=mha8q8kv_m9_seq128_masked heads=8 kv_heads=8 mode=9 seq=128 head_dim=128 value_head_dim=128 causal=0 rows=2048 grid_x=32 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] mha8q8kv_m9_seq128_masked tensor=dq elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_masked tensor=scratch_probability elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_masked tensor=scratch_ds elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_masked tensor=dk elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] mha8q8kv_m9_seq128_masked tensor=dv elements=262144 bitwise=262144 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+[phase-xviii-parity] case=gqa4q2kv_m0_seq64_causal heads=4 kv_heads=2 mode=0 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=512 grid_x=8 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m0_seq64_causal tensor=dq elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_causal tensor=scratch_probability elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_causal tensor=scratch_ds elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_causal tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_causal tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=32768 scratch_bytes=262144
+[phase-xviii-parity] case=gqa4q2kv_m9_seq64_causal heads=4 kv_heads=2 mode=9 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=512 grid_x=8 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m9_seq64_causal tensor=dq elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_causal tensor=scratch_probability elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_causal tensor=scratch_ds elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_causal tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_causal tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=0 unfused_qk=0 scratch_elements=32768 scratch_bytes=262144
+[phase-xviii-parity] case=gqa4q2kv_m0_seq64_noncausal heads=4 kv_heads=2 mode=0 seq=64 head_dim=128 value_head_dim=128 causal=0 rows=512 grid_x=8 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m0_seq64_noncausal tensor=dq elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_noncausal tensor=scratch_probability elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_noncausal tensor=scratch_ds elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_noncausal tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq64_noncausal tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] case=gqa4q2kv_m9_seq64_masked heads=4 kv_heads=2 mode=9 seq=64 head_dim=128 value_head_dim=128 causal=1 rows=512 grid_x=8 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m9_seq64_masked tensor=dq elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_masked tensor=scratch_probability elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_masked tensor=scratch_ds elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_masked tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq64_masked tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+[phase-xviii-parity] case=gqa4q2kv_m0_seq128_causal heads=4 kv_heads=2 mode=0 seq=128 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m0_seq128_causal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_causal tensor=scratch_probability elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_causal tensor=scratch_ds elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_causal tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_causal tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=1 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+[phase-xviii-parity] case=gqa4q2kv_m9_seq128_causal heads=4 kv_heads=2 mode=9 seq=128 head_dim=128 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m9_seq128_causal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_causal tensor=scratch_probability elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_causal tensor=scratch_ds elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_causal tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_causal tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=0 scratch_elements=131072 scratch_bytes=1048576
+[phase-xviii-parity] case=gqa4q2kv_m0_seq128_noncausal heads=4 kv_heads=2 mode=0 seq=128 head_dim=128 value_head_dim=128 causal=0 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m0_seq128_noncausal tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_noncausal tensor=scratch_probability elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_noncausal tensor=scratch_ds elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_noncausal tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq128_noncausal tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=128 kv_seq=128 head_dim=128 causal=0 unfused_qk=9 scratch_elements=131072 scratch_bytes=1048576
+[phase-xviii-parity] case=gqa4q2kv_m9_seq128_masked heads=4 kv_heads=2 mode=9 seq=128 head_dim=128 value_head_dim=128 causal=0 rows=1024 grid_x=16 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m9_seq128_masked tensor=dq elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_masked tensor=scratch_probability elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_masked tensor=scratch_ds elements=131072 bitwise=131072 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_masked tensor=dk elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq128_masked tensor=dv elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=1 unfused_qk=0 scratch_elements=10952 scratch_bytes=87616
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=1 unfused_qk=0 scratch_elements=10952 scratch_bytes=87616
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=1 unfused_qk=0 scratch_elements=10952 scratch_bytes=87616
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=1 unfused_qk=0 scratch_elements=10952 scratch_bytes=87616
+[phase-xviii-parity] case=gqa4q2kv_m0_seq37_causal heads=4 kv_heads=2 mode=0 seq=37 head_dim=128 value_head_dim=128 causal=1 rows=296 grid_x=5 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m0_seq37_causal tensor=dq elements=37888 bitwise=37888 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq37_causal tensor=scratch_probability elements=10952 bitwise=10952 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq37_causal tensor=scratch_ds elements=10952 bitwise=10952 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq37_causal tensor=dk elements=18944 bitwise=18944 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m0_seq37_causal tensor=dv elements=18944 bitwise=18944 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=0 unfused_qk=9 scratch_elements=10952 scratch_bytes=87616
+two-pass backward: route=key_original eligible=true reason=experimental_pair_override kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=0 unfused_qk=9 scratch_elements=10952 scratch_bytes=87616
+two-pass backward: route=query_dqunroll eligible=true reason=ready kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=0 unfused_qk=9 scratch_elements=10952 scratch_bytes=87616
+two-pass backward: route=key_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=4 kv_heads=2 q_seq=37 kv_seq=37 head_dim=128 causal=0 unfused_qk=9 scratch_elements=10952 scratch_bytes=87616
+[phase-xviii-parity] case=gqa4q2kv_m9_seq37_noncausal heads=4 kv_heads=2 mode=9 seq=37 head_dim=128 value_head_dim=128 causal=0 rows=296 grid_x=5 eligible=true reference_query=1 reference_dqunroll=0 candidate_query=0 candidate_dqunroll=1
+[phase-xviii-parity] gqa4q2kv_m9_seq37_noncausal tensor=dq elements=37888 bitwise=37888 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq37_noncausal tensor=scratch_probability elements=10952 bitwise=10952 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq37_noncausal tensor=scratch_ds elements=10952 bitwise=10952 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq37_noncausal tensor=dk elements=18944 bitwise=18944 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa4q2kv_m9_seq37_noncausal tensor=dv elements=18944 bitwise=18944 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=dqunroll_query_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=64 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=channel4_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=64 causal=1 unfused_qk=0 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=gqa8q2kv_m0_hd64_fallback heads=8 kv_heads=2 mode=0 seq=64 head_dim=64 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=false reference_query=1 reference_dqunroll=0 candidate_query=1 candidate_dqunroll=0
+[phase-xviii-parity] gqa8q2kv_m0_hd64_fallback tensor=dq elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_hd64_fallback tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_hd64_fallback tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_hd64_fallback tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m0_hd64_fallback tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+two-pass backward: route=query_original eligible=true reason=dqunroll_query_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=64 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_original eligible=true reason=channel4_head_dim_not_128 kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=64 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+[phase-xviii-parity] case=gqa8q2kv_m9_hd64_fallback heads=8 kv_heads=2 mode=9 seq=64 head_dim=64 value_head_dim=128 causal=1 rows=1024 grid_x=16 eligible=false reference_query=1 reference_dqunroll=0 candidate_query=1 candidate_dqunroll=0
+[phase-xviii-parity] gqa8q2kv_m9_hd64_fallback tensor=dq elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_hd64_fallback tensor=scratch_probability elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_hd64_fallback tensor=scratch_ds elements=65536 bitwise=65536 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_hd64_fallback tensor=dk elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] gqa8q2kv_m9_hd64_fallback tensor=dv elements=32768 bitwise=32768 diverged=0 non_finite=0 unwritten=0 first_divergence=none verdict=PASS
+[phase-xviii-parity] summary cases=30 specialized=28 fallback=2 tensor_comparisons=150 failed=0
+[phase-xviii-identity] promoted_signature=0x0d0f9e255b0bc914 name=Some("transformer_attention_backward_query_rdna3_dqunroll")
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1259 filtered out; finished in 2.97s
+
