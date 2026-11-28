@@ -1,0 +1,7 @@
+
+running 2 tests
+test transformer::tests::two_pass_attention_backward_matches_scalar_gradients ... ok
+test transformer::tests::two_pass_attention_kernel_timing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1269 filtered out; finished in 1.97s
+

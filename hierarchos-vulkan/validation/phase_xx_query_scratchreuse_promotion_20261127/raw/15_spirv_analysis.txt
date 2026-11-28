@@ -1,0 +1,13 @@
+artifact=14_scratchreuse
+file=14_scratchreuse.dis
+instructions_total=3704
+function_storage_float_arrays=1
+private_storage_float_array_pointers=0
+function_storage_array_variables=1
+access_chains_with_any_runtime_index_module_wide=421
+  variable=%1276 storage=Function array=%_arr_float_uint_128[128] constant_access_chains=128 runtime_index_access_chains=4
+    constant_index_count=128 distinct_constants=128 range=0..127
+    runtime_index_sources=%8912:OpPhi
+    runtime_index_sources=%8916:OpPhi
+    runtime_index_sources=%8924:OpPhi
+    runtime_index_sources=%8925:OpPhi

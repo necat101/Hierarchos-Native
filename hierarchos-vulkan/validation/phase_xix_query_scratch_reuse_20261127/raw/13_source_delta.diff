@@ -1,0 +1,212 @@
+--- shaders/transformer_attention_backward_query_rdna3_dqunroll.comp	2026-11-26 01:50:42.388533900 -0500
++++ validation/phase_xix_query_scratch_reuse_20261127/shaders/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.comp	2026-11-27 02:17:45.906537500 -0500
+@@ -4,44 +4,64 @@
+ #include "fp32_sqrt_recip.glsl"
+ #include "fp32_sleef_exp.glsl"
+ 
+-// Phase XVII v0.2.8 optimization-discovery candidate: register-resident dQ
+-// accumulator at head dimension 128.
++// Phase XIX v0.2.8 experiment candidate A: query-backward intermediate
++// score / softmax-term reuse through the two scratch planes the pass already
++// owns.
+ //
+-// This is the production pass-1 query shader
+-// (`shaders/transformer_attention_backward_query_rdna3.comp`) with exactly one
+-// structural change, and no arithmetic change at all:
++// This is the Phase XVIII promoted pass-1 shader
++// (`shaders/transformer_attention_backward_query_rdna3_dqunroll.comp`, SPIR-V
++// `f0214b60…`) with one structural change and no arithmetic change at all.
+ //
+-//   the private `float dq[MAX_HEAD_DIM]` accumulator is indexed only by
+-//   compile-time literals on the admitted geometry, so the backend can promote
+-//   it out of function storage into VGPRs.
++// The promoted body traverses the key range four times after the visibility
++// scan and recomputes the same 128-wide Q·K dot product in three of those
++// traversals and the 128-wide value dot in two of them:
+ //
+-// Why that is the change worth testing:
++//   traversal 2 (row maximum)   score
++//   traversal 3 (normaliser)    score
++//   traversal 4 (both dots)     score + value dot
++//   traversal 5 (dQ adjoint)    score + value dot + 128-wide K accumulate
+ //
+-// * In the production artifact `qk_head_dim` is a push constant, so every
+-//   `dq[d]` access is a dynamic index into a 128-float Function-storage array.
+-//   The shipped SPIR-V carries exactly that (`OpVariable
+-//   %_ptr_Function__arr_float_uint_128 Function` with four dynamic
+-//   `OpAccessChain`s into it) and the backend must place it in scratch memory.
+-// * The accumulation is inside the per-key loop, so on this fixture the array is
+-//   touched 2 * 128 * 64 = 16,384 times per lane. Private-memory accesses are
+-//   per-lane strided, so each wave turns one access into 64 separate
+-//   transactions rather than the broadcast a shared K/V row gets.
+-// * Phase XI/XII already measured the same mechanism on the key pass: the
+-//   `u1` (compile-time-expanded channel body) configuration exists in that
+-//   experiment specifically so "the accumulator arrays are promoted out of
+-//   function storage", and it was the configuration that was promoted.
++// That is 4 score dots and 2 value dots per key. The final probability and the
++// final dS value are the only results of traversals 4 and 5 that leave the
++// invocation, but the intermediate score, probability and `dp` are thrown away
++// and recomputed because no private storage survived the promotion: the 128-float
++// dQ accumulator now lives in VGPRs, so there is nothing left to hold a key range
++// in.
+ //
+-// Everything else is statement-for-statement the production text: the four
+-// serial traversals of the key sequence, the two deliberately distinct
+-// softmax-dot reductions, the mode-0/mode-9 arithmetic trees, the row zeroing,
+-// the skipped-row scratch clearing, the visibility tests and the store order.
+-// No score or value-gradient dot product is reused or cached here: that is
+-// Candidate A and is deliberately NOT part of this experiment, so the measured
+-// delta belongs to the accumulator alone.
++// This candidate keeps them in the two planes the pass already writes:
+ //
+-// Admission: the specialized body runs only when the query and value head
+-// dimensions are both exactly 128. Any other geometry takes the production
+-// generic body unchanged, so this artifact is a superset, not a replacement.
++//   `scratch_probability[slot]`  raw score from traversal 2, then the final
++//                                probability from traversal 4 onwards.
++//   `scratch_ds[slot]`           `dp` from traversal 4, then the final dS value
++//                                from traversal 5 onwards.
++//
++// Every slot is written by the invariant that reads it, in the same invocation,
++// and only after its previous contents were consumed, so the final contents of
++// both planes are the values the promoted shader writes: the probability for
++// traversal 4's `p` and the dS for traversal 5's `p * (dp - kv_dot)`.
++//
++// Why it is valid without new synchronization:
++//
++// * `scratch_base` is `(batch * num_heads + head) * query_seq_len *
++//   key_value_seq_len + query * key_value_seq_len`, so one invocation owns
++//   exactly one row of both planes for its whole lifetime. Two invocations never
++//   address the same slot, and no invocation reads a slot another invocation
++//   wrote.
++// * The slot range a traversal touches is `[0, last_key]` in all four
++//   traversals, guarded by the same `key_visible` predicate, so every read is
++//   preceded by a write in the same invocation on the same lane. No read can
++//   observe a previous dispatch's or a previous step's contents.
++// * The masked-row and no-visible-key early returns clear `[0, last_key]` of
++//   both planes before returning and never reach the caching traversals, exactly
++//   as the promoted shader does.
++// * Nothing here reads across lanes, so no barrier, no subgroup operation and no
++//   inter-dispatch visibility is involved. The two planes are still consumed by
++//   pass 2 after this dispatch completes, which is the existing ordering.
++//
++// The arithmetic is unchanged: the cached values are the identical 32-bit
++// results the promoted shader's recomputation produces from identical inputs in
++// identical association order, and storing then loading a float is exact. Both
++// softmax-dot reductions stay distinct and keep their existing consumers.
+ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+ 
+ const uint MAX_HEAD_DIM = 128u;
+@@ -252,12 +272,19 @@
+     }
+ 
+     // Row maximum, over the same visible keys and in the same order.
++    //
++    // This is the first traversal that computes Q·K, so the raw score is
++    // retained here in `scratch_probability`. The slot is private to this
++    // invocation for the whole dispatch, so the store needs no barrier: the
++    // three later traversals re-read the value they would otherwise recompute.
+     bool found = false;
+     float max_score = -3.402823466e+38;
+     for (uint key = 0u; key <= last_key; ++key) {
+         if (!key_visible(b, key)) continue;
++        uint slot = scratch_base + key;
+         float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+             + kv_head * qk_head_dim);
++        scratch_probability[slot] = s;
+         max_score = found ? max(max_score, s) : s;
+         found = true;
+     }
+@@ -269,16 +296,14 @@
+         precise float precise_exp_sum = 0.0;
+         for (uint key = 0u; key <= last_key; ++key) {
+             if (!key_visible(b, key)) continue;
+-            float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+-                + kv_head * qk_head_dim);
++            float s = scratch_probability[scratch_base + key];
+             precise_exp_sum += attention_exp(s - max_score);
+         }
+         exp_sum = precise_exp_sum;
+     } else {
+         for (uint key = 0u; key <= last_key; ++key) {
+             if (!key_visible(b, key)) continue;
+-            float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+-                + kv_head * qk_head_dim);
++            float s = scratch_probability[scratch_base + key];
+             exp_sum += attention_exp(s - max_score);
+         }
+     }
+@@ -287,25 +312,32 @@
+     // Two dots, deliberately not merged:
+     //   plain  softmax_dot    -> dQ, exactly as the primary loop sums it
+     //   precise kv_softmax_dot -> dK and dV, exactly as the per-key adjoint sums it
++    //
++    // `s` is read back from its slot and `p` and `dp` take the two slots over:
++    // `s` is dead once `p` exists, and `dp` is dead once the dQ adjoint has read
++    // it. Both stores are the same addresses the promoted shader writes, so the
++    // planes end the dispatch with the values pass 2 expects.
+     float softmax_dot = 0.0;
+     precise float kv_softmax_dot = 0.0;
+     for (uint key = 0u; key <= last_key; ++key) {
+         if (!key_visible(b, key)) continue;
+-        uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+-            + kv_head * qk_head_dim;
++        uint slot = scratch_base + key;
+         uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+             + kv_head * value_head_dim;
+-        float p = attention_exp(score(q_base, k_base) - max_score) * inv_sum;
++        float s = scratch_probability[slot];
++        float p = attention_exp(s - max_score) * inv_sum;
+         float dp = value_dot(v_base, grad_out_base);
+         softmax_dot += p * dp;
+         precise float weighted_dp = p * dp;
+         kv_softmax_dot += weighted_dp;
++        scratch_probability[slot] = p;
++        scratch_ds[slot] = dp;
+     }
+ 
+     float dq[MAX_HEAD_DIM];
+ 
+-    // The one experimental change: on the admitted geometry every dQ access uses
+-    // a literal index, so the accumulator leaves function storage.
++    // The promoted specialization, unchanged: on the admitted geometry every dQ
++    // access uses a literal index, so the accumulator leaves function storage.
+     bool dq_specialized = qk_head_dim == 128u;
+     if (dq_specialized) {
+         QX_R128(QX_INIT)
+@@ -313,14 +345,10 @@
+             if (!key_visible(b, key)) continue;
+             uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+                 + kv_head * qk_head_dim;
+-            uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+-                + kv_head * value_head_dim;
+-            float s = score(q_base, k_base);
+-            float p = attention_exp(s - max_score) * inv_sum;
+-            float dp = value_dot(v_base, grad_out_base);
+-            float ds_q = p * (dp - softmax_dot);
+             uint slot = scratch_base + key;
+-            scratch_probability[slot] = p;
++            float p = scratch_probability[slot];
++            float dp = scratch_ds[slot];
++            float ds_q = p * (dp - softmax_dot);
+             float kv_dot = pc.unfused_qk == 9u ? float(kv_softmax_dot) : softmax_dot;
+             scratch_ds[slot] = p * (dp - kv_dot);
+             if (pc.unfused_qk == 9u) {
+@@ -343,14 +371,10 @@
+         if (!key_visible(b, key)) continue;
+         uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+             + kv_head * qk_head_dim;
+-        uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+-            + kv_head * value_head_dim;
+-        float s = score(q_base, k_base);
+-        float p = attention_exp(s - max_score) * inv_sum;
+-        float dp = value_dot(v_base, grad_out_base);
+-        float ds_q = p * (dp - softmax_dot);
+         uint slot = scratch_base + key;
+-        scratch_probability[slot] = p;
++        float p = scratch_probability[slot];
++        float dp = scratch_ds[slot];
++        float ds_q = p * (dp - softmax_dot);
+         // Mode 9's scalar adjoint reduces dK/dV against the `precise` per-key dot
+         // it caches in row_softmax_dot. Mode 0's scalar path keeps no cached
+         // statistics and reduces against the primary plain `softmax_dot`.

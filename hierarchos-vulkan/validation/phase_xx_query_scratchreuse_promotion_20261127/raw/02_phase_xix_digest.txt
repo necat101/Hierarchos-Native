@@ -1,0 +1,4 @@
+# sealed Phase XIX receipt digest
+# method: hash of the sha256sum lines of every file in sorted path order
+078ef22eee85c82f34cbc0de62ee594d458464353fc7a2fb1cc84723af571392  files=195  bytes=2091594  validation/phase_xix_query_scratch_reuse_20261127
+expected=078ef22eee85c82f34cbc0de62ee594d458464353fc7a2fb1cc84723af571392

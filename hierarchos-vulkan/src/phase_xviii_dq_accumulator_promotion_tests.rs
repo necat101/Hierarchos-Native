@@ -497,6 +497,11 @@ fn phase_xviii_dq_accumulator_parity() -> Result<()> {
     // never depends on the surrounding environment.
     let _channel4 = two_pass_attention_test_hooks::scope_channel4(Some(Some(false)), false);
     let _dqunroll = two_pass_attention_test_hooks::scope_dqunroll(Some(None), false);
+    // Phase XX keeps this module as the intermediate fallback, so the
+    // scratch-reuse variant is pinned off: the production promoted selector still
+    // runs, and this matrix keeps measuring the artifact it was written for.
+    let _scratch_reuse =
+        two_pass_attention_test_hooks::scope_scratch_reuse(Some(Some(false)), false);
     let kernels = TransformerKernels::new(&device)?;
     let reference_pair = phase_xviii_reference_pair(&device)?;
     let candidate_pair = phase_xviii_candidate_pair(&device)?;
@@ -642,6 +647,9 @@ fn phase_xviii_dq_accumulator_parity() -> Result<()> {
 fn phase_xviii_dq_accumulator_optional_loading() -> Result<()> {
     let device = VulkanDevice::new()?;
     let _channel4 = two_pass_attention_test_hooks::scope_channel4(Some(Some(false)), false);
+    // This test is about the Phase XVIII intermediate fallback.
+    let _scratch_reuse =
+        two_pass_attention_test_hooks::scope_scratch_reuse(Some(Some(false)), false);
     let kernels = TransformerKernels::new(&device)?;
     let case = PhaseXviiiCase::new(
         "gqa8q2kv_m0_causal",
@@ -871,6 +879,12 @@ fn phase_xviii_dq_accumulator_full_step() -> Result<()> {
         eps: 1.0e-8,
         weight_decay: 0.0,
     };
+
+    // Phase XX promoted a variant on top of this module. This driver measures the
+    // Phase XVIII intermediate fallback, so the scratch-reuse variant is pinned
+    // off; its own production-route driver is `phase_xx_production_route_ab`.
+    let _scratch_reuse =
+        two_pass_attention_test_hooks::scope_scratch_reuse(Some(Some(false)), false);
 
     let sequences = phase_xviii_load_sequences(&fixture.join("dataset.jsonl"), seq_len)?;
     let batches_per_epoch = sequences.len() / batch;

@@ -1,0 +1,19 @@
+
+running 1 test
+test transformer::phase_xix_query_scratch_reuse_tests::phase_xix_scratch_reuse_kernel_timing ... [phase-xix-timing] device=AMD Radeon Graphics note=isolated_pass1_only_no_profiler
+[phase-xix-timing] mode=0 round=0 promoted_ms=3.6068 candidate_ms=1.9554 ratio=0.5421
+[phase-xix-timing] mode=0 round=1 promoted_ms=2.6116 candidate_ms=1.7841 ratio=0.6831
+[phase-xix-timing] mode=0 round=2 promoted_ms=2.3501 candidate_ms=1.4046 ratio=0.5977
+[phase-xix-timing] mode=0 round=3 promoted_ms=2.0831 candidate_ms=1.3692 ratio=0.6573
+[phase-xix-timing] mode=0 round=4 promoted_ms=2.0850 candidate_ms=1.3642 ratio=0.6543
+[phase-xix-timing] mode=0 rounds=5 repeats=8 median_ratio=0.6543 speedup=1.5284 rows=1024 workgroups=16
+[phase-xix-timing] mode=9 round=0 promoted_ms=2.5581 candidate_ms=1.4116 ratio=0.5518
+[phase-xix-timing] mode=9 round=1 promoted_ms=2.4872 candidate_ms=1.4159 ratio=0.5693
+[phase-xix-timing] mode=9 round=2 promoted_ms=2.5431 candidate_ms=1.4279 ratio=0.5615
+[phase-xix-timing] mode=9 round=3 promoted_ms=2.4866 candidate_ms=1.4320 ratio=0.5759
+[phase-xix-timing] mode=9 round=4 promoted_ms=2.5153 candidate_ms=1.4341 ratio=0.5702
+[phase-xix-timing] mode=9 rounds=5 repeats=8 median_ratio=0.5693 speedup=1.7566 rows=1024 workgroups=16
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1262 filtered out; finished in 0.58s
+

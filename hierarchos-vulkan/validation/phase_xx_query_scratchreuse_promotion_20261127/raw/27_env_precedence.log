@@ -1,0 +1,21 @@
+== env case off ==
+test transformer::tests::grouped_query_attention_production_route_dispatches_both_passes ... two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0
+two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll eligible=true reason=scratch_reuse_disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_channel4 eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+  left: 0
+ right: 1
+== env case default ==
+test transformer::tests::grouped_query_attention_production_route_dispatches_both_passes ... two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0
+two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_dqunroll_scratchreuse eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_channel4 eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+  left: 0
+ right: 1
+== env case precedence ==
+test transformer::tests::grouped_query_attention_production_route_dispatches_both_passes ... two-pass backward: route=scalar eligible=false reason=disabled_by_environment kernels=false scratch=false key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=0 scratch_bytes=0
+two-pass backward: route=two-pass eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=query_original eligible=true reason=disabled_by_environment kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+two-pass backward: route=key_channel4 eligible=true reason=eligible kernels=true scratch=true key_blocks=1 batch=2 heads=8 kv_heads=2 q_seq=64 kv_seq=64 head_dim=128 causal=1 unfused_qk=9 scratch_elements=65536 scratch_bytes=524288
+  left: 0
+ right: 1

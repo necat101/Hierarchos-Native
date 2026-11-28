@@ -158,6 +158,19 @@ const ATTENTION_BACKWARD_QUERY_PARALLEL_SPV: &[u8] =
 /// body, and the host never dispatches it outside the admitted head dimension.
 const ATTENTION_BACKWARD_QUERY_DQUNROLL_SPV: &[u8] =
     include_bytes!("../shaders/transformer_attention_backward_query_rdna3_dqunroll.spv");
+/// Pass 1 variant promoted in Phase XX: the Phase XVIII dQ-unroll body with the
+/// raw score, the probability and `dp` retained in the two scratch planes this
+/// pass already owns, instead of being recomputed by later traversals.
+///
+/// Byte-identical to the Phase XIX candidate (`a6b3d6c6…` SPIR-V, source
+/// `21916792…` GLSL). It is a variant of the *same* admitted geometry, not a
+/// wider gate: `dqunroll_query_attention_rejection` still requires both head
+/// dimensions to be exactly 128 and every other eligibility rule is the Phase
+/// XVIII one. When this artifact is disabled, missing or refused, the Phase
+/// XVIII module above stays in charge.
+const ATTENTION_BACKWARD_QUERY_DQUNROLL_SCRATCH_REUSE_SPV: &[u8] = include_bytes!(
+    "../shaders/transformer_attention_backward_query_rdna3_dqunroll_scratchreuse.spv"
+);
 /// Pass 2: one lane per key, reducing dK and dV over queries.
 const ATTENTION_BACKWARD_KEY_PARALLEL_SPV: &[u8] =
     include_bytes!("../shaders/transformer_attention_backward_key_rdna3.spv");
@@ -26002,6 +26015,61 @@ pub fn attention_backward_query_dqunroll_enabled() -> bool {
     dqunroll_query_enabled()
 }
 
+/// Opt-out for the promoted scratch-reuse query pass (Phase XX).
+///
+/// The scratch-reuse variant is on by default wherever the Phase XVIII dQ-unroll
+/// path is itself eligible. `0` restores the Phase XVIII dQ-unroll module for the
+/// same geometry; it does *not* select the original query shader. The Phase XVIII
+/// switch keeps its established meaning and its precedence: `…_DQUNROLL=0`
+/// disables the whole specialization, so setting this variable cannot bring a
+/// variant back.
+pub const HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE_ENV: &str =
+    "HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE";
+
+/// The scratch-reuse switch, read once so a dispatch never consults the
+/// environment.
+fn scratch_reuse_query_setting() -> Option<bool> {
+    #[cfg(test)]
+    {
+        if let Some(setting) = two_pass_attention_test_hooks::forced_scratch_reuse_setting() {
+            return setting;
+        }
+    }
+    use std::sync::OnceLock;
+    static SETTING: OnceLock<Option<bool>> = OnceLock::new();
+    *SETTING.get_or_init(|| {
+        match std::env::var(HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE_ENV) {
+            Ok(value) => match value.trim() {
+                "1" | "true" | "on" => Some(true),
+                "0" | "false" | "off" => Some(false),
+                other => {
+                    eprintln!(
+                        "scratch-reuse query pass: unrecognized \
+                         HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE={other:?}; \
+                         using the eligible default"
+                    );
+                    None
+                }
+            },
+            Err(_) => None,
+        }
+    })
+}
+
+/// Whether the scratch-reuse query variant may be selected.
+///
+/// It is a variant of the Phase XVIII dQ-unroll path, so it inherits both the
+/// two-pass switch and the dQ-unroll switch: an operator who disabled the whole
+/// specialization keeps the original query shader.
+fn scratch_reuse_query_enabled() -> bool {
+    dqunroll_query_enabled() && scratch_reuse_query_setting() != Some(false)
+}
+
+/// The effective scratch-reuse selection, for binaries that report the route.
+pub fn attention_backward_query_scratch_reuse_enabled() -> bool {
+    scratch_reuse_query_enabled()
+}
+
 static ATTENTION_BACKWARD_SCALAR_DISPATCHES: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 static ATTENTION_BACKWARD_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
@@ -26011,6 +26079,8 @@ static ATTENTION_BACKWARD_KEY_DISPATCHES: std::sync::atomic::AtomicU64 =
 static ATTENTION_BACKWARD_CHANNEL4_KEY_DISPATCHES: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 static ATTENTION_BACKWARD_DQUNROLL_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+static ATTENTION_BACKWARD_SCRATCH_REUSE_QUERY_DISPATCHES: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 static ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
@@ -26025,6 +26095,8 @@ enum AttentionBackwardDispatch {
     Query,
     /// The promoted literal-index query pass (`query_dqunroll`).
     QueryDqUnroll,
+    /// The promoted scratch-reuse query pass (`query_dqunroll_scratchreuse`).
+    QueryDqUnrollScratchReuse,
     /// The original two-pass key shader (`key_original`).
     Key,
     /// The promoted four-channel key pass (`key_channel4`).
@@ -26043,6 +26115,9 @@ fn record_attention_backward_dispatch(dispatch: AttentionBackwardDispatch) {
         AttentionBackwardDispatch::Scalar => &ATTENTION_BACKWARD_SCALAR_DISPATCHES,
         AttentionBackwardDispatch::Query => &ATTENTION_BACKWARD_QUERY_DISPATCHES,
         AttentionBackwardDispatch::QueryDqUnroll => &ATTENTION_BACKWARD_DQUNROLL_QUERY_DISPATCHES,
+        AttentionBackwardDispatch::QueryDqUnrollScratchReuse => {
+            &ATTENTION_BACKWARD_SCRATCH_REUSE_QUERY_DISPATCHES
+        }
         AttentionBackwardDispatch::Key => &ATTENTION_BACKWARD_KEY_DISPATCHES,
         AttentionBackwardDispatch::KeyChannel4 => &ATTENTION_BACKWARD_CHANNEL4_KEY_DISPATCHES,
     };
@@ -26073,6 +26148,9 @@ pub struct AttentionBackwardDispatchCounts {
     pub query: u64,
     /// Pass 1 through the promoted literal-index query pass (`query_dqunroll`).
     pub query_dqunroll: u64,
+    /// Pass 1 through the promoted scratch-reuse query pass
+    /// (`query_dqunroll_scratchreuse`).
+    pub query_dqunroll_scratch_reuse: u64,
     /// The original two-pass key shader (`key_original`).
     pub key: u64,
     /// The promoted four-channel key pass (`key_channel4`).
@@ -26087,6 +26165,8 @@ pub fn attention_backward_dispatch_counts() -> AttentionBackwardDispatchCounts {
         scalar: ATTENTION_BACKWARD_SCALAR_DISPATCHES.load(Ordering::Relaxed),
         query: ATTENTION_BACKWARD_QUERY_DISPATCHES.load(Ordering::Relaxed),
         query_dqunroll: ATTENTION_BACKWARD_DQUNROLL_QUERY_DISPATCHES.load(Ordering::Relaxed),
+        query_dqunroll_scratch_reuse: ATTENTION_BACKWARD_SCRATCH_REUSE_QUERY_DISPATCHES
+            .load(Ordering::Relaxed),
         key: ATTENTION_BACKWARD_KEY_DISPATCHES.load(Ordering::Relaxed),
         key_channel4: ATTENTION_BACKWARD_CHANNEL4_KEY_DISPATCHES.load(Ordering::Relaxed),
         scratch_allocations: ATTENTION_BACKWARD_SCRATCH_ALLOCATIONS.load(Ordering::Relaxed),
@@ -26580,6 +26660,13 @@ fn dqunroll_query_spirv() -> &'static [u8] {
         if two_pass_attention_test_hooks::rejects_dqunroll() {
             return two_pass_attention_test_hooks::undecodable_spirv();
         }
+        // Phase XIX experiment seam: the same production loader, the same
+        // selector, the same device gate and the same dispatch counter, with the
+        // bytes of an experiment artifact that has no production identity. It is
+        // `#[cfg(test)]`-only and defaults to the shipped module.
+        if let Some(spirv) = two_pass_attention_test_hooks::dqunroll_spirv_override() {
+            return spirv;
+        }
     }
     ATTENTION_BACKWARD_QUERY_DQUNROLL_SPV
 }
@@ -26606,6 +26693,117 @@ fn resolve_dqunroll_query_attention_backward<'a>(
         .rdna3_dqunroll_attention_backward_query
         .get()
         .context("the dq-unroll query kernel was not cached after it was resolved")
+}
+
+/// The promoted scratch-reuse query pass as resolved on this device.
+///
+/// `kernel == None` leaves the Phase XVIII dQ-unroll module in charge of pass 1
+/// and `reason` records why; `detail` carries the loader's message when the
+/// artifact was refused. Resolved lazily on the first geometry the Phase XVIII
+/// selector admits, so an ineligible model never builds it and a failure is not
+/// retried.
+struct ScratchReuseQueryBackward {
+    kernel: Option<vulkan::ComputeKernel>,
+    reason: &'static str,
+    detail: Option<String>,
+}
+
+impl ScratchReuseQueryBackward {
+    fn is_available(&self) -> bool {
+        self.kernel.is_some()
+    }
+
+    fn absent(reason: &'static str, detail: Option<String>) -> Self {
+        Self {
+            kernel: None,
+            reason,
+            detail,
+        }
+    }
+
+    /// Resolve the artifact for this device.
+    ///
+    /// The requirements are the Phase XVIII ones and no others: the promoted
+    /// adapter family and a 64-wide compute workgroup. Every refusal is an
+    /// ordinary fallback to the Phase XVIII dQ-unroll module, not a failure of
+    /// the run, and a fatal device condition still surfaces.
+    fn load(device: &VulkanDevice) -> Result<Self> {
+        #[cfg(test)]
+        {
+            two_pass_attention_test_hooks::note_optional_kernel_load();
+        }
+        if !vendor::rdna3_module_enabled(device)
+            || !device.supports_compute_work_group_size([64, 1, 1])
+        {
+            return Ok(Self::absent("scratchreuse_device_not_qualified", None));
+        }
+        let built = vulkan::ComputeKernel::new(
+            device,
+            scratch_reuse_query_spirv(),
+            9,
+            std::mem::size_of::<AttentionPush>() as u32,
+        )
+        .with_context(|| "initializing the promoted scratch-reuse attention query kernel");
+        match built {
+            Ok(kernel) => Ok(Self {
+                kernel: Some(kernel),
+                reason: "ready",
+                detail: None,
+            }),
+            Err(error) => {
+                let detail = format!("{error:#}");
+                match classify_optional_kernel_error(device.is_device_lost(), &detail) {
+                    OptionalKernelOutcome::Incompatible => Ok(Self::absent(
+                        "scratchreuse_shader_unavailable",
+                        Some(detail),
+                    )),
+                    OptionalKernelOutcome::Fatal { reason } => Err(error.context(format!(
+                        "the promoted scratch-reuse query kernel failed for a reason that is not \
+                         specific to the pass ({reason}); the Phase XVIII dq-unroll module cannot \
+                         be trusted after it"
+                    ))),
+                }
+            }
+        }
+    }
+}
+
+/// The SPIR-V the build ships for the promoted scratch-reuse query pass.
+///
+/// The test seam substitutes bytes the driver cannot decode, which is the
+/// runtime shape of a truncated or foreign-architecture artifact.
+fn scratch_reuse_query_spirv() -> &'static [u8] {
+    #[cfg(test)]
+    {
+        if two_pass_attention_test_hooks::rejects_scratch_reuse() {
+            return two_pass_attention_test_hooks::undecodable_spirv();
+        }
+    }
+    ATTENTION_BACKWARD_QUERY_DQUNROLL_SCRATCH_REUSE_SPV
+}
+
+/// Resolve the promoted scratch-reuse query pass on first use and cache it with
+/// the kernel set.
+fn resolve_scratch_reuse_query_attention_backward<'a>(
+    kernels: &'a TransformerKernels,
+    device: &VulkanDevice,
+) -> Result<&'a ScratchReuseQueryBackward> {
+    if kernels
+        .rdna3_scratchreuse_attention_backward_query
+        .get()
+        .is_none()
+    {
+        let resolved = ScratchReuseQueryBackward::load(device)?;
+        // One recorder owns this kernel set, so `set` only fails when another
+        // thread resolved it first; in that case its answer stands.
+        let _ = kernels
+            .rdna3_scratchreuse_attention_backward_query
+            .set(resolved);
+    }
+    kernels
+        .rdna3_scratchreuse_attention_backward_query
+        .get()
+        .context("the scratch-reuse query kernel was not cached after it was resolved")
 }
 
 /// The buffers both passes of the optional two-pass backward read and write.
@@ -26656,30 +26854,78 @@ fn record_two_pass_attention_backward_dispatch(
         Some("experimental_pair_override")
     };
 
-    // Pass 1: the promoted literal-index accumulator when both head dimensions
-    // are 128, otherwise the shipped qualified query shader. Grid, bindings,
-    // push block and scratch slots are identical for both, so only the module
-    // changes.
+    // Pass 1: the promoted scratch-reuse variant when the Phase XVIII selector
+    // admits the geometry and that variant is enabled and loaded; otherwise the
+    // Phase XVIII literal-index accumulator; otherwise the shipped qualified
+    // query shader. Grid, bindings, push block and scratch slots are identical
+    // for all three, so only the module changes.
     let query_rejection = if dqunroll_query_enabled() {
         dqunroll_query_attention_rejection(push).or(override_reason)
     } else {
         Some("disabled_by_environment")
     };
-    let resolved_query = match query_rejection {
-        None => Some(resolve_dqunroll_query_attention_backward(
+    // The scratch-reuse variant is attempted only where the Phase XVIII path is
+    // admitted, so its own opt-out and the overall dQ-unroll opt-out both keep
+    // their precedence over it. A refused or missing artifact leaves the Phase
+    // XVIII module in charge rather than falling through to the scalar route.
+    let mut scratch_reuse_rejection: Option<&'static str> = None;
+    let scratch_reuse = if query_rejection.is_some() {
+        None
+    } else if !scratch_reuse_query_enabled() {
+        scratch_reuse_rejection = Some("scratch_reuse_disabled_by_environment");
+        None
+    } else {
+        let resolved =
+            resolve_scratch_reuse_query_attention_backward(kernels, commands.device())?;
+        if resolved.is_available() {
+            Some(resolved)
+        } else {
+            scratch_reuse_rejection = Some(resolved.reason);
+            None
+        }
+    };
+    let resolved_query = match (scratch_reuse, query_rejection) {
+        (None, None) => Some(resolve_dqunroll_query_attention_backward(
             kernels,
             commands.device(),
         )?),
-        Some(_) => None,
+        _ => None,
     };
-    let query_specialized = resolved_query.is_some_and(|candidate| candidate.is_available());
-    let query_kernel = match resolved_query.filter(|candidate| candidate.is_available()) {
-        Some(candidate) => candidate
-            .kernel
-            .as_ref()
-            .context("the dq-unroll query kernel was available without a kernel")?,
-        None => &passes[0],
-    };
+    let fallback_reason = query_rejection
+        .or(scratch_reuse_rejection)
+        .or_else(|| resolved_query.map(|candidate| candidate.reason))
+        .unwrap_or("dqunroll_unresolved");
+    let (query_kernel, query_route, query_dispatch, query_reason) =
+        if let Some(candidate) = scratch_reuse.filter(|candidate| candidate.is_available()) {
+            (
+                candidate
+                    .kernel
+                    .as_ref()
+                    .context("the scratch-reuse query kernel was available without a kernel")?,
+                "query_dqunroll_scratchreuse",
+                AttentionBackwardDispatch::QueryDqUnrollScratchReuse,
+                "eligible",
+            )
+        } else if let Some(candidate) =
+            resolved_query.filter(|candidate| candidate.is_available())
+        {
+            (
+                candidate
+                    .kernel
+                    .as_ref()
+                    .context("the dq-unroll query kernel was available without a kernel")?,
+                "query_dqunroll",
+                AttentionBackwardDispatch::QueryDqUnroll,
+                fallback_reason,
+            )
+        } else {
+            (
+                &passes[0],
+                "query_original",
+                AttentionBackwardDispatch::Query,
+                fallback_reason,
+            )
+        };
     query_kernel.record_dispatch(
         commands,
         &[
@@ -26696,23 +26942,12 @@ fn record_two_pass_attention_backward_dispatch(
         bytemuck::bytes_of(push),
         [div_ceil_u32(query_rows as usize, 64), 1, 1],
     )?;
-    record_attention_backward_dispatch(if query_specialized {
-        AttentionBackwardDispatch::QueryDqUnroll
-    } else {
-        AttentionBackwardDispatch::Query
-    });
-    let query_reason = query_rejection
-        .or_else(|| resolved_query.map(|candidate| candidate.reason))
-        .unwrap_or("dqunroll_unresolved");
+    record_attention_backward_dispatch(query_dispatch);
     report_two_pass_decision(
         push,
         pair.is_available(),
         key_blocks,
-        if query_specialized {
-            "query_dqunroll"
-        } else {
-            "query_original"
-        },
+        query_route,
         true,
         query_reason,
         scratch.capacity,
@@ -26904,6 +27139,13 @@ mod two_pass_attention_test_hooks {
         dqunroll_setting: Option<Option<bool>>,
         /// Hand the dq-unroll loader an artifact no driver can decode.
         reject_dqunroll: bool,
+        /// `Some(setting)` answers `scratch_reuse_query_setting` directly.
+        scratch_reuse_setting: Option<Option<bool>>,
+        /// Hand the scratch-reuse loader an artifact no driver can decode.
+        reject_scratch_reuse: bool,
+        /// Build the promoted pipeline from these bytes instead of the shipped
+        /// module. Phase XIX experiment seam; `None` is the production artifact.
+        dqunroll_spirv: Option<&'static [u8]>,
         optional_kernel_loads: u32,
     }
 
@@ -26940,6 +27182,42 @@ mod two_pass_attention_test_hooks {
 
     pub(super) fn rejects_dqunroll() -> bool {
         OVERRIDES.with(|overrides| overrides.borrow().reject_dqunroll)
+    }
+
+    pub(super) fn forced_scratch_reuse_setting() -> Option<Option<bool>> {
+        OVERRIDES.with(|overrides| overrides.borrow().scratch_reuse_setting)
+    }
+
+    pub(super) fn rejects_scratch_reuse() -> bool {
+        OVERRIDES.with(|overrides| overrides.borrow().reject_scratch_reuse)
+    }
+
+    /// Install the scratch-reuse overrides for the duration of one test, leaving
+    /// every other switch and fault as it is.
+    pub(super) fn scope_scratch_reuse(setting: Option<Option<bool>>, reject: bool) -> Scope {
+        OVERRIDES.with(|overrides| {
+            let mut overrides = overrides.borrow_mut();
+            let previous = *overrides;
+            overrides.scratch_reuse_setting = setting;
+            overrides.reject_scratch_reuse = reject;
+            Scope { previous }
+        })
+    }
+
+    pub(super) fn dqunroll_spirv_override() -> Option<&'static [u8]> {
+        OVERRIDES.with(|overrides| overrides.borrow().dqunroll_spirv)
+    }
+
+    /// Substitute the bytes the promoted loader builds, leaving the setting and
+    /// every other override as they are. The production selector, device gate,
+    /// dispatch counter, grid, bindings and push block are untouched.
+    pub(super) fn scope_dqunroll_spirv(spirv: Option<&'static [u8]>) -> Scope {
+        OVERRIDES.with(|overrides| {
+            let mut overrides = overrides.borrow_mut();
+            let previous = *overrides;
+            overrides.dqunroll_spirv = spirv;
+            Scope { previous }
+        })
     }
 
     /// Install the dq-unroll overrides for the duration of one test, leaving the
@@ -26993,6 +27271,9 @@ mod two_pass_attention_test_hooks {
                 AttentionBackwardDispatch::Scalar => value.scalar += 1,
                 AttentionBackwardDispatch::Query => value.query += 1,
                 AttentionBackwardDispatch::QueryDqUnroll => value.query_dqunroll += 1,
+                AttentionBackwardDispatch::QueryDqUnrollScratchReuse => {
+                    value.query_dqunroll_scratch_reuse += 1
+                }
                 AttentionBackwardDispatch::Key => value.key += 1,
                 AttentionBackwardDispatch::KeyChannel4 => value.key_channel4 += 1,
             }
@@ -27041,6 +27322,9 @@ mod two_pass_attention_test_hooks {
             overrides.reject_channel4 = false;
             overrides.dqunroll_setting = None;
             overrides.reject_dqunroll = false;
+            overrides.dqunroll_spirv = None;
+            overrides.scratch_reuse_setting = None;
+            overrides.reject_scratch_reuse = false;
             overrides.optional_kernel_loads = 0;
             Scope { previous }
         })
@@ -28169,6 +28453,11 @@ struct TransformerKernels {
     /// dispatch. Optional: an unavailable artifact, a non-RDNA3 device or an
     /// explicit opt-out keeps the shipped query shader.
     rdna3_dqunroll_attention_backward_query: std::cell::OnceCell<DqUnrollQueryBackward>,
+    /// The promoted scratch-reuse query variant, resolved on the first dispatch
+    /// the Phase XVIII selector admits. Optional: an unavailable artifact, a
+    /// device that is not qualified or an explicit opt-out keeps the Phase XVIII
+    /// dQ-unroll module.
+    rdna3_scratchreuse_attention_backward_query: std::cell::OnceCell<ScratchReuseQueryBackward>,
     rdna3_avx512_gpt2: Option<[vulkan::ComputeKernel; 3]>,
     rdna3_avx512_cross_entropy: Option<vulkan::ComputeKernel>,
     attention_backward: vulkan::ComputeKernel,
@@ -28671,6 +28960,7 @@ impl TransformerKernels {
             rdna3_two_pass_attention_backward: std::cell::OnceCell::new(),
             rdna3_channel4_attention_backward_key: std::cell::OnceCell::new(),
             rdna3_dqunroll_attention_backward_query: std::cell::OnceCell::new(),
+            rdna3_scratchreuse_attention_backward_query: std::cell::OnceCell::new(),
             rdna3_avx512_gpt2: None,
             rdna3_avx512_cross_entropy: None,
             attention_backward: vulkan::ComputeKernel::new(
@@ -140000,3 +140290,11 @@ mod phase_xvii_v028_optimization_discovery_tests;
 #[cfg(test)]
 #[path = "phase_xviii_dq_accumulator_promotion_tests.rs"]
 mod phase_xviii_dq_accumulator_promotion_tests;
+
+#[cfg(test)]
+#[path = "phase_xix_query_scratch_reuse_tests.rs"]
+mod phase_xix_query_scratch_reuse_tests;
+
+#[cfg(test)]
+#[path = "phase_xx_query_scratchreuse_promotion_tests.rs"]
+mod phase_xx_query_scratchreuse_promotion_tests;
