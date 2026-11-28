@@ -1,8 +1,8 @@
 # Phase XXIII — v0.2.8 release receipt
 
-**Status: release prepared from `{{SOURCE_COMMIT}}`.** Published state and asset
-hashes are recorded after GitHub confirms them; nothing in this file declares a
-release published before that confirmation.
+**Status: release prepared from `77b0b006760171207d6a8e3054fd2070e4bd49c0`.**
+Published state and asset hashes are recorded after GitHub confirms them;
+nothing in this file declares a release published before that confirmation.
 
 ## 1. Starting point and scope
 
@@ -80,18 +80,37 @@ the release manifest rather than re-derived here.
 - Build: `package-standalone.ps1 -OutDir <stage> -StaticCrt`, default target
   `x86_64-pc-windows-msvc`, release profile, static MSVC CRT, dependency scan
   enabled → `PASS`.
-- Source state at packaging: `{{SOURCE_STATE}}`.
-- Archive: `{{ZIP_NAME}}`, {{ZIP_BYTES}} bytes, {{ZIP_ENTRIES}} entries, SHA-256
-  `{{ZIP_SHA}}`.
-- `BUILD_MANIFEST.json`: {{MANIFEST_BYTES}} bytes, SHA-256
-  `{{MANIFEST_SHA}}`; `SHA256SUMS` verifies both.
+- Source state at packaging: `clean` (`77b0b006`), build timestamp
+  `2026-11-28T10:46:31Z`.
+- Archive: `Hierarchos-Native-Windows-x64-Portable-v0.2.8.zip`, 34,294,807
+  bytes, 16 entries, SHA-256
+  `aa2d8d7feda9b106120d9abb4b0be28986d554ad6d915af000a0be89db0ec61c`.
+- `BUILD_MANIFEST.json`: 11,911 bytes, SHA-256
+  `c0af79f5156a1840e3328e63c769275387a7a8bb80ac51585d76547ad095702d`;
+  `SHA256SUMS` verifies both.
 - Sidecars committed under `phase_lxxxiv_evidence/release_assets_v028/`; the
   archive is not committed.
 
 ## 7. Extracted-package acceptance
 
-{{ACCEPTANCE}}
+The archive was extracted to a path containing spaces. `sha256sum -c
+SHA256SUMS` passed for both files; `doctor`, `devices`, `precision-info`,
+`architectures` and `--help` all exit 0; the dependency scan is `PASS`.
+
+| Arm | Route evidence | Loss |
+| --- | --- | --- |
+| default | `linear_input_grad_output_tile32` ×15, `…query…scratchreuse` ×2, `…key_channel4` ×2 | 6.937828063964844 |
+| `…OUTPUT_TILE=0` | `linear_input_grad` ×15 | 6.937828063964844 |
+| `…SCRATCH_REUSE=0` | `…query…dqunroll` ×2 | 6.937828063964844 |
+| `…QUERY_DQUNROLL=0` | `transformer_attention_backward_query_rdna3` ×2 | 6.937828063964844 |
+| `…TWO_PASS=0` | scalar backward ×2, no scratch | 6.937828063964844 |
+| `…KEY_CHANNEL4=0` | `…backward_key_rdna3` ×2 | 6.937828063964844 |
+
+Full transcript: `raw/02_package_acceptance.txt`. The promoted window kernel is
+bitwise-equal by the Phase XXII matrix; the package arms confirm route identity
+and identical one-step loss only.
 
 ## 8. CI and publication
 
-{{CI_PUBLICATION}}
+Recorded after the required checks pass and GitHub confirms the tag, release and
+assets. The release is not published until that record replaces this paragraph.

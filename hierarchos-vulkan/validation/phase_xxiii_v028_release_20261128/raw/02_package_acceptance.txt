@@ -1,0 +1,101 @@
+# v0.2.8 extracted-package acceptance
+#
+# Host: packaging host, Windows 11 x64, AMD Radeon Graphics, pci=1002:15bf,
+# driver 32.0.32015.14001.
+# Archive: Hierarchos-Native-Windows-x64-Portable-v0.2.8.zip
+# SHA-256: aa2d8d7feda9b106120d9abb4b0be28986d554ad6d915af000a0be89db0ec61c
+# Extracted to: "target/v028 acceptance/extracted package"
+# (a path containing spaces)
+# BUILD_INFO: Source commit 77b0b00..., Source state at packaging: clean
+# Build timestamp: 2026-11-28T10:46:31Z
+# CRT linkage: static (+crt-static)
+
+=== sha256sum -c SHA256SUMS (beside the archive) ===
+Hierarchos-Native-Windows-x64-Portable-v0.2.8.zip: OK
+BUILD_MANIFEST.json: OK
+
+=== archive inventory ===
+16 entries: 7 executables, 8 documents/licences, 1 licence text.
+No source tree, Cargo files, shader sources, PDBs, fixtures, validation tree
+or model weights.
+
+=== hierarchos-native-cli.exe doctor ===
+Vulkan compute devices: 1
+  [0] AMD Radeon Graphics (INTEGRATED_GPU, queue family 0)
+Transformer registry: 146 canonical + 83 aliases
+exit 0
+
+=== hierarchos-vulkan-devices.exe ===
+[{"device_type":"INTEGRATED_GPU","index":0,"name":"AMD Radeon Graphics", ...}]
+exit 0
+
+=== hierarchos-native-cli.exe precision-info --device-index 0 ===
+{"device":"AMD Radeon Graphics","device_id":5567,"device_index":0,
+ "device_key":"AMD Radeon Graphics [pci=1002:15bf;driver=008001a0]",
+ "full_fp16_max_reduction":64,"full_fp16_qualified":false,
+ "full_fp16_supported":true,"mixed_supported":true,"vendor_id":4098}
+exit 0
+
+=== hierarchos-native-cli.exe architectures ===
+Native Vulkan Transformer architectures: 146 canonical + 83 package aliases
+exit 0
+
+=== hierarchos-native-cli.exe --help ===
+exit 0
+
+=== Portable dependency scan ===
+Portable dependency scan: PASS (DEPENDENCIES.txt)
+RESULT: PASS
+
+# ---------------------------------------------------------------------------
+# Routes, exercised from the extracted executables.
+# Fixture: hierarchos-vulkan/target/wmma-fixture (2 layers, hidden 1024,
+# 8 query heads, 8 KV heads, head_dim 128), batch 1 x seq 64, one step.
+# HIERARCHOS_VULKAN_PROFILE_KERNELS=1 for kernel identity only; these are not
+# performance measurements.
+# ---------------------------------------------------------------------------
+
+=== default arm ===
+exit 0
+shader=linear_input_grad_output_tile32 dispatches=15
+shader=transformer_attention_backward_query_rdna3_dqunroll_scratchreuse dispatches=2
+shader=transformer_attention_backward_key_channel4_rdna3 dispatches=2
+shader=transformer_attention_forward_rowpacked64_cached_rdna3 dispatches=2
+two-pass backward counters: effective=true scalar=0 query=0 key=0
+  scratch_allocations=2 scratch_bytes=524288
+final_loss = 6.937828063964844
+
+=== HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE=0 ===
+exit 0
+shader=linear_input_grad dispatches=15
+final_loss = 6.937828063964844
+
+=== HIERARCHOS_ATTENTION_BACKWARD_QUERY_SCRATCH_REUSE=0 ===
+exit 0
+shader=transformer_attention_backward_query_rdna3_dqunroll dispatches=2
+final_loss = 6.937828063964844
+
+=== HIERARCHOS_ATTENTION_BACKWARD_QUERY_DQUNROLL=0 ===
+exit 0
+shader=transformer_attention_backward_query_rdna3 dispatches=2
+final_loss = 6.937828063964844
+
+=== HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=0 ===
+exit 0
+shader=transformer_attention_backward dispatches=2
+two-pass backward counters: effective=false scalar=2 query=0 key=0
+  scratch_allocations=0 scratch_bytes=0
+final_loss = 6.937828063964844
+
+=== HIERARCHOS_ATTENTION_BACKWARD_KEY_CHANNEL4=0 ===
+exit 0
+shader=transformer_attention_backward_key_rdna3 dispatches=2
+two-pass backward counters: effective=true scalar=0 query=0 key=2
+  scratch_allocations=2 scratch_bytes=524288
+final_loss = 6.937828063964844
+
+# Two dispatches per attention kernel is one per layer. The 524288-byte scratch
+# figure is 1*8*64*64*4*2*2, exactly two float buffers per layer and two layers.
+# All six arms produced the same final_loss bits. The scratch-reuse path has its
+# own profile identity and is not counted in the `query` counter; the profile
+# line above is the route evidence.
