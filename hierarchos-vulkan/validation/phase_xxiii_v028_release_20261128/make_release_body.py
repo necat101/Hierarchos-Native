@@ -14,9 +14,9 @@ import json
 from pathlib import Path
 
 HEADER = """Windows x64 portable release of **Hierarchos Native v0.2.8**. It promotes two
-qualified query-pass changes into the default RDNA3 training route and leaves the
-WMMA precision policy unchanged: global WMMA stays **off by default** and Mixed
-WMMA stays **opt-in**.
+qualified query-pass changes and one FP32 input-gradient kernel into the default
+RDNA3 training route, and leaves the WMMA precision policy unchanged: global
+WMMA stays **off by default** and Mixed WMMA stays **opt-in**.
 
 ## Promoted
 
@@ -98,7 +98,7 @@ def main() -> None:
     )
     lines.append(
         "- `BUILD_MANIFEST.json` — packaging commit, toolchain, flags, per-executable "
-        "hashes, the two promoted query module identities and the retained attention "
+        "hashes, the three promoted module identities and the retained attention "
         "and WMMA module identities"
     )
     lines.append("- `SHA256SUMS` — SHA-256 of the archive and the manifest")

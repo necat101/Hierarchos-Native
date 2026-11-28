@@ -67,7 +67,11 @@ dependencies.
 
 v0.2.8 promotes two query-pass changes into the default training route. They are
 gated by the existing two-pass gate and the unchanged head-dimension-128 query
-selector, and every ineligible geometry keeps the kernel it had:
+selector, and every ineligible geometry keeps the kernel it had. It also
+promotes a 32 x 32 output tile for the FP32 `linear_input_grad` kernel when the
+rows, input dimension and output dimension are all multiples of 32;
+`HIERARCHOS_LINEAR_INPUT_GRAD_OUTPUT_TILE=0` restores the original 16 x 16 kernel
+for every shape.
 
 - **The scratch-reuse query pass is the default on its qualified path.** It is
   selected when the Phase XVIII selector admits the geometry, scratch reuse is
