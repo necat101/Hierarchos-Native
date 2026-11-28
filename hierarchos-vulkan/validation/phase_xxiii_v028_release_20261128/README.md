@@ -112,5 +112,13 @@ and identical one-step loss only.
 
 ## 8. CI and publication
 
-Recorded after the required checks pass and GitHub confirms the tag, release and
-assets. The release is not published until that record replaces this paragraph.
+PR [#13](https://github.com/necat101/Hierarchos-Native/pull/13), head
+`c5192fd9`. Required gates passed: candidate a, current-candidate,
+digest-guard (evidence integrity), phase lxv and workspace check. The
+self-hosted `cross-adapter-ab` and `producer-ab` jobs remained queued and are
+not required gates; v0.2.7 merged with the same two queued. Full record:
+`raw/03_ci_status.txt`.
+
+Tag, GitHub release and asset verification are recorded in the final
+publication entry once GitHub confirms them. The release is not published until
+that entry replaces this paragraph.
